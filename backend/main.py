@@ -1,13 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import router
-from database import create_db_and_tables
+from database import init_db
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="AI Interviewer")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_db()
+    yield
+    # Shutdown (if needed)
 
-@app.on_event("startup")
-def on_startup():
-    create_db_and_tables()
+app = FastAPI(title="AI Interviewer", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,4 +25,5 @@ app.include_router(router)
 
 @app.get("/")
 def read_root():
-    return {"message": "AI Interviewer API is running"}
+    return {"message": "AI Interviewer API is running with MongoDB"}
+

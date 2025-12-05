@@ -1,13 +1,35 @@
-from sqlmodel import SQLModel, create_engine, Session
-from models import InterviewSession, Message
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
+import os
+from dotenv import load_dotenv
 
-DATABASE_URL = "sqlite:///./interview.db"
+load_dotenv()
 
-engine = create_engine(DATABASE_URL, echo=True)
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+DATABASE_NAME = "ai_interview_db"
 
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+async def init_db():
+    """Initialize MongoDB connection and Beanie ODM"""
+    from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message
+    
+    client = AsyncIOMotorClient(MONGODB_URL)
+    database = client[DATABASE_NAME]
+    
+    await init_beanie(
+        database=database,
+        document_models=[
+            InterviewSession,
+            Resume,
+            InterviewRound,
+            Question,
+            Answer,
+            Message
+        ]
+    )
+    
+    return database
 
-def get_session():
-    with Session(engine) as session:
-        yield session
+# For dependency injection (not used with Beanie, but kept for compatibility)
+async def get_session():
+    """Placeholder for compatibility - Beanie doesn't need session injection"""
+    yield None

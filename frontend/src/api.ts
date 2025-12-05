@@ -2,12 +2,56 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-export const api = axios.create({
+const api = axios.create({
     baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
 });
+
+// ============= New Interview Flow =============
+
+export const uploadResume = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post('/upload-resume', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    return response.data;
+};
+
+export const startRound = async (sessionId: number, roundType: string) => {
+    const response = await api.post(`/start-round/${sessionId}?round_type=${roundType}`);
+    return response.data;
+};
+
+export const submitAnswer = async (questionId: number, answerText: string, timeTaken: number) => {
+    const response = await api.post('/submit-answer', {
+        question_id: questionId,
+        answer_text: answerText,
+        time_taken_seconds: timeTaken,
+    });
+    return response.data;
+};
+
+export const getNextRound = async (sessionId: number) => {
+    const response = await api.get(`/next-round/${sessionId}`);
+    return response.data;
+};
+
+export const downloadReport = async (sessionId: number) => {
+    const response = await api.get(`/report/${sessionId}`, {
+        responseType: 'blob',
+    });
+    return response.data;
+};
+
+export const getSessionInfo = async (sessionId: number) => {
+    const response = await api.get(`/session/${sessionId}`);
+    return response.data;
+};
+
+// ============= Legacy Functions =============
 
 export const startInterview = async () => {
     const response = await api.post('/start');

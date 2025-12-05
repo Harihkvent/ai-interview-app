@@ -1,7 +1,13 @@
 fastapi
 uvicorn
-sqlmodel
 python-dotenv
 httpx
-openai
 pydantic
+PyPDF2
+python-docx
+reportlab
+python-multipart
+motor
+pymongo
+beanie
+
