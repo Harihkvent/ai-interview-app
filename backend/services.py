@@ -50,80 +50,113 @@ async def generate_questions_from_resume(resume_text: str, round_type: str, num_
     
     # Simplified prompts for better JSON generation
     prompts = {
-        "aptitude": f"""Generate {num_questions} aptitude and logical reasoning interview questions.
-Return ONLY a JSON array of question strings, nothing else.
-Format: ["Question 1?", "Question 2?", "Question 3?"]
+        "aptitude": f"""Generate exactly {num_questions} aptitude and logical reasoning questions.
+Return ONLY a JSON array of strings. No explanations, no metadata, just the array.
 
-Questions should test:
-- Logical reasoning
-- Problem-solving
-- Analytical thinking
-- Pattern recognition
+Example: ["Question 1 text here?", "Question 2 text here?", "Question 3 text here?"]
 
-Return {num_questions} questions as a JSON array.""",
+Generate {num_questions} questions now:""",
         
-        "technical": f"""Based on this resume, generate {num_questions} technical interview questions:
+        "technical": f"""Based on this resume, generate exactly {num_questions} technical questions:
 
-{resume_text[:500]}
+{resume_text[:400]}
 
-Return ONLY a JSON array of question strings, nothing else.
-Format: ["Question 1?", "Question 2?", "Question 3?"]
+Return ONLY a JSON array of strings. No explanations, no metadata, just the array.
 
-Focus on:
-- Technologies mentioned in resume
-- Programming skills
-- Technical concepts
-- Problem-solving
+Example: ["Question 1 text here?", "Question 2 text here?"]
 
-Return {num_questions} questions as a JSON array.""",
+Generate {num_questions} questions now:""",
         
-        "hr": f"""Generate {num_questions} HR and behavioral interview questions.
-Return ONLY a JSON array of question strings, nothing else.
-Format: ["Question 1?", "Question 2?", "Question 3?"]
+        "hr": f"""Generate exactly {num_questions} HR and behavioral interview questions.
+Return ONLY a JSON array of strings. No explanations, no metadata, just the array.
 
-Questions should assess:
-- Communication skills
-- Teamwork
-- Career goals
-- Work ethic
-- Conflict resolution
+Example: ["Question 1 text here?", "Question 2 text here?", "Question 3 text here?"]
 
-Return {num_questions} questions as a JSON array."""
+Generate {num_questions} questions now:"""
     }
     
     prompt = prompts.get(round_type, prompts["technical"])
     
     messages = [
-        {"role": "system", "content": "You are an expert interviewer. Return only valid JSON arrays of questions."},
+        {"role": "system", "content": "You must return ONLY a valid JSON array of question strings. No other text or formatting."},
         {"role": "user", "content": prompt}
     ]
     
     try:
-        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=1000)
-        print(f"Krutrim response for {round_type}: {response[:200]}")  # Debug log
+        # Increased max_tokens to prevent truncation
+        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=2000)
+        print(f"Krutrim response for {round_type}: {response}")  # Full debug log
         
         # Parse JSON response with multiple fallback strategies
         response = response.strip()
         
-        # Try to extract JSON array
+        # Try to extract JSON from markdown code blocks
         if "```json" in response:
             response = response.split("```json")[1].split("```")[0].strip()
         elif "```" in response:
             response = response.split("```")[1].split("```")[0].strip()
         
-        # Remove any markdown or extra text
+        # Remove trailing commas before closing brackets (common Krutrim error)
+        response = response.replace(",\n]", "\n]").replace(",]", "]")
+        response = response.replace(",\n}", "\n}").replace(",}", "}")
+        
+        # Extract JSON array or object
         if "[" in response and "]" in response:
             start = response.index("[")
             end = response.rindex("]") + 1
             response = response[start:end]
+        elif "{" in response and "}" in response:
+            start = response.index("{")
+            end = response.rindex("}") + 1
+            response = response[start:end]
         
-        questions = json.loads(response)
+        # Try to parse JSON
+        parsed = json.loads(response)
         
-        if not isinstance(questions, list):
-            raise ValueError("Response is not a list")
+        questions = []
+        
+        # Handle different response formats from Krutrim
+        if isinstance(parsed, list):
+            # Could be a flat list, nested list, or list of objects
+            for item in parsed:
+                if isinstance(item, str):
+                    # Simple string
+                    questions.append(item)
+                elif isinstance(item, dict):
+                    # Object with Question key
+                    if "Question" in item:
+                        questions.append(item["Question"])
+                    elif "question" in item:
+                        questions.append(item["question"])
+                    else:
+                        # Try to get first string value
+                        for value in item.values():
+                            if isinstance(value, str) and len(value.strip()) > 10:
+                                questions.append(value)
+                                break
+                elif isinstance(item, list):
+                    # Nested array - flatten it
+                    for subitem in item:
+                        if isinstance(subitem, str):
+                            questions.append(subitem)
+                        elif isinstance(subitem, dict) and "Question" in subitem:
+                            questions.append(subitem["Question"])
+        elif isinstance(parsed, dict):
+            # Object with numbered keys like {"Question 1": "...", "Question 2": "..."}
+            # or {"questions": [...]}
+            if "questions" in parsed and isinstance(parsed["questions"], list):
+                questions = parsed["questions"]
+            else:
+                # Extract values from numbered keys
+                for key in sorted(parsed.keys()):
+                    if isinstance(parsed[key], str):
+                        questions.append(parsed[key])
+        
+        # Filter out any non-string items or very short strings
+        questions = [q.strip() for q in questions if isinstance(q, str) and len(q.strip()) > 10]
         
         if len(questions) == 0:
-            raise ValueError("Empty questions list")
+            raise ValueError("No valid questions extracted")
         
         # Ensure we have the right number of questions
         result = questions[:num_questions]
@@ -132,10 +165,16 @@ Return {num_questions} questions as a JSON array."""
         while len(result) < num_questions:
             result.append(get_fallback_question(round_type, len(result) + 1))
         
+        print(f"✅ Successfully generated {len(result)} questions for {round_type}")
         return result
         
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        print(f"Attempted to parse: {response if 'response' in locals() else 'No response'}")
+        # Return meaningful fallback questions
+        return [get_fallback_question(round_type, i+1) for i in range(num_questions)]
     except Exception as e:
-        print(f"Error parsing questions: {e}")
+        print(f"❌ Error generating questions: {e}")
         print(f"Raw response: {response if 'response' in locals() else 'No response'}")
         # Return meaningful fallback questions
         return [get_fallback_question(round_type, i+1) for i in range(num_questions)]

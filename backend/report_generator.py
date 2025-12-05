@@ -80,6 +80,8 @@ async def generate_final_report_data(session_id: str) -> dict:
     
     return {
         'session_id': session_id,
+        'candidate_name': resume.candidate_name if resume else None,
+        'candidate_email': resume.candidate_email if resume else None,
         'resume_content': resume.content if resume else 'N/A',
         'resume_filename': resume.filename if resume else 'N/A',
         'rounds': rounds_data,
@@ -129,6 +131,29 @@ async def generate_pdf_report(session_id: str) -> bytes:
     # Title
     story.append(Paragraph("AI Interview Performance Report", title_style))
     story.append(Spacer(1, 0.2*inch))
+    
+    # Candidate Info (if available)
+    if session_data.get('candidate_name') or session_data.get('candidate_email'):
+        candidate_info = []
+        if session_data.get('candidate_name'):
+            candidate_info.append(['Candidate:', session_data['candidate_name']])
+        if session_data.get('candidate_email'):
+            candidate_info.append(['Email:', session_data['candidate_email']])
+        
+        if candidate_info:
+            candidate_table = Table(candidate_info, colWidths=[1.5*inch, 4.5*inch])
+            candidate_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e3f2fd')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+            ]))
+            story.append(candidate_table)
+            story.append(Spacer(1, 0.2*inch))
     
     # Session Info Table
     session_info = [

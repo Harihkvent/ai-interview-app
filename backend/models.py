@@ -20,6 +20,8 @@ class Resume(Document):
     session_id: str
     filename: str
     content: str  # Extracted text from resume
+    candidate_name: Optional[str] = None
+    candidate_email: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:

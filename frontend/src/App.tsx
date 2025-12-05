@@ -332,11 +332,19 @@ function App() {
                                 </p>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-3xl font-mono font-bold text-primary-400">
-                                {formatTime(timer)}
+                        <div className="flex items-center gap-4">
+                            <div className="text-right">
+                                <div className="text-3xl font-mono font-bold text-primary-400">
+                                    {formatTime(timer)}
+                                </div>
+                                <p className="text-xs text-gray-400">Time Elapsed</p>
                             </div>
-                            <p className="text-xs text-gray-400">Time Elapsed</p>
+                            <button
+                                onClick={() => setStage('complete')}
+                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition-colors text-sm"
+                            >
+                                End Interview
+                            </button>
                         </div>
                     </div>
                 </header>

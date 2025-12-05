@@ -43,6 +43,10 @@ async def upload_resume(file: UploadFile = File(...)):
         # Extract text from resume
         file_path, resume_text = await extract_resume_text(file)
         
+        # Extract candidate info
+        from resume_parser import extract_candidate_info
+        candidate_name, candidate_email = extract_candidate_info(resume_text)
+        
         # Create new session
         new_session = InterviewSession(
             status="active",
@@ -50,11 +54,13 @@ async def upload_resume(file: UploadFile = File(...)):
         )
         await new_session.insert()
         
-        # Save resume
+        # Save resume with extracted info
         resume = Resume(
             session_id=str(new_session.id),
             filename=file.filename,
-            content=resume_text
+            content=resume_text,
+            candidate_name=candidate_name,
+            candidate_email=candidate_email
         )
         await resume.insert()
         
@@ -76,7 +82,9 @@ async def upload_resume(file: UploadFile = File(...)):
             "session_id": str(new_session.id),
             "resume_id": str(resume.id),
             "message": "Resume uploaded successfully. Ready to start interview.",
-            "filename": file.filename
+            "filename": file.filename,
+            "candidate_name": candidate_name,
+            "candidate_email": candidate_email
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
