@@ -10,4 +10,5 @@ python-multipart
 motor
 pymongo
 beanie
-
+certifi
+prometheus-client

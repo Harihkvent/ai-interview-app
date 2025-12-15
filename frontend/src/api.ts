@@ -75,3 +75,13 @@ export const endInterview = async (sessionId: number) => {
     const response = await api.post(`/end/${sessionId}`);
     return response.data;
 };
+
+export const switchRound = async (sessionId: number, roundType: string) => {
+    const response = await api.post(`/switch-round/${sessionId}?round_type=${roundType}`);
+    return response.data;
+};
+
+export const getRoundsStatus = async (sessionId: number) => {
+    const response = await api.get(`/rounds-status/${sessionId}`);
+    return response.data;
+};

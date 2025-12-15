@@ -9,6 +9,15 @@ from models import InterviewSession, Resume, InterviewRound, Question, Answer, M
 from services import generate_questions_from_resume, evaluate_answer, generate_ai_response
 from report_generator import generate_pdf_report
 from file_handler import extract_resume_text
+from metrics import (
+    interview_sessions_total,
+    interview_sessions_active,
+    interview_sessions_completed,
+    record_round_start,
+    record_round_completion,
+    record_round_switch,
+    record_answer_metrics
+)
 
 router = APIRouter()
 
@@ -53,6 +62,10 @@ async def upload_resume(file: UploadFile = File(...)):
             started_at=datetime.utcnow()
         )
         await new_session.insert()
+        
+        # Track metrics
+        interview_sessions_total.inc()
+        interview_sessions_active.inc()
         
         # Save resume with extracted info
         resume = Resume(
@@ -119,6 +132,9 @@ async def start_round(session_id: str, round_type: str):
         round_obj.started_at = datetime.utcnow()
         await round_obj.save()
         
+        # Track metrics
+        record_round_start(round_type)
+        
         # Update session current round
         interview_session.current_round_id = str(round_obj.id)
         await interview_session.save()
@@ -178,7 +194,8 @@ async def submit_answer(request: SubmitAnswerRequest):
         eval_result = await evaluate_answer(
             question.question_text,
             request.answer_text,
-            resume.content if resume else ""
+            resume.content if resume else "",
+            round_obj.round_type  # Pass round_type for metrics
         )
         
         # Save answer
@@ -199,6 +216,13 @@ async def submit_answer(request: SubmitAnswerRequest):
         # Update session time
         interview_session.total_time_seconds += request.time_taken_seconds
         await interview_session.save()
+        
+        # Track answer metrics
+        record_answer_metrics(
+            round_obj.round_type,
+            eval_result["score"],
+            request.time_taken_seconds
+        )
         
         # Get all questions in this round
         all_questions = await Question.find(Question.round_id == str(round_obj.id)).to_list()
@@ -232,6 +256,10 @@ async def submit_answer(request: SubmitAnswerRequest):
             round_obj.status = "completed"
             round_obj.completed_at = datetime.utcnow()
             await round_obj.save()
+            
+            # Track round completion metrics
+            duration = (round_obj.completed_at - round_obj.started_at).total_seconds() if round_obj.started_at else 0
+            record_round_completion(round_obj.round_type, int(duration))
         
         # Check if entire interview is complete
         all_rounds = await InterviewRound.find(
@@ -244,6 +272,10 @@ async def submit_answer(request: SubmitAnswerRequest):
             interview_session.status = "completed"
             interview_session.completed_at = datetime.utcnow()
             await interview_session.save()
+            
+            # Track session completion
+            interview_sessions_completed.inc()
+            interview_sessions_active.dec()
         
         return SubmitAnswerResponse(
             evaluation=eval_result["evaluation"],
@@ -280,6 +312,140 @@ async def get_next_round(session_id: str):
         return {
             "round_type": None,
             "message": "All rounds completed"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============= Dynamic Round Switching =============
+
+@router.post("/switch-round/{session_id}")
+async def switch_round(session_id: str, round_type: str):
+    """Switch to a different round dynamically"""
+    try:
+        # Verify session exists
+        interview_session = await InterviewSession.get(session_id)
+        if not interview_session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Get current round if any
+        current_round = None
+        if interview_session.current_round_id:
+            current_round = await InterviewRound.get(interview_session.current_round_id)
+        
+        # Get target round
+        target_round = await InterviewRound.find_one(
+            InterviewRound.session_id == session_id,
+            InterviewRound.round_type == round_type
+        )
+        
+        if not target_round:
+            raise HTTPException(status_code=404, detail=f"Round {round_type} not found")
+        
+        # Track round switch metrics
+        if current_round:
+            record_round_switch(current_round.round_type, round_type)
+        
+        # Update session current round
+        interview_session.current_round_id = str(target_round.id)
+        await interview_session.save()
+        
+        # If target round is pending, start it
+        if target_round.status == "pending":
+            target_round.status = "active"
+            target_round.started_at = datetime.utcnow()
+            await target_round.save()
+            record_round_start(round_type)
+            
+            # Generate questions if not already generated
+            existing_questions = await Question.find(
+                Question.round_id == str(target_round.id)
+            ).to_list()
+            
+            if not existing_questions:
+                # Get resume for question generation
+                resume = await Resume.find_one(Resume.session_id == session_id)
+                if resume:
+                    questions_list = await generate_questions_from_resume(
+                        resume.content,
+                        round_type
+                    )
+                    
+                    # Save questions
+                    for i, question_text in enumerate(questions_list, 1):
+                        question = Question(
+                            round_id=str(target_round.id),
+                            question_text=question_text,
+                            question_number=i
+                        )
+                        await question.insert()
+        
+        # Get first unanswered question in this round
+        all_questions = await Question.find(
+            Question.round_id == str(target_round.id)
+        ).sort("+question_number").to_list()
+        
+        next_question = None
+        for q in all_questions:
+            ans = await Answer.find_one(Answer.question_id == str(q.id))
+            if not ans:
+                next_question = {
+                    "id": str(q.id),
+                    "text": q.question_text,
+                    "number": q.question_number
+                }
+                break
+        
+        return {
+            "round_id": str(target_round.id),
+            "round_type": round_type,
+            "status": target_round.status,
+            "current_question": next_question,
+            "total_questions": len(all_questions),
+            "message": f"Switched to {round_type} round"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/rounds-status/{session_id}")
+async def get_rounds_status(session_id: str):
+    """Get status of all rounds for a session"""
+    try:
+        # Verify session exists
+        interview_session = await InterviewSession.get(session_id)
+        if not interview_session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Get all rounds
+        rounds = await InterviewRound.find(
+            InterviewRound.session_id == session_id
+        ).to_list()
+        
+        rounds_status = []
+        for round_obj in rounds:
+            # Count questions
+            all_questions = await Question.find(
+                Question.round_id == str(round_obj.id)
+            ).to_list()
+            
+            # Count answered questions
+            answered_count = 0
+            for q in all_questions:
+                ans = await Answer.find_one(Answer.question_id == str(q.id))
+                if ans:
+                    answered_count += 1
+            
+            rounds_status.append({
+                "round_id": str(round_obj.id),
+                "round_type": round_obj.round_type,
+                "status": round_obj.status,
+                "total_questions": len(all_questions),
+                "answered_questions": answered_count,
+                "is_current": str(round_obj.id) == interview_session.current_round_id
+            })
+        
+        return {
+            "session_id": session_id,
+            "rounds": rounds_status
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

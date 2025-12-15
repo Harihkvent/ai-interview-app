@@ -1,7 +1,19 @@
 import os
 import httpx
 import json
+import time
 from dotenv import load_dotenv
+
+from metrics import (
+    track_krutrim_call,
+    questions_generated,
+    question_generation_duration,
+    answer_evaluations,
+    answer_evaluation_duration,
+    krutrim_api_calls,
+    krutrim_api_duration,
+    krutrim_api_errors
+)
 
 load_dotenv()
 
@@ -15,8 +27,9 @@ ROUND_QUESTIONS = {
     "hr": 5
 }
 
-async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens: int = 1000) -> str:
-    """Base function to call Krutrim API"""
+async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens: int = 1000, operation: str = "general") -> str:
+    """Base function to call Krutrim API with metrics tracking"""
+    start_time = time.time()
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -35,8 +48,21 @@ async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens:
             )
             response.raise_for_status()
             data = response.json()
+            
+            # Record successful API call
+            duration = time.time() - start_time
+            krutrim_api_calls.labels(operation=operation, status='success').inc()
+            krutrim_api_duration.labels(operation=operation).observe(duration)
+            
             return data["choices"][0]["message"]["content"]
     except Exception as e:
+        # Record failed API call
+        duration = time.time() - start_time
+        error_type = type(e).__name__
+        krutrim_api_calls.labels(operation=operation, status='error').inc()
+        krutrim_api_errors.labels(operation=operation, error_type=error_type).inc()
+        krutrim_api_duration.labels(operation=operation).observe(duration)
+        
         print(f"Error calling Krutrim API: {e}")
         raise Exception(f"AI service error: {str(e)}")
 
@@ -45,6 +71,8 @@ async def generate_questions_from_resume(resume_text: str, round_type: str, num_
     Generate round-specific questions based on resume using Krutrim
     Returns list of question strings
     """
+    start_time = time.time()
+    
     if num_questions is None:
         num_questions = ROUND_QUESTIONS.get(round_type, 5)
     
@@ -84,7 +112,7 @@ Generate {num_questions} questions now:"""
     
     try:
         # Increased max_tokens to prevent truncation
-        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=2000)
+        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=2000, operation="generate_questions")
         print(f"Krutrim response for {round_type}: {response}")  # Full debug log
         
         # Parse JSON response with multiple fallback strategies
@@ -165,6 +193,11 @@ Generate {num_questions} questions now:"""
         while len(result) < num_questions:
             result.append(get_fallback_question(round_type, len(result) + 1))
         
+        # Record metrics
+        duration = time.time() - start_time
+        questions_generated.labels(round_type=round_type).inc(num_questions)
+        question_generation_duration.labels(round_type=round_type).observe(duration)
+        
         print(f"✅ Successfully generated {len(result)} questions for {round_type}")
         return result
         
@@ -214,11 +247,13 @@ def get_fallback_question(round_type: str, question_num: int) -> str:
     questions_list = fallbacks.get(round_type, fallbacks["technical"])
     return questions_list[(question_num - 1) % len(questions_list)]
 
-async def evaluate_answer(question: str, answer: str, resume_context: str) -> dict:
+async def evaluate_answer(question: str, answer: str, resume_context: str, round_type: str = "general") -> dict:
     """
     Evaluate user answer using Krutrim
     Returns: {evaluation: str, score: float}
     """
+    start_time = time.time()
+    
     prompt = f"""You are an expert interviewer evaluating a candidate's answer.
 
 Resume Context:
@@ -240,7 +275,7 @@ Return your response in this EXACT JSON format:
         {"role": "user", "content": prompt}
     ]
     
-    response = await call_krutrim_api(messages, temperature=0.5, max_tokens=500)
+    response = await call_krutrim_api(messages, temperature=0.5, max_tokens=500, operation="evaluate_answer")
     
     # Parse JSON response
     try:
@@ -252,9 +287,15 @@ Return your response in this EXACT JSON format:
         
         result = json.loads(response)
         
+        # Record metrics
+        duration = time.time() - start_time
+        score = float(result.get("score", 5.0))
+        answer_evaluations.labels(round_type=round_type).inc()
+        answer_evaluation_duration.labels(round_type=round_type).observe(duration)
+        
         return {
             "evaluation": result.get("evaluation", "Good effort!"),
-            "score": float(result.get("score", 5.0))
+            "score": score
         }
     except Exception as e:
         print(f"Error parsing evaluation: {e}")
@@ -373,6 +414,6 @@ Your role is to:
 Start by greeting the candidate and asking them to introduce themselves."""
     
     api_messages = [{"role": "system", "content": system_prompt}] + messages
-    return await call_krutrim_api(api_messages, temperature=0.7, max_tokens=500)
+    return await call_krutrim_api(api_messages, temperature=0.7, max_tokens=500, operation="chat")
 
 
