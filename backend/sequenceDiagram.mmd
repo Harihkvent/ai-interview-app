@@ -1,0 +1,49 @@
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant API
+    participant MLMatcher
+    participant KrutrimAI
+    participant Database
+
+    User->>Frontend: Upload Resume
+    Frontend->>API: POST /upload-resume
+    API->>Database: Store Resume
+    API->>MLMatcher: Analyze Resume
+    MLMatcher->>Database: Load Job Database
+    MLMatcher->>MLMatcher: Calculate Match Scores
+    MLMatcher->>Database: Store Job Matches
+    API->>Frontend: Return Session ID
+
+    User->>Frontend: View Job Matches
+    Frontend->>API: GET /job-matches/{session_id}
+    API->>Database: Retrieve Matches
+    API->>Frontend: Return Top 10 Matches
+
+    User->>Frontend: Select Target Role
+    Frontend->>API: POST /generate-roadmap
+    API->>KrutrimAI: Generate Roadmap
+    KrutrimAI->>API: Return Roadmap Content
+    API->>Database: Store Roadmap
+    API->>Frontend: Return Roadmap
+
+    User->>Frontend: Start Interview
+    Frontend->>API: POST /start-round
+    API->>KrutrimAI: Generate Questions
+    KrutrimAI->>API: Return Questions
+    API->>Database: Store Questions
+    API->>Frontend: Return First Question
+
+    User->>Frontend: Submit Answer
+    Frontend->>API: POST /submit-answer
+    API->>KrutrimAI: Evaluate Answer
+    KrutrimAI->>API: Return Evaluation
+    API->>Database: Store Answer & Score
+    API->>Frontend: Return Evaluation
+
+    User->>Frontend: Complete Interview
+    Frontend->>API: GET /report/{session_id}
+    API->>Database: Retrieve All Data
+    API->>KrutrimAI: Generate Report Insights
+    API->>API: Generate PDF
+    API->>Frontend: Return PDF Report
