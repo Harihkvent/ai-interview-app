@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getRoadmap, saveRoadmap } from '../api';
+import { getRoadmapById } from '../api';
 
 interface Milestone {
     phase: string;
@@ -16,55 +16,41 @@ interface SkillsGap {
 }
 
 interface RoadmapData {
-    roadmap_id: string;
+    id: string;
     target_role: string;
+    current_role?: string;
     skills_gap: SkillsGap;
     milestones: Milestone[];
     estimated_timeline: string;
+    is_saved: boolean;
+    created_at: string;
 }
 
-interface CareerRoadmapProps {
-    sessionId: string;
-    onProceedToInterview: () => void;
+interface RoadmapViewerProps {
+    roadmapId: string;
+    onBack: () => void;
 }
 
-export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProceedToInterview }) => {
+export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId, onBack }) => {
     const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
 
     useEffect(() => {
         loadRoadmap();
-    }, [sessionId]);
+    }, [roadmapId]);
 
     const loadRoadmap = async () => {
         try {
             setLoading(true);
-            const data = await getRoadmap(sessionId);
+            const data = await getRoadmapById(roadmapId);
             setRoadmap(data);
             setError(null);
         } catch (err: any) {
             console.error('Failed to load roadmap:', err);
-            setError(err.response?.data?.detail || 'Failed to load career roadmap');
+            setError(err.response?.data?.detail || 'Failed to load roadmap');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleSaveRoadmap = async () => {
-        if (!roadmap?.roadmap_id) return;
-        setSaving(true);
-        try {
-            await saveRoadmap(roadmap.roadmap_id);
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000); // Hide success message after 3s
-        } catch (err: any) {
-            console.error('Failed to save roadmap:', err);
-            alert('Failed to save roadmap. Please try again.');
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -73,15 +59,7 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
             <div className="min-h-screen flex items-center justify-center p-4">
                 <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
                     <div className="text-6xl animate-pulse">🗺️</div>
-                    <h2 className="text-3xl font-bold">Generating Your Career Roadmap...</h2>
-                    <p className="text-gray-300">
-                        AI is creating a personalized learning path for you
-                    </p>
-                    <div className="flex justify-center gap-2">
-                        <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                    </div>
+                    <h2 className="text-3xl font-bold">Loading Roadmap...</h2>
                 </div>
             </div>
         );
@@ -93,9 +71,9 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
                 <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
                     <div className="text-6xl">⚠️</div>
                     <h2 className="text-3xl font-bold text-red-400">Error Loading Roadmap</h2>
-                    <p className="text-gray-300">{error || 'No roadmap data available'}</p>
-                    <button onClick={loadRoadmap} className="btn-primary">
-                        Try Again
+                    <p className="text-gray-300">{error || 'Roadmap not found'}</p>
+                    <button onClick={onBack} className="btn-primary">
+                        Back to My Roadmaps
                     </button>
                 </div>
             </div>
@@ -105,11 +83,20 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
     return (
         <div className="min-h-screen p-4 pb-20">
             <div className="max-w-5xl mx-auto space-y-6">
+                {/* Back Button */}
+                <button
+                    onClick={onBack}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
+                >
+                    <span>←</span>
+                    <span>Back to My Roadmaps</span>
+                </button>
+
                 {/* Header */}
                 <div className="glass-card p-8 text-center">
                     <div className="text-6xl mb-4">🎯</div>
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-3">
-                        Your Career Roadmap
+                        Career Roadmap
                     </h1>
                     <h2 className="text-2xl font-semibold text-white mb-4">
                         {roadmap.target_role}
@@ -125,6 +112,13 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
                                 ✓ {roadmap.skills_gap.match_percentage.toFixed(0)}% Skills Match
                             </span>
                         </div>
+                        {roadmap.is_saved && (
+                            <div className="bg-yellow-500/20 px-6 py-2 rounded-full">
+                                <span className="text-yellow-300 font-semibold">
+                                    ⭐ Saved
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -246,63 +240,10 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
                     </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="glass-card p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30">
-                    <div className="text-center space-y-4">
-                        <h3 className="text-xl font-bold text-white">
-                            Ready to Test Your Skills?
-                        </h3>
-                        <p className="text-gray-300">
-                            Now that you have your career roadmap, let's assess your current abilities with our AI-powered interview
-                        </p>
-                        
-                        {/* Success Message */}
-                        {saved && (
-                            <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 animate-pulse">
-                                <p className="text-green-300 font-semibold flex items-center justify-center gap-2">
-                                    <span>✓</span>
-                                    Roadmap saved successfully!
-                                </p>
-                            </div>
-                        )}
-                        
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <button
-                                onClick={handleSaveRoadmap}
-                                disabled={saving || saved}
-                                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                                    saved
-                                        ? 'bg-green-500/20 text-green-300 cursor-default'
-                                        : 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300'
-                                } disabled:opacity-50`}
-                            >
-                                <span className="flex items-center justify-center gap-2">
-                                    <span>{saved ? '✓' : '⭐'}</span>
-                                    {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Roadmap'}
-                                </span>
-                            </button>
-                            
-                            <button
-                                onClick={onProceedToInterview}
-                                className="btn-primary text-lg px-8 py-3"
-                            >
-                                <span className="flex items-center justify-center gap-2">
-                                    <span>🎤</span>
-                                    Start AI Interview
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Info Card */}
+                {/* Info */}
                 <div className="glass-card p-6 bg-blue-500/10 border border-blue-500/30">
-                    <h3 className="font-semibold text-blue-300 mb-2 flex items-center gap-2">
-                        <span>💡</span> Pro Tip
-                    </h3>
-                    <p className="text-sm text-gray-300">
-                        Save this roadmap! After the interview, you'll receive a comprehensive PDF report
-                        including your roadmap, interview performance, and personalized recommendations.
+                    <p className="text-sm text-gray-300 text-center">
+                        📅 Created on {new Date(roadmap.created_at).toLocaleDateString()}
                     </p>
                 </div>
             </div>

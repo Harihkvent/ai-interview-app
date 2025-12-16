@@ -2,11 +2,18 @@ import { useState, useEffect } from 'react';
 import { uploadResume, startRound, submitAnswer, getNextRound, downloadReport, switchRound, getRoundsStatus, analyzeResume } from './api';
 import { JobMatches } from './components/JobMatches';
 import { CareerRoadmap } from './components/CareerRoadmap';
+import { AuthPage } from './components/AuthPage';
+import { Dashboard } from './components/Dashboard';
+import { Navbar } from './components/Navbar';
+import { SavedRoadmaps } from './components/SavedRoadmaps';
+import { RoadmapViewer } from './components/RoadmapViewer';
+import { useAuth } from './contexts/AuthContext';
 import './index.css';
 import React from 'react';
 
-type InterviewStage = 'upload' | 'analyzing' | 'jobMatches' | 'roadmap' | 'round' | 'question' | 'evaluation' | 'transition' | 'complete';
+type InterviewStage = 'dashboard' | 'upload' | 'analyzing' | 'jobMatches' | 'roadmap' | 'savedRoadmaps' | 'round' | 'question' | 'evaluation' | 'transition' | 'complete';
 type RoundType = 'aptitude' | 'technical' | 'hr';
+type NavPage = 'dashboard' | 'jobs' | 'interview' | 'roadmaps';
 
 interface Question {
     id: number;
@@ -23,7 +30,9 @@ interface EvaluationResult {
 }
 
 function App() {
-    const [stage, setStage] = useState<InterviewStage>('upload');
+    const { isAuthenticated, loading: authLoading } = useAuth();
+    const [stage, setStage] = useState<InterviewStage>('dashboard');
+    const [currentNavPage, setCurrentNavPage] = useState<NavPage>('dashboard');
     const [sessionId, setSessionId] = useState<number | null>(null);
     const [currentRound, setCurrentRound] = useState<RoundType | null>(null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -35,6 +44,7 @@ function App() {
     const [isTimerRunning, setIsTimerRunning] = useState(false);
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [viewRoadmapId, setViewRoadmapId] = useState<string | null>(null);
     const [roundsStatus, setRoundsStatus] = useState<any[]>([]);
     const [showRoundSelector, setShowRoundSelector] = useState(false);
 
@@ -225,7 +235,7 @@ function App() {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `interview_report_${sessionId}.pdf`;
+            a.download = `interview-report-${sessionId}.pdf`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -233,6 +243,25 @@ function App() {
         } catch (error) {
             console.error('Error downloading report:', error);
             alert('Failed to download report. Please try again.');
+        }
+    };
+
+    const handleNavigation = (page: NavPage) => {
+        setCurrentNavPage(page);
+        switch (page) {
+            case 'dashboard':
+                setStage('dashboard');
+                break;
+            case 'interview':
+                setStage('upload');
+                break;
+            case 'jobs':
+                // TODO: Add saved job matches view
+                alert('Job matches history coming soon!');
+                break;
+            case 'roadmaps':
+                setStage('savedRoadmaps');
+                break;
         }
     };
 
@@ -311,28 +340,81 @@ function App() {
         </div>
     );
 
+    // ============= AUTH PROTECTION =============
+    // Show loading while checking auth
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-6xl animate-pulse mb-4">🔐</div>
+                    <p className="text-xl text-gray-300">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show login page if not authenticated
+    if (!isAuthenticated) {
+        return <AuthPage onSuccess={() => setStage('dashboard')} />;
+    }
+
+    // ============= DASHBOARD STAGE =============
+    if (stage === 'dashboard') {
+        return (
+            <div className="min-h-screen">
+                <Navbar currentPage="dashboard" onNavigate={handleNavigation} />
+                <Dashboard
+                    onStartNewInterview={() => {
+                        setCurrentNavPage('interview');
+                        setStage('upload');
+                    }}
+                    onViewRoadmaps={() => handleNavigation('roadmaps')}
+                />
+            </div>
+        );
+    }
+
     // ============= UPLOAD STAGE =============
     if (stage === 'upload') {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="glass-card p-12 max-w-2xl w-full space-y-8">
-                    <div className="text-center space-y-4">
-                        <h1 className="text-6xl font-bold bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
-                            AI Interview System
-                        </h1>
-                        <p className="text-xl text-gray-300">
-                            Upload your resume to begin your personalized interview
-                        </p>
+            <div className="min-h-screen">
+                <Navbar currentPage="interview" onNavigate={handleNavigation} />
+                <div className="p-4">
+                {/* Navigation Header */}
+                <div className="max-w-7xl mx-auto mb-6">
+                    <div className="glass-card p-4 flex items-center justify-between">
+                        <button
+                            onClick={() => setStage('dashboard')}
+                            className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            <span>←</span>
+                            <span>Back to Dashboard</span>
+                        </button>
+                        <h2 className="text-lg font-semibold">New Interview</h2>
+                        <div className="w-32"></div> {/* Spacer for centering */}
                     </div>
+                </div>
 
-                    <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging
-                            ? 'border-primary-400 bg-primary-400/10'
-                            : 'border-gray-600 hover:border-primary-400'
-                            }`}
+                {/* Upload Card */}
+                <div className="flex items-center justify-center">
+                    <div className="glass-card p-12 max-w-2xl w-full space-y-8">
+                        <div className="text-center space-y-4">
+                            <h1 className="text-6xl font-bold bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
+                                AI Interview System
+                            </h1>
+                            <p className="text-xl text-gray-300">
+                                Upload your resume to begin your personalized interview
+                            </p>
+                        </div>
+
+                        <div
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging
+                                ? 'border-primary-400 bg-primary-400/10'
+                                : 'border-gray-600 hover:border-primary-400'
+                                }`}
                     >
                         <div className="space-y-4">
                             <div className="text-6xl">📄</div>
@@ -355,43 +437,88 @@ function App() {
                         </div>
                     </div>
 
-                    {resumeFile && (
-                        <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl">✓</span>
+                        <div
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging
+                                ? 'border-primary-400 bg-primary-400/10'
+                                : 'border-gray-600 hover:border-primary-400'
+                                }`}
+                        >
+                            <div className="space-y-4">
+                                <div className="text-6xl">📄</div>
                                 <div>
-                                    <p className="font-medium">{resumeFile.name}</p>
-                                    <p className="text-sm text-gray-400">
-                                        {(resumeFile.size / 1024).toFixed(2)} KB
+                                    <p className="text-lg text-gray-300 mb-2">
+                                        Drag and drop your resume here
                                     </p>
+                                    <p className="text-sm text-gray-400 mb-4">or</p>
+                                    <label className="btn-primary cursor-pointer inline-block">
+                                        Browse Files
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.docx"
+                                            onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])}
+                                            className="hidden"
+                                        />
+                                    </label>
                                 </div>
+                                <p className="text-xs text-gray-500">Supported formats: PDF, DOCX (Max 5MB)</p>
                             </div>
-                            <button
-                                onClick={() => setResumeFile(null)}
-                                className="text-red-400 hover:text-red-300"
-                            >
-                                Remove
-                            </button>
                         </div>
-                    )}
 
-                    <button
-                        onClick={handleUploadResume}
-                        disabled={!resumeFile || isLoading}
-                        className="btn-primary w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isLoading ? 'Uploading...' : 'Start Interview'}
-                    </button>
+                        {resumeFile && (
+                            <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">✓</span>
+                                    <div>
+                                        <p className="font-medium">{resumeFile.name}</p>
+                                        <p className="text-sm text-gray-400">
+                                            {(resumeFile.size / 1024).toFixed(2)} KB
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setResumeFile(null)}
+                                    className="text-red-400 hover:text-red-300"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        )}
 
-                    <div className="bg-white/5 rounded-xl p-6 space-y-3">
-                        <h3 className="font-semibold text-primary-300">Interview Structure:</h3>
-                        <div className="space-y-2 text-sm text-gray-300">
-                            <p>🧠 <strong>Aptitude Round:</strong> 5 logical reasoning questions</p>
-                            <p>💻 <strong>Technical Round:</strong> 8 skill-based questions</p>
-                            <p>👥 <strong>HR Round:</strong> 5 behavioral questions</p>
+                        <button
+                            onClick={handleUploadResume}
+                            disabled={!resumeFile || isLoading}
+                            className="btn-primary w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isLoading ? 'Uploading...' : 'Start Interview'}
+                        </button>
+
+                        <div className="bg-white/5 rounded-xl p-6 space-y-3">
+                            <h3 className="font-semibold text-primary-300">Interview Structure:</h3>
+                            <div className="space-y-2 text-sm text-gray-300">
+                                <p>🧠 <strong>Aptitude Round:</strong> 5 logical reasoning questions</p>
+                                <p>💻 <strong>Technical Round:</strong> 8 skill-based questions</p>
+                                <p>👥 <strong>HR Round:</strong> 5 behavioral questions</p>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        );
+    }
+
+    // ============= SAVED ROADMAPS STAGE =============
+    if (stage === 'savedRoadmaps') {
+        return (
+            <div className="min-h-screen">
+                <Navbar currentPage="roadmaps" onNavigate={handleNavigation} />
+                <SavedRoadmaps onViewRoadmap={(id) => {
+                    setViewRoadmapId(id);
+                    setStage('roadmap');
+                }} />
             </div>
         );
     }
@@ -595,7 +722,9 @@ function App() {
     // ============= ANALYZING STAGE =============
     if (stage === 'analyzing') {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="min-h-screen">
+                <Navbar currentPage="interview" onNavigate={handleNavigation} />
+                <div className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 80px)' }}>
                 <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
                     <div className="text-6xl animate-pulse">🔍</div>
                     <h2 className="text-3xl font-bold">Analyzing Your Resume...</h2>
@@ -609,30 +738,56 @@ function App() {
                     </div>
                 </div>
             </div>
+        </div>
         );
     }
 
     // ============= JOB MATCHES STAGE =============
-    if (stage === 'jobMatches' && sessionId) {
+    if (stage === 'jobMatches') {
         return (
-            <JobMatches
+            <div className="min-h-screen">
+                <Navbar currentPage="jobs" onNavigate={handleNavigation} />
+                <JobMatches
                 sessionId={sessionId.toString()}
                 onRoadmapGenerated={() => setStage('roadmap')}
-            />
+                />
+            </div>
         );
     }
 
     // ============= CAREER ROADMAP STAGE =============
-    if (stage === 'roadmap' && sessionId) {
-        return (
-            <CareerRoadmap
-                sessionId={sessionId.toString()}
-                onProceedToInterview={async () => {
-                    await loadNextRound(sessionId);
-                    setStage('round');
-                }}
-            />
-        );
+    if (stage === 'roadmap') {
+        // If viewing a saved roadmap
+        if (viewRoadmapId) {
+            return (
+                <div className="min-h-screen">
+                    <Navbar currentPage="roadmaps" onNavigate={handleNavigation} />
+                    <RoadmapViewer
+                        roadmapId={viewRoadmapId}
+                        onBack={() => {
+                            setViewRoadmapId(null);
+                            setStage('savedRoadmaps');
+                        }}
+                    />
+                </div>
+            );
+        }
+        
+        // Otherwise, show new roadmap from current session
+        if (sessionId) {
+            return (
+                <div className="min-h-screen">
+                    <Navbar currentPage="roadmaps" onNavigate={handleNavigation} />
+                    <CareerRoadmap
+                        sessionId={sessionId.toString()}
+                        onProceedToInterview={async () => {
+                            await loadNextRound(sessionId);
+                            setStage('round');
+                        }}
+                    />
+                </div>
+            );
+        }
     }
 
     return null;
