@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { uploadResume, startRound, submitAnswer, getNextRound, downloadReport, switchRound, getRoundsStatus } from './api';
+import { uploadResume, startRound, submitAnswer, getNextRound, downloadReport, switchRound, getRoundsStatus, analyzeResume } from './api';
+import { JobMatches } from './components/JobMatches';
+import { CareerRoadmap } from './components/CareerRoadmap';
 import './index.css';
 import React from 'react';
 
-type InterviewStage = 'upload' | 'round' | 'question' | 'evaluation' | 'transition' | 'complete';
+type InterviewStage = 'upload' | 'analyzing' | 'jobMatches' | 'roadmap' | 'round' | 'question' | 'evaluation' | 'transition' | 'complete';
 type RoundType = 'aptitude' | 'technical' | 'hr';
 
 interface Question {
@@ -86,8 +88,13 @@ function App() {
         try {
             const data = await uploadResume(resumeFile);
             setSessionId(data.session_id);
-            setStage('round');
-            await loadNextRound(data.session_id);
+            
+            // Trigger resume analysis for job matching
+            setStage('analyzing');
+            await analyzeResume(data.session_id);
+            
+            // Move to job matches stage
+            setStage('jobMatches');
         } catch (error) {
             console.error('Error uploading resume:', error);
             alert('Failed to upload resume. Please try again.');
@@ -582,6 +589,49 @@ function App() {
                     </button>
                 </div>
             </div>
+        );
+    }
+
+    // ============= ANALYZING STAGE =============
+    if (stage === 'analyzing') {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4">
+                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
+                    <div className="text-6xl animate-pulse">🔍</div>
+                    <h2 className="text-3xl font-bold">Analyzing Your Resume...</h2>
+                    <p className="text-gray-300">
+                        Our AI is matching your skills with 63,000+ job roles using advanced ML
+                    </p>
+                    <div className="flex justify-center gap-2">
+                        <div className="w-3 h-3 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-3 h-3 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-3 h-3 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ============= JOB MATCHES STAGE =============
+    if (stage === 'jobMatches' && sessionId) {
+        return (
+            <JobMatches
+                sessionId={sessionId.toString()}
+                onRoadmapGenerated={() => setStage('roadmap')}
+            />
+        );
+    }
+
+    // ============= CAREER ROADMAP STAGE =============
+    if (stage === 'roadmap' && sessionId) {
+        return (
+            <CareerRoadmap
+                sessionId={sessionId.toString()}
+                onProceedToInterview={async () => {
+                    await loadNextRound(sessionId);
+                    setStage('round');
+                }}
+            />
         );
     }
 
