@@ -4,6 +4,7 @@ from pydantic import Field
 from datetime import datetime
 
 class InterviewSession(Document):
+    user_id: Optional[str] = None  # Link to User
     created_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
@@ -82,6 +83,7 @@ class JobMatch(Document):
         name = "job_matches"
 
 class CareerRoadmap(Document):
+    user_id: Optional[str] = None  # Link to User
     session_id: str
     current_role: Optional[str] = None
     target_role: str
@@ -89,6 +91,7 @@ class CareerRoadmap(Document):
     milestones: List[dict]  # [{phase, duration, goals, resources}]
     skills_gap: dict  # {matched, missing, to_improve}
     estimated_timeline: str
+    is_saved: bool = False  # Whether user saved this roadmap
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:

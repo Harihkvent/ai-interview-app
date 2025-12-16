@@ -16,3 +16,7 @@ scikit-learn
 pandas
 numpy
 sentence-transformers
+PyJWT
+bcrypt
+python-jose[cryptography]
+email-validator
