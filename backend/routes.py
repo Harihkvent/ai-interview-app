@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 import io
 
-from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message
+from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap
 from services import generate_questions_from_resume, evaluate_answer, generate_ai_response
 from report_generator import generate_pdf_report
 from file_handler import extract_resume_text
@@ -42,6 +42,10 @@ class SubmitAnswerResponse(BaseModel):
     next_question: Optional[dict] = None
     round_complete: bool = False
     interview_complete: bool = False
+
+class GenerateRoadmapRequest(BaseModel):
+    session_id: str
+    target_job_title: str
 
 # ============= Resume Upload & Session Start =============
 
@@ -614,3 +618,130 @@ async def end_interview(session_id: str):
     await db_session.save()
     
     return {"message": "Interview ended", "session_id": session_id}
+
+# ============= Job Matching Endpoints =============
+
+@router.post("/analyze-resume/{session_id}")
+async def analyze_resume(session_id: str):
+    """Analyze resume and generate job matches using hybrid ML approach"""
+    try:
+        # Get resume
+        resume = await Resume.find_one(Resume.session_id == session_id)
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        
+        # Run ML job matching (hybrid: TF-IDF + Semantic)
+        from ml_job_matcher import analyze_resume_and_match
+        matches = await analyze_resume_and_match(session_id, resume.content, top_n=10)
+        
+        return {
+            "session_id": session_id,
+            "total_matches": len(matches),
+            "top_matches": matches,
+            "message": "Resume analyzed successfully using hybrid ML approach",
+            "method": "TF-IDF (40%) + Sentence Transformers (60%)"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/job-matches/{session_id}")
+async def get_job_matches(session_id: str):
+    """Get stored job matches for a session"""
+    try:
+        matches = await JobMatch.find(
+            JobMatch.session_id == session_id
+        ).sort("+rank").to_list()
+        
+        if not matches:
+            raise HTTPException(
+                status_code=404, 
+                detail="No job matches found. Please analyze resume first."
+            )
+        
+        return {
+            "session_id": session_id,
+            "total_matches": len(matches),
+            "matches": [
+                {
+                    "rank": m.rank,
+                    "job_title": m.job_title,
+                    "match_percentage": m.match_percentage,
+                    "matched_skills": m.matched_skills,
+                    "missing_skills": m.missing_skills,
+                    "job_description": m.job_description[:300] + "..."  # Truncate for response size
+                }
+                for m in matches
+            ]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============= Career Roadmap Endpoints =============
+
+@router.post("/generate-roadmap")
+async def generate_roadmap(request: GenerateRoadmapRequest):
+    """Generate AI-powered career roadmap for selected job"""
+    try:
+        # Get resume
+        resume = await Resume.find_one(Resume.session_id == request.session_id)
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        
+        # Get selected job match
+        job_match = await JobMatch.find_one(
+            JobMatch.session_id == request.session_id,
+            JobMatch.job_title == request.target_job_title
+        )
+        
+        if not job_match:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Job match not found for '{request.target_job_title}'. Please select from analyzed jobs."
+            )
+        
+        # Generate roadmap using AI
+        from roadmap_generator import create_career_roadmap
+        roadmap = await create_career_roadmap(
+            request.session_id,
+            resume.content,
+            job_match.job_title,
+            job_match.job_description
+        )
+        
+        return {
+            **roadmap,
+            "message": "Career roadmap generated successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/roadmap/{session_id}")
+async def get_roadmap(session_id: str):
+    """Get stored career roadmap for a session"""
+    try:
+        roadmap = await CareerRoadmap.find_one(
+            CareerRoadmap.session_id == session_id
+        )
+        
+        if not roadmap:
+            raise HTTPException(
+                status_code=404, 
+                detail="No roadmap found. Please generate a roadmap first."
+            )
+        
+        return {
+            "roadmap_id": str(roadmap.id),
+            "target_role": roadmap.target_role,
+            "skills_gap": roadmap.skills_gap,
+            "milestones": roadmap.milestones,
+            "estimated_timeline": roadmap.estimated_timeline,
+            "created_at": roadmap.created_at.isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

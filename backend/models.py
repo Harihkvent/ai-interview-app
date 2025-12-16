@@ -67,3 +67,29 @@ class Message(Document):
     
     class Settings:
         name = "messages"
+
+class JobMatch(Document):
+    session_id: str
+    job_title: str
+    job_description: str
+    match_percentage: float  # 0-100
+    matched_skills: List[str]
+    missing_skills: List[str]
+    rank: int  # 1-10
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Settings:
+        name = "job_matches"
+
+class CareerRoadmap(Document):
+    session_id: str
+    current_role: Optional[str] = None
+    target_role: str
+    roadmap_content: str  # AI-generated markdown
+    milestones: List[dict]  # [{phase, duration, goals, resources}]
+    skills_gap: dict  # {matched, missing, to_improve}
+    estimated_timeline: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Settings:
+        name = "career_roadmaps"

@@ -12,3 +12,7 @@ pymongo
 beanie
 certifi
 prometheus-client
+scikit-learn
+pandas
+numpy
+sentence-transformers

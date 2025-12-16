@@ -10,7 +10,7 @@ DATABASE_NAME = "ai_interview_db"
 
 async def init_db():
     """Initialize MongoDB connection and Beanie ODM"""
-    from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message
+    from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap
     
     client = AsyncIOMotorClient(MONGODB_URL)
     database = client[DATABASE_NAME]
@@ -23,10 +23,13 @@ async def init_db():
             InterviewRound,
             Question,
             Answer,
-            Message
+            Message,
+            JobMatch,
+            CareerRoadmap
         ]
     )
     
+    print("✅ Database initialized with all models")
     return database
 
 # For dependency injection (not used with Beanie, but kept for compatibility)
