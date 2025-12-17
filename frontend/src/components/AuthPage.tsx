@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 interface AuthPageProps {
   onSuccess: () => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -54,6 +55,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     setError('');
     setPassword('');
     setConfirmPassword('');
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle(credentialResponse.credential);
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Google authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google Sign-In failed. Please try again.');
   };
 
   return (
@@ -174,6 +192,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             )}
           </button>
         </form>
+
+        {/* OR Divider */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">OR</span>
+          </div>
+        </div>
+
+        {/* Google Sign-In Button */}
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            useOneTap={false}
+            size="large"
+            text={isLogin ? "signin_with" : "signup_with"}
+            shape="rectangular"
+            theme="outline"
+          />
+        </div>
 
         {/* Toggle Mode */}
         <div className="text-center">

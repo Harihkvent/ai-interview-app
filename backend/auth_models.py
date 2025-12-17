@@ -12,8 +12,11 @@ class User(Document):
     """User model for authentication"""
     email: EmailStr
     username: str
-    password_hash: str
+    password_hash: Optional[str] = None  # Optional for OAuth users
     full_name: Optional[str] = None
+    profile_picture_url: Optional[str] = None  # For OAuth profile pictures
+    oauth_provider: Optional[str] = None  # e.g., "google", "email"
+    oauth_user_id: Optional[str] = None  # Provider's unique user ID
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
     is_active: bool = True

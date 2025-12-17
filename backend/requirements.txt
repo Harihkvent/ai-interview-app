@@ -20,3 +20,5 @@ PyJWT
 bcrypt
 python-jose[cryptography]
 email-validator
+google-auth-oauthlib
+google-auth
