@@ -82,65 +82,59 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
     <div className="min-h-screen p-4">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="glass-card p-6">
+        <div className="card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-1">
+              <h1 className="heading-2 mb-1">
                 Welcome back, {data.user.full_name || data.user.username}! 👋
               </h1>
-              <p className="text-gray-400">{data.user.email}</p>
+              <p className="body-text">{data.user.email}</p>
             </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition-colors"
-            >
-              Logout
-            </button>
           </div>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-card p-6">
+          <div className="card-hover p-6">
             <div className="flex items-center gap-4">
               <div className="text-4xl">🎤</div>
               <div>
                 <div className="text-3xl font-bold text-primary-400">
                   {data.stats.total_interviews}
                 </div>
-                <div className="text-sm text-gray-400">Total Interviews</div>
+                <div className="text-sm text-text-secondary">Total Interviews</div>
               </div>
             </div>
           </div>
 
-          <div className="glass-card p-6">
+          <div className="card-hover p-6">
             <div className="flex items-center gap-4">
               <div className="text-4xl">✅</div>
               <div>
-                <div className="text-3xl font-bold text-green-400">
+                <div className="text-3xl font-bold text-success-400">
                   {data.stats.completed_interviews}
                 </div>
-                <div className="text-sm text-gray-400">Completed</div>
+                <div className="text-sm text-text-secondary">Completed</div>
               </div>
             </div>
           </div>
 
-          <div className="glass-card p-6">
+          <div className="card-hover p-6">
             <div className="flex items-center gap-4">
               <div className="text-4xl">🗺️</div>
               <div>
-                <div className="text-3xl font-bold text-purple-400">
+                <div className="text-3xl font-bold text-primary-400">
                   {data.stats.saved_roadmaps}
                 </div>
-                <div className="text-sm text-gray-400">Saved Roadmaps</div>
+                <div className="text-sm text-text-secondary">Saved Roadmaps</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="glass-card p-6">
-          <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
+        <div className="card p-6">
+          <h2 className="heading-3 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
               onClick={onStartNewInterview}
@@ -153,7 +147,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
             </button>
             <button
               onClick={onViewRoadmaps}
-              className="px-6 py-4 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg transition-colors text-lg font-semibold"
+              className="btn-outline text-lg py-4"
             >
               <span className="flex items-center justify-center gap-2">
                 <span>📚</span>
@@ -166,64 +160,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
         {/* Recent Activity */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Recent Interviews */}
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold mb-4">Recent Interviews</h2>
+          <div className="card p-6">
+            <h2 className="heading-4 mb-4">Recent Interviews</h2>
             {data.recent_interviews.length > 0 ? (
               <div className="space-y-3">
                 {data.recent_interviews.map((interview) => (
                   <div
                     key={interview.id}
-                    className="bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-colors"
+                    className="bg-neutral-50 rounded-lg p-4 hover:bg-neutral-100 transition-colors border border-neutral-200"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      <span className={`badge ${
                         interview.status === 'completed'
-                          ? 'bg-green-500/20 text-green-300'
-                          : 'bg-blue-500/20 text-blue-300'
+                          ? 'badge-success'
+                          : 'badge-primary'
                       }`}>
                         {interview.status}
                       </span>
-                      <span className="text-sm text-gray-400">
+                      <span className="body-text-sm">
                         {new Date(interview.created_at).toLocaleDateString()}
                       </span>
                     </div>
-                    <div className="text-lg font-semibold text-white">
+                    <div className="text-lg font-semibold text-text-primary">
                       Score: {interview.total_score.toFixed(1)}/10
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-400 text-center py-8">No interviews yet</p>
+              <p className="body-text text-center py-8">No interviews yet</p>
             )}
           </div>
 
           {/* Recent Roadmaps */}
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold mb-4">Recent Roadmaps</h2>
+          <div className="card p-6">
+            <h2 className="heading-4 mb-4">Recent Roadmaps</h2>
             {data.recent_roadmaps.length > 0 ? (
               <div className="space-y-3">
                 {data.recent_roadmaps.map((roadmap) => (
                   <div
                     key={roadmap.id}
-                    className="bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-colors"
+                    className="bg-neutral-50 rounded-lg p-4 hover:bg-neutral-100 transition-colors border border-neutral-200"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-400">
+                      <span className="body-text-sm">
                         {new Date(roadmap.created_at).toLocaleDateString()}
                       </span>
                       {roadmap.is_saved && (
-                        <span className="text-yellow-400">⭐</span>
+                        <span className="text-warning-400">⭐</span>
                       )}
                     </div>
-                    <div className="text-lg font-semibold text-white">
+                    <div className="text-lg font-semibold text-text-primary">
                       {roadmap.target_role}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-400 text-center py-8">No roadmaps yet</p>
+              <p className="body-text text-center py-8">No roadmaps yet</p>
             )}
           </div>
         </div>

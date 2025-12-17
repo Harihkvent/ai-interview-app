@@ -95,10 +95,10 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
                 {/* Header */}
                 <div className="glass-card p-8 text-center">
                     <div className="text-6xl mb-4">🎯</div>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent mb-3">
+                    <h1 className="heading-1 text-primary-400 mb-3">
                         Your Top Job Matches
                     </h1>
-                    <p className="text-xl text-gray-300">
+                    <p className="body-text">
                         Based on your resume, here are the best career opportunities for you
                     </p>
                     <div className="mt-4 inline-block bg-primary-500/20 px-6 py-2 rounded-full">

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,24 +6,119 @@
 
 @layer base {
   body {
-    @apply bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-screen;
+    @apply bg-neutral-100 text-text-primary min-h-screen;
   }
 }
 
 @layer components {
-  .glass-card {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl;
+  /* Card Styles */
+  .card {
+    @apply bg-white rounded-lg shadow border border-neutral-200 transition-shadow duration-200;
   }
-  
+
+  .card-hover {
+    @apply card hover:shadow-md;
+  }
+
+  .card-bordered {
+    @apply card border-2;
+  }
+
+  /* Button Styles */
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-purple-600 hover:from-primary-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105;
+    @apply bg-primary-400 hover:bg-primary-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2;
   }
-  
+
+  .btn-secondary {
+    @apply bg-neutral-200 hover:bg-neutral-300 text-text-primary font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2;
+  }
+
+  .btn-outline {
+    @apply bg-transparent border-2 border-primary-400 hover:bg-primary-50 text-primary-400 font-semibold py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-neutral-100 text-text-primary font-semibold py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:ring-offset-2;
+  }
+
+  .btn-success {
+    @apply bg-success-400 hover:bg-success-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-success-400 focus:ring-offset-2;
+  }
+
+  .btn-danger {
+    @apply bg-error-400 hover:bg-error-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-error-400 focus:ring-offset-2;
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-700;
+  }
+
+  .badge-success {
+    @apply badge bg-success-100 text-success-700;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning-100 text-warning-600;
+  }
+
+  .badge-error {
+    @apply badge bg-error-100 text-error-600;
+  }
+
+  .badge-neutral {
+    @apply badge bg-neutral-200 text-text-secondary;
+  }
+
+  /* Input Styles */
+  .input {
+    @apply w-full bg-white border border-neutral-300 rounded-lg px-4 py-3 text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all duration-200;
+  }
+
+  .input-error {
+    @apply input border-error-400 focus:ring-error-400;
+  }
+
+  /* Typography Utilities */
+  .heading-1 {
+    @apply text-4xl font-bold text-text-primary;
+  }
+
+  .heading-2 {
+    @apply text-3xl font-bold text-text-primary;
+  }
+
+  .heading-3 {
+    @apply text-2xl font-semibold text-text-primary;
+  }
+
+  .heading-4 {
+    @apply text-xl font-semibold text-text-primary;
+  }
+
+  .body-text {
+    @apply text-base text-text-secondary;
+  }
+
+  .body-text-sm {
+    @apply text-sm text-text-secondary;
+  }
+
+  /* Legacy support - maps old glass-card to new card */
+  .glass-card {
+    @apply card;
+  }
+
+  /* Message Styles (for interview UI) */
   .message-user {
-    @apply bg-gradient-to-r from-primary-600 to-blue-600 text-white rounded-2xl rounded-br-sm px-5 py-3 max-w-[80%] shadow-lg;
+    @apply bg-primary-400 text-white rounded-lg rounded-br-sm px-5 py-3 max-w-[80%] shadow-sm;
   }
-  
+
   .message-ai {
-    @apply bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-2xl rounded-bl-sm px-5 py-3 max-w-[80%] shadow-lg;
+    @apply bg-neutral-100 border border-neutral-200 text-text-primary rounded-lg rounded-bl-sm px-5 py-3 max-w-[80%] shadow-sm;
   }
 }
