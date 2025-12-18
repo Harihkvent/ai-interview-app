@@ -11,17 +11,42 @@ interface JobMatch {
 }
 
 interface JobMatcherProps {
+    sessionId?: string | number | null;
+    onSessionIdChange?: (id: string | number | null) => void;
     onRoadmapGenerated: () => void;
 }
 
-export const JobMatcher: React.FC<JobMatcherProps> = ({ onRoadmapGenerated }) => {
+export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId, onSessionIdChange, onRoadmapGenerated }) => {
     const [matches, setMatches] = useState<JobMatch[]>([]);
     const [loading, setLoading] = useState(false);
     const [stage, setStage] = useState<'upload' | 'results'>('upload');
     const [generating, setGenerating] = useState(false);
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [internalSessionId, setInternalSessionId] = useState<string | null>(null);
+
+    // Use prop sessionId if provided, otherwise use internal
+    const activeSessionId = propSessionId || internalSessionId;
+
+    useEffect(() => {
+        if (propSessionId) {
+            setInternalSessionId(propSessionId.toString());
+            loadMatches(propSessionId.toString());
+        }
+    }, [propSessionId]);
+
+    const loadMatches = async (sid: string) => {
+        try {
+            setLoading(true);
+            const data = await getJobMatches(sid);
+            setMatches((data.matches || []).filter((m: any) => !m.is_live));
+            setStage('results');
+        } catch (err: any) {
+            console.error('Failed to load matches:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -34,7 +59,8 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ onRoadmapGenerated }) =>
             // 1. Upload
             const uploadData = await uploadResume(file);
             const newSessionId = uploadData.session_id;
-            setSessionId(newSessionId);
+            setInternalSessionId(newSessionId);
+            if (onSessionIdChange) onSessionIdChange(newSessionId);
             
             // 2. Analyze
             await analyzeResume(newSessionId);
@@ -52,11 +78,11 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ onRoadmapGenerated }) =>
     };
 
     const handleGenerateRoadmap = async (jobTitle: string) => {
-        if (!sessionId) return;
+        if (!activeSessionId) return;
         setGenerating(true);
         setSelectedJob(jobTitle);
         try {
-            await generateRoadmap(sessionId, jobTitle);
+            await generateRoadmap(activeSessionId.toString(), jobTitle);
             onRoadmapGenerated();
         } catch (err: any) {
             console.error('Failed to generate roadmap:', err);

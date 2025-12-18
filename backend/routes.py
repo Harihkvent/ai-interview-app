@@ -715,6 +715,15 @@ async def generate_questions_only(request: GenerateQuestionsOnlyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/extract-text")
+async def extract_text_from_file(file: UploadFile = File(...)):
+    """Extract text from a resume file (PDF or DOCX)"""
+    try:
+        _, text = await extract_resume_text(file)
+        return {"text": text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ============= Job Matching Endpoints =============
 
 @router.post("/analyze-resume/{session_id}")

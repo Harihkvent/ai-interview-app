@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import { generateQuestionsOnly } from '../api';
-import * as pdfjs from 'pdfjs-dist';
-
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+import { generateQuestionsOnly, extractText } from '../api';
 
 export const QuestionGenerator: React.FC = () => {
     const [questions, setQuestions] = useState<string[]>([]);
@@ -11,18 +7,6 @@ export const QuestionGenerator: React.FC = () => {
     const [roundType, setRoundType] = useState('technical');
     const [error, setError] = useState<string | null>(null);
     const [resumeText, setResumeText] = useState<string>('');
-
-    const extractTextFromPdf = async (file: File): Promise<string> => {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-        let text = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += content.items.map((item: any) => item.str).join(" ");
-        }
-        return text;
-    };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -32,21 +16,16 @@ export const QuestionGenerator: React.FC = () => {
             setLoading(true);
             setError(null);
             
-            let text = "";
-            if (file.type === "application/pdf") {
-                text = await extractTextFromPdf(file);
-            } else {
-                // Simplified for demo: only PDF text extraction shown. 
-                // In production we'd use a more robust extractor or backend extraction.
-                text = "Extracted resume content placeholder...";
-            }
+            // Use backend extraction
+            const extractData = await extractText(file);
+            const text = extractData.text;
             
             setResumeText(text);
             const data = await generateQuestionsOnly(text, roundType, 10);
             setQuestions(data.questions || []);
         } catch (err: any) {
             console.error('Question generation failed:', err);
-            setError('Failed to extract text or generate questions. Please try a different resume.');
+            setError(`Failed to process resume: ${err.response?.data?.detail || err.message || 'Please ensure the file is valid and try again'}`);
         } finally {
             setLoading(false);
         }
@@ -77,7 +56,7 @@ export const QuestionGenerator: React.FC = () => {
                     <div className="mt-8 flex justify-center">
                         <label className="px-8 py-4 bg-accent-500 hover:bg-accent-600 text-white rounded-2xl font-bold cursor-pointer transition-all shadow-lg shadow-accent-500/20">
                             {loading ? 'Generating...' : resumeText ? 'Update Resume' : 'Upload Resume & Generate'}
-                            <input type='file' className="hidden" onChange={handleFileUpload} accept=".pdf" disabled={loading} />
+                            <input type='file' className="hidden" onChange={handleFileUpload} accept=".pdf,.docx" disabled={loading} />
                         </label>
                     </div>
                 </div>

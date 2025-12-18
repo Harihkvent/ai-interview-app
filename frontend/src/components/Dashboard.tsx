@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getActiveSession } from '../api';
+import { getActiveSession, deleteInterview } from '../api';
 
 interface DashboardData {
   user: {
@@ -69,6 +69,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
       }
     } catch (err) {
       console.error('Failed to check active session:', err);
+    }
+  };
+
+  const handleDeleteInterview = async (e: React.MouseEvent, sid: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this interview from your history?')) return;
+    
+    try {
+      await deleteInterview(sid);
+      loadDashboard();
+      if (activeSession === sid) {
+        setActiveSession(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete interview:', err);
+      alert('Failed to delete interview history');
     }
   };
 
@@ -253,14 +269,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                         </div>
                         <div className="text-lg font-bold text-text-primary">Score: {interview.total_score.toFixed(1)}/10</div>
                     </div>
-                    {interview.status !== 'completed' && (
-                       <button 
-                          onClick={() => onNavigate('interview', { resumeSessionId: interview.id })}
-                          className="text-xs font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600 p-2 bg-primary-500/5 rounded-lg"
-                       >
-                          Continue →
-                       </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {interview.status !== 'completed' && (
+                        <button 
+                            onClick={() => onNavigate('interview', { resumeSessionId: interview.id })}
+                            className="text-xs font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600 p-2 bg-primary-500/5 rounded-lg whitespace-nowrap"
+                        >
+                            Continue →
+                        </button>
+                      )}
+                      <button 
+                        onClick={(e) => handleDeleteInterview(e, interview.id)}
+                        className="text-red-400 hover:text-red-500 p-2 hover:bg-red-500/5 rounded-lg transition-colors"
+                        title="Delete History"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (

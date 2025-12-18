@@ -21,9 +21,9 @@
 
 | Layer          | Technologies                                    |
 | -------------- | ----------------------------------------------- |
-| **Backend**    | FastAPI, Python 3.8+, MongoDB + Beanie ODM      |
+| **Backend**    | FastAPI, Python 3.8+, MongoDB                   |
 | **ML/AI**      | scikit-learn, Sentence Transformers, Krutrim AI |
-| **Frontend**   | React 19, TypeScript, Vite, TailwindCSS         |
+| **Frontend**   | React, Vite, TailwindCSS         |
 | **Auth**       | JWT + Bcrypt, Google OAuth 2.0                  |
 | **Monitoring** | Prometheus with custom metrics                  |
 | **External**   | SerpAPI for live jobs                           |

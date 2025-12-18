@@ -35,7 +35,7 @@ export const uploadResume = async (file: File) => {
   return response.data;
 };
 
-export const startRound = async (sessionId: number, roundType: string) => {
+export const startRound = async (sessionId: string | number, roundType: string) => {
   const response = await api.post(
     `/start-round/${sessionId}?round_type=${roundType}`
   );
@@ -55,19 +55,19 @@ export const submitAnswer = async (
   return response.data;
 };
 
-export const getNextRound = async (sessionId: number) => {
+export const getNextRound = async (sessionId: string | number) => {
   const response = await api.get(`/next-round/${sessionId}`);
   return response.data;
 };
 
-export const downloadReport = async (sessionId: number) => {
+export const downloadReport = async (sessionId: string | number) => {
   const response = await api.get(`/report/${sessionId}`, {
     responseType: "blob",
   });
   return response.data;
 };
 
-export const getSessionInfo = async (sessionId: number) => {
+export const getSessionInfo = async (sessionId: string | number) => {
   const response = await api.get(`/session/${sessionId}`);
   return response.data;
 };
@@ -79,7 +79,7 @@ export const startInterview = async () => {
   return response.data;
 };
 
-export const sendMessage = async (sessionId: number, message: string) => {
+export const sendMessage = async (sessionId: string | number, message: string) => {
   const response = await api.post("/chat", {
     session_id: sessionId,
     message: message,
@@ -87,24 +87,24 @@ export const sendMessage = async (sessionId: number, message: string) => {
   return response.data;
 };
 
-export const getHistory = async (sessionId: number) => {
+export const getHistory = async (sessionId: string | number) => {
   const response = await api.get(`/history/${sessionId}`);
   return response.data;
 };
 
-export const endInterview = async (sessionId: number) => {
+export const endInterview = async (sessionId: string | number) => {
   const response = await api.post(`/end/${sessionId}`);
   return response.data;
 };
 
-export const switchRound = async (sessionId: number, roundType: string) => {
+export const switchRound = async (sessionId: string | number, roundType: string) => {
   const response = await api.post(
     `/switch-round/${sessionId}?round_type=${roundType}`
   );
   return response.data;
 };
 
-export const getRoundsStatus = async (sessionId: number) => {
+export const getRoundsStatus = async (sessionId: string | number) => {
   const response = await api.get(`/rounds-status/${sessionId}`);
   return response.data;
 };
@@ -208,5 +208,19 @@ export const generateQuestionsOnly = async (
     round_type: roundType,
     num_questions: numQuestions,
   });
+  return response.data;
+};
+
+export const extractText = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post("/extract-text", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
+export const deleteInterview = async (sessionId: string | number) => {
+  const response = await api.delete(`/user/interviews/${sessionId}`);
   return response.data;
 };

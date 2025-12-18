@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { uploadResume, startRound, submitAnswer, getNextRound, downloadReport, switchRound, getRoundsStatus, analyzeResume } from './api';
-import { JobMatches } from './components/JobMatches';
 import { CareerRoadmap } from './components/CareerRoadmap';
 import { AuthPage } from './components/AuthPage';
 import { Dashboard } from './components/Dashboard';
@@ -16,7 +15,6 @@ import React from 'react';
 
 type InterviewStage = 'dashboard' | 'upload' | 'analyzing' | 'jobMatches' | 'roadmap' | 'savedRoadmaps' | 'round' | 'question' | 'evaluation' | 'transition' | 'complete' | 'liveJobs' | 'questionGen';
 type RoundType = 'aptitude' | 'technical' | 'hr';
-type NavPage = 'dashboard' | 'jobs' | 'live_jobs' | 'interview' | 'roadmaps' | 'question_gen';
 
 interface Question {
     id: number;
@@ -35,8 +33,7 @@ interface EvaluationResult {
 function App() {
     const { isAuthenticated, loading: authLoading } = useAuth();
     const [stage, setStage] = useState<InterviewStage>('dashboard');
-    const [currentNavPage, setCurrentNavPage] = useState<NavPage>('dashboard');
-    const [sessionId, setSessionId] = useState<number | null>(null);
+    const [sessionId, setSessionId] = useState<string | number | null>(null);
     const [currentRound, setCurrentRound] = useState<RoundType | null>(null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
     const [totalQuestions, setTotalQuestions] = useState(0);
@@ -116,7 +113,7 @@ function App() {
         }
     };
 
-    const loadNextRound = async (sid: number) => {
+    const loadNextRound = async (sid: string | number) => {
         try {
             const data = await getNextRound(sid);
             if (data.round_type) {
@@ -129,7 +126,7 @@ function App() {
         }
     };
 
-    const loadRoundsStatus = async (sid: number) => {
+    const loadRoundsStatus = async (sid: string | number) => {
         try {
             const data = await getRoundsStatus(sid);
             setRoundsStatus(data.rounds || []);
@@ -249,13 +246,15 @@ function App() {
         }
     };
 
-    const handleNavigation = (page: NavPage, params?: any) => {
-        setCurrentNavPage(page);
+    const handleNavigation = (page: string, params?: any) => {
         
         // Handle direct navigation to specific items/sessions
         if (params?.resumeSessionId) {
-            setSessionId(Number(params.resumeSessionId));
-            setStage('round'); // Go directly to round selection for existing session
+            setSessionId(params.resumeSessionId);
+            // Must load state for existing session
+            loadRoundsStatus(params.resumeSessionId);
+            loadNextRound(params.resumeSessionId);
+            setStage('round'); 
             return;
         }
 
@@ -387,7 +386,6 @@ function App() {
                 <Navbar currentPage="dashboard" onNavigate={handleNavigation} />
                 <Dashboard
                     onStartNewInterview={() => {
-                        setCurrentNavPage('interview');
                         setStage('upload');
                     }}
                     onViewRoadmaps={() => handleNavigation('roadmaps')}
@@ -460,35 +458,7 @@ function App() {
                         </div>
                     </div>
 
-                        <div
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging
-                                ? 'border-primary-400 bg-primary-400/10'
-                                : 'border-gray-600 hover:border-primary-400'
-                                }`}
-                        >
-                            <div className="space-y-4">
-                                <div className="text-6xl">📄</div>
-                                <div>
-                                    <p className="text-lg text-gray-300 mb-2">
-                                        Drag and drop your resume here
-                                    </p>
-                                    <p className="text-sm text-gray-400 mb-4">or</p>
-                                    <label className="btn-primary cursor-pointer inline-block">
-                                        Browse Files
-                                        <input
-                                            type="file"
-                                            accept=".pdf,.docx"
-                                            onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])}
-                                            className="hidden"
-                                        />
-                                    </label>
-                                </div>
-                                <p className="text-xs text-gray-500">Supported formats: PDF, DOCX (Max 5MB)</p>
-                            </div>
-                        </div>
+
 
                         {resumeFile && (
                             <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
@@ -776,7 +746,11 @@ function App() {
         return (
             <div className="min-h-screen">
                 <Navbar currentPage="jobs" onNavigate={handleNavigation} />
-                <JobMatcher onRoadmapGenerated={() => setStage('roadmap')} />
+                <JobMatcher 
+                    sessionId={sessionId}
+                    onSessionIdChange={setSessionId}
+                    onRoadmapGenerated={() => setStage('roadmap')} 
+                />
             </div>
         );
     }
@@ -820,7 +794,7 @@ function App() {
         }
         
         // Otherwise, show new roadmap from current session
-        if (sessionId) {
+        if (sessionId !== null) {
             return (
                 <div className="min-h-screen">
                     <Navbar currentPage="roadmaps" onNavigate={handleNavigation} />

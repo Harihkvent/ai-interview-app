@@ -8,7 +8,7 @@ from datetime import datetime
 
 from auth_routes import get_current_user
 from auth_models import User
-from models import InterviewSession, CareerRoadmap, InterviewRound, Answer
+from models import InterviewSession, CareerRoadmap, InterviewRound, Answer, Question, Resume, JobMatch
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -118,6 +118,41 @@ async def get_user_interviews(current_user: User = Depends(get_current_user)):
         "total": len(result),
         "interviews": result
     }
+
+@router.delete("/interviews/{session_id}")
+async def delete_interview(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete an interview session and all its related data (cascading)"""
+    session = await InterviewSession.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+        
+    # Verify ownership
+    if session.user_id != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this session")
+        
+    # Delete related rounds, questions, and answers
+    rounds = await InterviewRound.find(InterviewRound.session_id == session_id).to_list()
+    for r in rounds:
+        questions = await Question.find(Question.round_id == str(r.id)).to_list()
+        for q in questions:
+            await Answer.find(Answer.question_id == str(q.id)).delete()
+            await q.delete()
+        await r.delete()
+        
+    # Delete job matches and roadmaps
+    await JobMatch.find(JobMatch.session_id == session_id).delete()
+    await CareerRoadmap.find(CareerRoadmap.session_id == session_id).delete()
+    
+    # Delete resume (optional: keep file, delete DB entry)
+    await Resume.find(Resume.session_id == session_id).delete()
+    
+    # Finally delete the session
+    await session.delete()
+    
+    return {"message": "Interview history deleted successfully"}
 
 # ============= Roadmap Management =============
 
