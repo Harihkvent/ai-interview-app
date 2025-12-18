@@ -1,0 +1,52 @@
+erDiagram
+    USERS ||--o{ INTERVIEW_SESSIONS : creates
+    USERS ||--o{ CAREER_ROADMAPS : saves
+    INTERVIEW_SESSIONS ||--|| RESUMES : has
+    INTERVIEW_SESSIONS ||--o{ JOB_MATCHES : generates
+    INTERVIEW_SESSIONS ||--o{ CAREER_ROADMAPS : creates
+    INTERVIEW_SESSIONS ||--o{ INTERVIEW_ROUNDS : contains
+    INTERVIEW_ROUNDS ||--o{ QUESTIONS : has
+    QUESTIONS ||--o{ ANSWERS : receives
+
+    USERS {
+        ObjectId id
+        string email
+        string username
+        string password_hash
+        string full_name
+        string oauth_provider
+        datetime created_at
+    }
+
+    INTERVIEW_SESSIONS {
+        ObjectId id
+        string user_id
+        string status
+        string current_round_id
+        string resume_id
+        float total_score
+        int total_time_seconds
+    }
+
+    JOB_MATCHES {
+        ObjectId id
+        string session_id
+        string job_title
+        float match_percentage
+        array matched_skills
+        array missing_skills
+        int rank
+        bool is_live
+        string company_name
+    }
+
+    CAREER_ROADMAPS {
+        ObjectId id
+        string user_id
+        string session_id
+        string target_role
+        string roadmap_content
+        array milestones
+        dict skills_gap
+        bool is_saved
+    }
