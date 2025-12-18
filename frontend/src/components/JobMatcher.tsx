@@ -1,0 +1,170 @@
+import React, { useEffect, useState } from 'react';
+import { getJobMatches, generateRoadmap, uploadResume, analyzeResume } from '../api';
+
+interface JobMatch {
+    rank: number;
+    job_title: string;
+    match_percentage: number;
+    matched_skills: string[];
+    missing_skills: string[];
+    job_description: string;
+}
+
+interface JobMatcherProps {
+    onRoadmapGenerated: () => void;
+}
+
+export const JobMatcher: React.FC<JobMatcherProps> = ({ onRoadmapGenerated }) => {
+    const [matches, setMatches] = useState<JobMatch[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [stage, setStage] = useState<'upload' | 'results'>('upload');
+    const [generating, setGenerating] = useState(false);
+    const [selectedJob, setSelectedJob] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [sessionId, setSessionId] = useState<string | null>(null);
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setLoading(true);
+            setError(null);
+            
+            // 1. Upload
+            const uploadData = await uploadResume(file);
+            const newSessionId = uploadData.session_id;
+            setSessionId(newSessionId);
+            
+            // 2. Analyze
+            await analyzeResume(newSessionId);
+            
+            // 3. Load Matches
+            const data = await getJobMatches(newSessionId);
+            setMatches((data.matches || []).filter((m: any) => !m.is_live));
+            setStage('results');
+        } catch (err: any) {
+            console.error('Upload/Analysis failed:', err);
+            setError(err.response?.data?.detail || 'Failed to process resume');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGenerateRoadmap = async (jobTitle: string) => {
+        if (!sessionId) return;
+        setGenerating(true);
+        setSelectedJob(jobTitle);
+        try {
+            await generateRoadmap(sessionId, jobTitle);
+            onRoadmapGenerated();
+        } catch (err: any) {
+            console.error('Failed to generate roadmap:', err);
+            alert(err.response?.data?.detail || 'Failed to generate roadmap');
+        } finally {
+            setGenerating(false);
+            setSelectedJob(null);
+        }
+    };
+
+    if (stage === 'upload') {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4">
+                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-8">
+                    <div className="text-7xl mb-4">🎯</div>
+                    <div>
+                        <h1 className="text-4xl font-bold text-primary-400 mb-2">AI Job Matcher</h1>
+                        <p className="text-gray-300">Upload your resume to find your perfect career match from 63k+ job roles</p>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-6">
+                        <label className="w-full max-w-md flex flex-col items-center px-4 py-8 bg-black/20 text-blue rounded-2xl border-2 border-dashed border-primary-500/30 cursor-pointer hover:bg-primary-500/5 hover:border-primary-500 transition-all group">
+                            <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">📄</span>
+                            <span className="text-lg font-semibold text-text-secondary">Upload Resume (PDF/DOCX)</span>
+                            <input type='file' className="hidden" onChange={handleFileUpload} accept=".pdf,.docx" disabled={loading} />
+                        </label>
+                        
+                        {loading && (
+                            <div className="space-y-4 w-full max-w-md">
+                                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                                    <div className="h-full bg-primary-500 animate-progress"></div>
+                                </div>
+                                <p className="text-sm text-primary-400 animate-pulse font-medium">Analyzing skills & matching roles...</p>
+                            </div>
+                        )}
+                        
+                        {error && <div className="text-error-500 bg-error-500/10 p-4 rounded-xl border border-error-500/20 w-full">{error}</div>}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen p-4 pb-20">
+            <div className="max-w-6xl mx-auto space-y-6">
+                <div className="glass-card p-8 text-center bg-gradient-to-br from-primary-900/20 to-transparent">
+                    <div className="text-6xl mb-4">✨</div>
+                    <h1 className="text-4xl font-bold text-primary-400 mb-2">Your Top AI Matches</h1>
+                    <p className="text-gray-300 max-w-2xl mx-auto">We've identified these roles as the best fit for your unique skill set.</p>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                    {matches.map((match) => (
+                        <div key={match.rank} className="glass-card p-6 border border-white/10 hover:border-primary-500/50 hover:scale-[1.01] transition-all">
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="bg-primary-500 text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold">
+                                    #{match.rank}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-xl font-bold text-white">{match.job_title}</h3>
+                                    <div className="h-1.5 w-full bg-white/10 rounded-full mt-2 overflow-hidden">
+                                        <div className="h-full bg-primary-400" style={{ width: `${match.match_percentage}%` }}></div>
+                                    </div>
+                                    <div className="flex justify-between mt-1">
+                                        <span className="text-xs text-gray-400">Match Accuracy</span>
+                                        <span className="text-xs font-bold text-primary-400">{match.match_percentage}%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <div className="text-[10px] uppercase font-bold text-green-500 mb-1.5">Top Skills Match</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {match.matched_skills.slice(0, 4).map(s => (
+                                            <span key={s} className="px-2 py-0.5 bg-green-500/10 text-green-400 rounded text-[10px]">{s}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] uppercase font-bold text-orange-400 mb-1.5">Recommended focus</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {match.missing_skills.slice(0, 4).map(s => (
+                                            <span key={s} className="px-2 py-0.5 bg-orange-500/10 text-orange-400 rounded text-[10px]">{s}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => handleGenerateRoadmap(match.job_title)}
+                                disabled={generating}
+                                className="w-full py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-bold transition-all disabled:opacity-50"
+                            >
+                                {generating && selectedJob === match.job_title ? 'Generating...' : 'View Career Roadmap'}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                
+                <button 
+                    onClick={() => setStage('upload')}
+                    className="mx-auto block text-primary-400 hover:text-primary-300 font-medium py-4 px-8"
+                >
+                    ← Upload different resume
+                </button>
+            </div>
+        </div>
+    );
+};

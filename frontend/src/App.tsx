@@ -7,13 +7,16 @@ import { Dashboard } from './components/Dashboard';
 import { Navbar } from './components/Navbar';
 import { SavedRoadmaps } from './components/SavedRoadmaps';
 import { RoadmapViewer } from './components/RoadmapViewer';
+import { JobMatcher } from './components/JobMatcher';
+import { LiveJobs } from './components/LiveJobs';
+import { QuestionGenerator } from './components/QuestionGenerator';
 import { useAuth } from './contexts/AuthContext';
 import './index.css';
 import React from 'react';
 
-type InterviewStage = 'dashboard' | 'upload' | 'analyzing' | 'jobMatches' | 'roadmap' | 'savedRoadmaps' | 'round' | 'question' | 'evaluation' | 'transition' | 'complete';
+type InterviewStage = 'dashboard' | 'upload' | 'analyzing' | 'jobMatches' | 'roadmap' | 'savedRoadmaps' | 'round' | 'question' | 'evaluation' | 'transition' | 'complete' | 'liveJobs' | 'questionGen';
 type RoundType = 'aptitude' | 'technical' | 'hr';
-type NavPage = 'dashboard' | 'jobs' | 'interview' | 'roadmaps';
+type NavPage = 'dashboard' | 'jobs' | 'live_jobs' | 'interview' | 'roadmaps' | 'question_gen';
 
 interface Question {
     id: number;
@@ -246,8 +249,22 @@ function App() {
         }
     };
 
-    const handleNavigation = (page: NavPage) => {
+    const handleNavigation = (page: NavPage, params?: any) => {
         setCurrentNavPage(page);
+        
+        // Handle direct navigation to specific items/sessions
+        if (params?.resumeSessionId) {
+            setSessionId(Number(params.resumeSessionId));
+            setStage('round'); // Go directly to round selection for existing session
+            return;
+        }
+
+        if (params?.selectedId) {
+            setViewRoadmapId(params.selectedId);
+            setStage('roadmap');
+            return;
+        }
+
         switch (page) {
             case 'dashboard':
                 setStage('dashboard');
@@ -256,11 +273,16 @@ function App() {
                 setStage('upload');
                 break;
             case 'jobs':
-                // TODO: Add saved job matches view
-                alert('Job matches history coming soon!');
+                setStage('jobMatches');
+                break;
+            case 'live_jobs':
+                setStage('liveJobs');
                 break;
             case 'roadmaps':
                 setStage('savedRoadmaps');
+                break;
+            case 'question_gen':
+                setStage('questionGen');
                 break;
         }
     };
@@ -369,6 +391,7 @@ function App() {
                         setStage('upload');
                     }}
                     onViewRoadmaps={() => handleNavigation('roadmaps')}
+                    onNavigate={handleNavigation}
                 />
             </div>
         );
@@ -581,6 +604,12 @@ function App() {
                                     Switch Round
                                 </button>
                                 <button
+                                    onClick={() => setStage('dashboard')}
+                                    className="px-4 py-2 bg-warning-500/20 hover:bg-warning-500/30 text-warning-300 rounded-lg transition-colors text-sm"
+                                >
+                                    Pause
+                                </button>
+                                <button
                                     onClick={() => setStage('complete')}
                                     className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition-colors text-sm"
                                 >
@@ -747,10 +776,27 @@ function App() {
         return (
             <div className="min-h-screen">
                 <Navbar currentPage="jobs" onNavigate={handleNavigation} />
-                <JobMatches
-                sessionId={sessionId.toString()}
-                onRoadmapGenerated={() => setStage('roadmap')}
-                />
+                <JobMatcher onRoadmapGenerated={() => setStage('roadmap')} />
+            </div>
+        );
+    }
+
+    // ============= LIVE JOBS STAGE =============
+    if (stage === 'liveJobs') {
+        return (
+            <div className="min-h-screen">
+                <Navbar currentPage="live_jobs" onNavigate={handleNavigation} />
+                <LiveJobs />
+            </div>
+        );
+    }
+
+    // ============= QUESTION GEN STAGE =============
+    if (stage === 'questionGen') {
+        return (
+            <div className="min-h-screen">
+                <Navbar currentPage="question_gen" onNavigate={handleNavigation} />
+                <QuestionGenerator />
             </div>
         );
     }

@@ -183,3 +183,30 @@ export const getRoadmapById = async (roadmapId: string) => {
   const response = await api.get(`/user/roadmaps/${roadmapId}`);
   return response.data;
 };
+
+// ============= New Independent Flow Functions =============
+
+export const getActiveSession = async () => {
+  const response = await api.get("/active-session");
+  return response.data;
+};
+
+export const startInterviewFromRole = async (targetJobTitle: string) => {
+  const response = await api.post("/start-interview-from-role", {
+    target_job_title: targetJobTitle,
+  });
+  return response.data;
+};
+
+export const generateQuestionsOnly = async (
+  resumeText: string,
+  roundType: string,
+  numQuestions: number = 5
+) => {
+  const response = await api.post("/generate-questions-only", {
+    resume_text: resumeText,
+    round_type: roundType,
+    num_questions: numQuestions,
+  });
+  return response.data;
+};

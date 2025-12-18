@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getActiveSession } from '../api';
 
 interface DashboardData {
   user: {
@@ -30,15 +31,18 @@ interface DashboardData {
 interface DashboardProps {
   onStartNewInterview: () => void;
   onViewRoadmaps: () => void;
+  onNavigate: (page: string, params?: any) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onViewRoadmaps }) => {
-  const { token, logout } = useAuth();
+export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onViewRoadmaps, onNavigate }) => {
+  const { token } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeSession, setActiveSession] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboard();
+    checkActiveSession();
   }, []);
 
   const loadDashboard = async () => {
@@ -54,6 +58,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
       console.error('Failed to load dashboard:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkActiveSession = async () => {
+    try {
+      const session = await getActiveSession();
+      if (session && session.session_id) {
+         setActiveSession(session.session_id);
+      }
+    } catch (err) {
+      console.error('Failed to check active session:', err);
     }
   };
 
@@ -93,11 +108,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
           </div>
         </div>
 
+        {/* Resume Session Banner */}
+        {activeSession && (
+          <div className="bg-primary-500/10 border-2 border-primary-500/50 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+             <div className="flex items-center gap-4">
+                <div className="text-4xl animate-bounce">🎙️</div>
+                <div>
+                   <h3 className="text-xl font-bold text-primary-400">In-progress Interview</h3>
+                   <p className="text-sm text-text-tertiary">You have an unfinished interview session. Pick up where you left off!</p>
+                </div>
+             </div>
+             <button 
+                onClick={() => onNavigate('interview', { resumeSessionId: activeSession })}
+                className="btn-primary px-8 py-3 whitespace-nowrap"
+             >
+                Resume Interview Now
+             </button>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="card-hover p-6">
             <div className="flex items-center gap-4">
-              <div className="text-4xl">🎤</div>
+              <div className="text-4xl text-primary-400">🎤</div>
               <div>
                 <div className="text-3xl font-bold text-primary-400">
                   {data.stats.total_interviews}
@@ -109,7 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
 
           <div className="card-hover p-6">
             <div className="flex items-center gap-4">
-              <div className="text-4xl">✅</div>
+              <div className="text-4xl text-success-400">✅</div>
               <div>
                 <div className="text-3xl font-bold text-success-400">
                   {data.stats.completed_interviews}
@@ -121,9 +155,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
 
           <div className="card-hover p-6">
             <div className="flex items-center gap-4">
-              <div className="text-4xl">🗺️</div>
+              <div className="text-4xl text-warning-400">🗺️</div>
               <div>
-                <div className="text-3xl font-bold text-primary-400">
+                <div className="text-3xl font-bold text-warning-400">
                   {data.stats.saved_roadmaps}
                 </div>
                 <div className="text-sm text-text-secondary">Saved Roadmaps</div>
@@ -132,94 +166,107 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="card p-6">
-          <h2 className="heading-3 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={onStartNewInterview}
-              className="btn-primary text-lg py-4"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <span>🚀</span>
-                Start New Interview
-              </span>
-            </button>
-            <button
-              onClick={onViewRoadmaps}
-              className="btn-outline text-lg py-4"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <span>📚</span>
-                View Saved Roadmaps
-              </span>
-            </button>
+        {/* Action Center */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Interview Actions */}
+          <div className="lg:col-span-2 card p-8 space-y-6">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+               <span className="p-2 bg-primary-500/10 text-primary-400 rounded-xl text-xl">⚡</span>
+               Action Center
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                onClick={onStartNewInterview}
+                className="flex flex-col items-center justify-center p-6 bg-primary-600 hover:bg-primary-500 text-white rounded-2xl transition-all shadow-lg hover:shadow-primary-500/20 group"
+              >
+                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">🎤</span>
+                <span className="font-bold text-lg">Start Full Interview</span>
+                <span className="text-xs text-primary-100/70 mt-1">Aptitude + Technical + HR</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate('question_gen')}
+                className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
+              >
+                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">⚡</span>
+                <span className="font-bold text-lg">Question Generator</span>
+                <span className="text-xs text-text-tertiary mt-1">Standalone questions (no interview)</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate('jobs')}
+                className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
+              >
+                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">🎯</span>
+                <span className="font-bold text-lg">AI Job Matcher</span>
+                <span className="text-xs text-text-tertiary mt-1">Find your best career path</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate('live_jobs')}
+                className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
+              >
+                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">🌐</span>
+                <span className="font-bold text-lg">Live Jobs</span>
+                <span className="text-xs text-text-tertiary mt-1">Real-time vacancies via SerpApi</span>
+              </button>
+            </div>
+          </div>
+
+          {/* User History Preview */}
+          <div className="card p-6 divide-y divide-white/5 flex flex-col">
+             <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold">Recent Roadmaps</h3>
+                <button onClick={onViewRoadmaps} className="text-xs text-primary-400 hover:underline">View All</button>
+             </div>
+             <div className="flex-1 space-y-3 pt-4 overflow-y-auto max-h-[300px]">
+                {data.recent_roadmaps.length > 0 ? (
+                  data.recent_roadmaps.map((roadmap) => (
+                    <div key={roadmap.id} className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer" onClick={() => onNavigate('roadmaps', { selectedId: roadmap.id })}>
+                       <div className="text-sm font-bold truncate">{roadmap.target_role}</div>
+                       <div className="text-[10px] text-gray-500 mt-1 flex justify-between">
+                          <span>{new Date(roadmap.created_at).toLocaleDateString()}</span>
+                          <span className="text-primary-500 opacity-0 group-hover:opacity-100 transition-opacity">Resume →</span>
+                       </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-center text-text-tertiary py-8">No roadmaps yet</p>
+                )}
+             </div>
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Recent Interviews */}
-          <div className="card p-6">
-            <h2 className="heading-4 mb-4">Recent Interviews</h2>
-            {data.recent_interviews.length > 0 ? (
-              <div className="space-y-3">
-                {data.recent_interviews.map((interview) => (
-                  <div
-                    key={interview.id}
-                    className="bg-neutral-50 rounded-lg p-4 hover:bg-neutral-100 transition-colors border border-neutral-200"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`badge ${
-                        interview.status === 'completed'
-                          ? 'badge-success'
-                          : 'badge-primary'
-                      }`}>
-                        {interview.status}
-                      </span>
-                      <span className="body-text-sm">
-                        {new Date(interview.created_at).toLocaleDateString()}
-                      </span>
+        {/* Interviews History Table Preview */}
+        <div className="card p-6">
+            <h2 className="heading-4 mb-4">History</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data.recent_interviews.length > 0 ? (
+                data.recent_interviews.map((interview) => (
+                  <div key={interview.id} className="bg-neutral-50 rounded-lg p-4 hover:bg-neutral-100 transition-colors border border-neutral-200 flex items-center justify-between">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`badge ${interview.status === 'completed' ? 'badge-success' : 'badge-primary'}`}>
+                            {interview.status}
+                          </span>
+                          <span className="body-text-sm">{new Date(interview.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div className="text-lg font-bold text-text-primary">Score: {interview.total_score.toFixed(1)}/10</div>
                     </div>
-                    <div className="text-lg font-semibold text-text-primary">
-                      Score: {interview.total_score.toFixed(1)}/10
-                    </div>
+                    {interview.status !== 'completed' && (
+                       <button 
+                          onClick={() => onNavigate('interview', { resumeSessionId: interview.id })}
+                          className="text-xs font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600 p-2 bg-primary-500/5 rounded-lg"
+                       >
+                          Continue →
+                       </button>
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="body-text text-center py-8">No interviews yet</p>
-            )}
-          </div>
-
-          {/* Recent Roadmaps */}
-          <div className="card p-6">
-            <h2 className="heading-4 mb-4">Recent Roadmaps</h2>
-            {data.recent_roadmaps.length > 0 ? (
-              <div className="space-y-3">
-                {data.recent_roadmaps.map((roadmap) => (
-                  <div
-                    key={roadmap.id}
-                    className="bg-neutral-50 rounded-lg p-4 hover:bg-neutral-100 transition-colors border border-neutral-200"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="body-text-sm">
-                        {new Date(roadmap.created_at).toLocaleDateString()}
-                      </span>
-                      {roadmap.is_saved && (
-                        <span className="text-warning-400">⭐</span>
-                      )}
-                    </div>
-                    <div className="text-lg font-semibold text-text-primary">
-                      {roadmap.target_role}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="body-text text-center py-8">No roadmaps yet</p>
-            )}
-          </div>
+                ))
+              ) : (
+                <p className="body-text text-center py-8 col-span-2">No interviews yet</p>
+              )}
+            </div>
         </div>
       </div>
     </div>

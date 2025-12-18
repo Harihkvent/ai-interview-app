@@ -2,8 +2,8 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
-  currentPage?: 'dashboard' | 'jobs' | 'interview' | 'roadmaps';
-  onNavigate: (page: 'dashboard' | 'jobs' | 'interview' | 'roadmaps') => void;
+  currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'interview' | 'roadmaps' | 'question_gen';
+  onNavigate: (page: any) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
@@ -11,9 +11,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
 
   const navItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: '🏠' },
-    { id: 'jobs' as const, label: 'Job Matches', icon: '💼' },
+    { id: 'jobs' as const, label: 'Job Matcher', icon: '🎯' },
+    { id: 'live_jobs' as const, label: 'Live Jobs', icon: '🌐' },
     { id: 'roadmaps' as const, label: 'My Roadmaps', icon: '🗺️' },
-    { id: 'interview' as const, label: 'New Interview', icon: '🎤' },
+    { id: 'interview' as const, label: 'Interview', icon: '🎤' },
+    { id: 'question_gen' as const, label: 'Question Gen', icon: '⚡' },
   ];
 
   return (
