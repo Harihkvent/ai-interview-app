@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getJobMatches, generateRoadmap } from '../api';
+import { getJobMatches, generateRoadmap, analyzeResumeLive, analyzeResume } from '../api';
 
 interface JobMatch {
     rank: number;
@@ -8,6 +8,11 @@ interface JobMatch {
     matched_skills: string[];
     missing_skills: string[];
     job_description: string;
+    company_name?: string;
+    location?: string;
+    thumbnail?: string;
+    via?: string;
+    is_live?: boolean;
 }
 
 interface JobMatchesProps {
@@ -18,25 +23,53 @@ interface JobMatchesProps {
 export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGenerated }) => {
     const [matches, setMatches] = useState<JobMatch[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchingLive, setSearchingLive] = useState(false);
+    const [isLiveSearch, setIsLiveSearch] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         loadMatches();
-    }, [sessionId]);
+    }, [sessionId, isLiveSearch]);
 
     const loadMatches = async () => {
         try {
             setLoading(true);
             const data = await getJobMatches(sessionId);
-            setMatches(data.matches || []);
+            
+            // Filter based on live toggle if data exists
+            const filtered = (data.matches || []).filter((m: any) => 
+                isLiveSearch ? m.is_live : !m.is_live
+            );
+
+            if (filtered.length === 0 && isLiveSearch) {
+                // If live search is on but no live matches yet, trigger a live analysis
+                handleLiveSearch();
+            } else {
+                setMatches(filtered);
+            }
             setError(null);
         } catch (err: any) {
             console.error('Failed to load matches:', err);
             setError(err.response?.data?.detail || 'Failed to load job matches');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleLiveSearch = async () => {
+        try {
+            setSearchingLive(true);
+            await analyzeResumeLive(sessionId, 'India');
+            const data = await getJobMatches(sessionId);
+            const liveMatches = (data.matches || []).filter((m: any) => m.is_live);
+            setMatches(liveMatches);
+        } catch (err: any) {
+            console.error('Live search failed:', err);
+            setError('Failed to fetch live jobs. Check your connection or API key.');
+        } finally {
+            setSearchingLive(false);
         }
     };
 
@@ -55,7 +88,7 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
         }
     };
 
-    if (loading) {
+    if (loading && !searchingLive) {
         return (
             <div className="min-h-screen flex items-center justify-center p-4">
                 <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
@@ -74,37 +107,43 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
         );
     }
 
-    if (error) {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
-                    <div className="text-6xl">⚠️</div>
-                    <h2 className="text-3xl font-bold text-red-400">Error Loading Matches</h2>
-                    <p className="text-gray-300">{error}</p>
-                    <button onClick={loadMatches} className="btn-primary">
-                        Try Again
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen p-4 pb-20">
             <div className="max-w-6xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="glass-card p-8 text-center">
+                {/* Header with Live Toggle */}
+                <div className="glass-card p-8 text-center relative overflow-hidden">
                     <div className="text-6xl mb-4">🎯</div>
                     <h1 className="heading-1 text-primary-400 mb-3">
-                        Your Top Job Matches
+                        {isLiveSearch ? 'Real-Time Job Openings' : 'Your Top Job Matches'}
                     </h1>
-                    <p className="body-text">
-                        Based on your resume, here are the best career opportunities for you
+                    <p className="body-text max-w-2xl mx-auto">
+                        {isLiveSearch 
+                            ? 'Live vacancies fetched from Google Jobs via SerpApi based on your profile.'
+                            : 'Based on our 63k+ job database, here are the roles that best fit your skills.'}
                     </p>
-                    <div className="mt-4 inline-block bg-primary-500/20 px-6 py-2 rounded-full">
-                        <span className="text-primary-300 font-semibold">
-                            {matches.length} Matches Found
-                        </span>
+                    
+                    <div className="mt-8 flex flex-col items-center gap-4">
+                        <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/10">
+                            <button 
+                                onClick={() => setIsLiveSearch(false)}
+                                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${!isLiveSearch ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                AI Prediction
+                            </button>
+                            <button 
+                                onClick={() => setIsLiveSearch(true)}
+                                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isLiveSearch ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                <span>🌐</span> Live Jobs
+                            </button>
+                        </div>
+
+                        {searchingLive && (
+                            <div className="flex items-center gap-2 text-primary-400 animate-pulse text-sm font-medium">
+                                <span className="w-2 h-2 bg-primary-400 rounded-full"></span>
+                                Fetching jobs from SerpApi...
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -112,29 +151,41 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
                 <div className="grid gap-6 md:grid-cols-2">
                     {matches.map((match) => (
                         <div
-                            key={match.rank}
-                            className="glass-card p-6 hover:scale-[1.02] transition-transform"
+                            key={`${match.is_live ? 'live' : 'static'}-${match.rank}`}
+                            className="glass-card p-6 border border-white/10 hover:border-primary-500/50 hover:scale-[1.02] transition-all duration-300 relative group"
                         >
-                            {/* Rank Badge */}
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="bg-gradient-to-r from-primary-500 to-purple-500 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
-                                    #{match.rank}
+                            {match.is_live && (
+                                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 bg-primary-500/20 border border-primary-500/30 rounded-full">
+                                    <span className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-pulse"></span>
+                                    <span className="text-[10px] uppercase tracking-wider font-bold text-primary-300">Live</span>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-3xl font-bold text-primary-400">
-                                        {match.match_percentage}%
+                            )}
+
+                            {/* Company & Rank */}
+                            <div className="flex items-start gap-4 mb-4">
+                                {match.thumbnail ? (
+                                    <img src={match.thumbnail} alt={match.company_name} className="w-12 h-12 rounded-xl object-contain bg-white p-1" />
+                                ) : (
+                                    <div className="bg-gradient-to-br from-primary-500 to-purple-600 text-white w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg">
+                                        {match.rank}
                                     </div>
-                                    <div className="text-xs text-gray-400">Match Score</div>
+                                )}
+                                <div>
+                                    <h3 className="text-xl font-bold text-white group-hover:text-primary-300 transition-colors">
+                                        {match.job_title}
+                                    </h3>
+                                    <div className="text-sm text-gray-400 font-medium">
+                                        {match.company_name || 'AI Prediction'} • {match.location || 'Global'}
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Job Title */}
-                            <h3 className="text-2xl font-bold mb-3 text-white">
-                                {match.job_title}
-                            </h3>
-
-                            {/* Match Progress Bar */}
-                            <div className="mb-4">
+                            {/* Score & Progress */}
+                            <div className="mb-6 bg-white/5 p-4 rounded-xl border border-white/5">
+                                <div className="flex justify-between items-end mb-2">
+                                    <span className="text-sm font-medium text-gray-400">Match Accuracy</span>
+                                    <span className="text-2xl font-black text-primary-400">{match.match_percentage}%</span>
+                                </div>
                                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-gradient-to-r from-primary-500 to-purple-500 transition-all duration-1000"
@@ -143,87 +194,73 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
                                 </div>
                             </div>
 
-                            {/* Matched Skills */}
-                            {match.matched_skills.length > 0 && (
-                                <div className="mb-4">
-                                    <h4 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-2">
-                                        <span>✓</span> Your Matching Skills
-                                    </h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {match.matched_skills.slice(0, 6).map((skill) => (
-                                            <span
-                                                key={skill}
-                                                className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-xs font-medium"
-                                            >
-                                                {skill}
-                                            </span>
-                                        ))}
-                                        {match.matched_skills.length > 6 && (
-                                            <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-xs">
-                                                +{match.matched_skills.length - 6} more
-                                            </span>
-                                        )}
+                            {/* Skills Grid */}
+                            <div className="space-y-4 mb-6">
+                                {match.matched_skills.length > 0 && (
+                                    <div>
+                                        <div className="text-[10px] uppercase tracking-widest font-bold text-green-500 mb-2">Matched Skills</div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {match.matched_skills.slice(0, 5).map((skill) => (
+                                                <span key={skill} className="px-2 py-0.5 bg-green-500/10 text-green-300 border border-green-500/20 rounded-md text-[10px] font-bold">
+                                                    {skill}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Missing Skills */}
-                            {match.missing_skills.length > 0 && (
-                                <div className="mb-4">
-                                    <h4 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
-                                        <span>📚</span> Skills to Learn
-                                    </h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {match.missing_skills.slice(0, 5).map((skill) => (
-                                            <span
-                                                key={skill}
-                                                className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-xs font-medium"
-                                            >
-                                                {skill}
-                                            </span>
-                                        ))}
-                                        {match.missing_skills.length > 5 && (
-                                            <span className="px-3 py-1 bg-orange-500/10 text-orange-400 rounded-full text-xs">
-                                                +{match.missing_skills.length - 5} more
-                                            </span>
-                                        )}
+                                )}
+                                {match.missing_skills.length > 0 && (
+                                    <div>
+                                        <div className="text-[10px] uppercase tracking-widest font-bold text-orange-400 mb-2">Gaps to Bridge</div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {match.missing_skills.slice(0, 5).map((skill) => (
+                                                <span key={skill} className="px-2 py-0.5 bg-orange-500/10 text-orange-300 border border-orange-500/20 rounded-md text-[10px] font-bold">
+                                                    {skill}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
 
-                            {/* Generate Roadmap Button */}
+                            {/* Action Button */}
                             <button
                                 onClick={() => handleGenerateRoadmap(match.job_title)}
                                 disabled={generating}
-                                className="w-full btn-primary mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full py-3 bg-white/5 hover:bg-primary-500 text-white rounded-xl font-bold transition-all border border-white/10 hover:border-primary-400 group/btn disabled:opacity-50"
                             >
                                 {generating && selectedJob === match.job_title ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <span className="animate-spin">⚙️</span>
-                                        Generating Roadmap...
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        Building Roadmap...
                                     </span>
                                 ) : (
                                     <span className="flex items-center justify-center gap-2">
                                         <span>🗺️</span>
-                                        Generate Career Roadmap
+                                        {isLiveSearch ? 'Apply & Build Roadmap' : 'Generate Career Roadmap'}
                                     </span>
                                 )}
                             </button>
+                            
+                            {match.via && (
+                                <div className="mt-3 text-[10px] text-center text-gray-500 italic">
+                                    Posted via {match.via}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
 
-                {/* Info Card */}
-                <div className="glass-card p-6 bg-primary-500/10 border border-primary-500/30">
-                    <h3 className="font-semibold text-primary-300 mb-2 flex items-center gap-2">
-                        <span>💡</span> How It Works
-                    </h3>
-                    <p className="text-sm text-gray-300">
-                        Our AI analyzed your resume using advanced machine learning (TF-IDF + Semantic matching)
-                        to find the best job matches from 63,000+ roles. Select a job to generate a personalized
-                        career roadmap with learning milestones and resources!
-                    </p>
-                </div>
+                {!searchingLive && matches.length === 0 && (
+                    <div className="glass-card p-12 text-center">
+                        <div className="text-4xl mb-4">📭</div>
+                        <h3 className="text-xl font-bold mb-2">No Matches Found</h3>
+                        <p className="text-gray-400">
+                            {isLiveSearch 
+                                ? 'Try refining your resume or checking back later for live openings.' 
+                                : 'Try uploading a more detailed resume for better matching.'}
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );

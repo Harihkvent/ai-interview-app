@@ -77,6 +77,12 @@ class JobMatch(Document):
     matched_skills: List[str]
     missing_skills: List[str]
     rank: int  # 1-10
+    company_name: Optional[str] = None
+    location: Optional[str] = None
+    thumbnail: Optional[str] = None
+    via: Optional[str] = None
+    job_id: Optional[str] = None
+    is_live: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:

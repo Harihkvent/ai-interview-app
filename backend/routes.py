@@ -644,6 +644,29 @@ async def analyze_resume(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/analyze-resume-live/{session_id}")
+async def analyze_resume_live(session_id: str, location: str = "India"):
+    """Analyze resume and generate LIVE job matches using SerpApi"""
+    try:
+        # Get resume
+        resume = await Resume.find_one(Resume.session_id == session_id)
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        
+        # Run LIVE job matching
+        from ml_job_matcher import analyze_resume_and_match_live
+        matches = await analyze_resume_and_match_live(session_id, resume.content, top_n=10, location=location)
+        
+        return {
+            "session_id": session_id,
+            "total_matches": len(matches),
+            "top_matches": matches,
+            "message": "Resume analyzed successfully with LIVE jobs from SerpApi",
+            "location": location
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/job-matches/{session_id}")
 async def get_job_matches(session_id: str):
     """Get stored job matches for a session"""
@@ -668,7 +691,12 @@ async def get_job_matches(session_id: str):
                     "match_percentage": m.match_percentage,
                     "matched_skills": m.matched_skills,
                     "missing_skills": m.missing_skills,
-                    "job_description": m.job_description[:300] + "..."  # Truncate for response size
+                    "job_description": m.job_description[:300] + "...",
+                    "company_name": m.company_name,
+                    "location": m.location,
+                    "thumbnail": m.thumbnail,
+                    "via": m.via,
+                    "is_live": m.is_live
                 }
                 for m in matches
             ]

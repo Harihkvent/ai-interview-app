@@ -152,26 +152,62 @@ def calculate_semantic_scores(resume_text: str, top_n: int = 50) -> List[Tuple[i
     top_indices = similarities_np.argsort()[-top_n:][::-1]
     return [(idx, similarities_np[idx]) for idx in top_indices if similarities_np[idx] > 0.1]
 
-def calculate_hybrid_scores(resume_text: str, top_n: int = 10) -> List[Dict]:
+def calculate_hybrid_scores(resume_text: str, top_n: int = 10, external_jobs: List[Dict] = None) -> List[Dict]:
     """
     Calculate hybrid scores combining TF-IDF and Semantic matching
     
     Args:
         resume_text: Resume content
         top_n: Number of top matches to return
+        external_jobs: Optional list of dictionaries with 'job_title' and 'job_description'
     
     Returns:
         List of job matches with hybrid scores
     """
-    jobs_df = load_job_database()
+    if external_jobs:
+        # Create a temporary DataFrame for external jobs
+        jobs_df = pd.DataFrame(external_jobs)
+        # Standardize column names for the logic below
+        if 'job_title' in jobs_df.columns:
+            jobs_df['Job Title'] = jobs_df['job_title']
+        if 'job_description' in jobs_df.columns:
+            jobs_df['Job Description'] = jobs_df['job_description']
+    else:
+        jobs_df = load_job_database()
+
     resume_skills = extract_skills(resume_text)
     
     # Get scores from both methods
-    print("📊 Calculating TF-IDF scores...")
-    tfidf_scores = calculate_tfidf_scores(resume_text, top_n=50)
+    print(f"📊 Calculating scores for {len(jobs_df)} jobs...")
     
-    print("📊 Calculating Semantic scores...")
-    semantic_scores = calculate_semantic_scores(resume_text, top_n=50)
+    if external_jobs:
+        # Dynamic calculation for small set of live jobs
+        # 1. TF-IDF
+        processed_resume = preprocess_text(resume_text)
+        jobs_df['combined'] = jobs_df['Job Title'].fillna('') + ' ' + jobs_df['Job Description'].fillna('')
+        job_texts = jobs_df['combined'].apply(preprocess_text).tolist()
+        
+        temp_vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
+        try:
+            temp_job_vectors = temp_vectorizer.fit_transform(job_texts)
+            temp_resume_vector = temp_vectorizer.transform([processed_resume])
+            tfidf_sims = cosine_similarity(temp_resume_vector, temp_job_vectors)[0]
+        except:
+            tfidf_sims = np.zeros(len(jobs_df))
+
+        # 2. Semantic
+        model, _ = initialize_semantic_matcher() # reuse the model, ignore cached embeddings
+        temp_job_texts = (jobs_df['Job Title'].fillna('') + '. ' + jobs_df['Job Description'].fillna('')).tolist()
+        temp_job_embeddings = model.encode(temp_job_texts, convert_to_tensor=True)
+        resume_embedding = model.encode(resume_text, convert_to_tensor=True)
+        semantic_sims = util.cos_sim(resume_embedding, temp_job_embeddings)[0].cpu().numpy()
+        
+        # Create score lists compatible with the zip logic below
+        tfidf_scores = [(i, tfidf_sims[i]) for i in range(len(jobs_df))]
+        semantic_scores = [(i, semantic_sims[i]) for i in range(len(jobs_df))]
+    else:
+        tfidf_scores = calculate_tfidf_scores(resume_text, top_n=50)
+        semantic_scores = calculate_semantic_scores(resume_text, top_n=50)
     
     # Combine scores
     combined_scores = {}
@@ -209,16 +245,29 @@ def calculate_hybrid_scores(resume_text: str, top_n: int = 10) -> List[Dict]:
         matched_skills = list(set(resume_skills) & set(job_skills))
         missing_skills = list(set(job_skills) - set(resume_skills))
         
-        matches.append({
-            'index': int(idx),  # Convert numpy.int64 to Python int
+        match_data = {
+            'index': int(idx),
             'job_title': str(jobs_df.iloc[idx]['Job Title']),
             'job_description': job_desc,
-            'match_percentage': round(float(hybrid_score * 100), 2),  # Python float with 2 decimals
+            'match_percentage': round(float(hybrid_score * 100), 2),
             'tfidf_score': round(float(tfidf * 100), 2),
             'semantic_score': round(float(semantic * 100), 2),
             'matched_skills': matched_skills,
-            'missing_skills': missing_skills[:10]  # Limit to top 10
-        })
+            'missing_skills': missing_skills[:10]
+        }
+        
+        # Include original fields if it's an external job (company, location, etc.)
+        if external_jobs:
+            orig_job = external_jobs[idx]
+            match_data.update({
+                'company_name': orig_job.get('company_name'),
+                'location': orig_job.get('location'),
+                'thumbnail': orig_job.get('thumbnail'),
+                'via': orig_job.get('via'),
+                'job_id': orig_job.get('job_id')
+            })
+            
+        matches.append(match_data)
     
     # Sort by hybrid score
     matches.sort(key=lambda x: x['match_percentage'], reverse=True)
@@ -228,14 +277,6 @@ def calculate_hybrid_scores(resume_text: str, top_n: int = 10) -> List[Dict]:
 async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int = 10) -> List[Dict]:
     """
     Main function to analyze resume and find job matches
-    
-    Args:
-        session_id: Interview session ID
-        resume_text: Resume content
-        top_n: Number of top matches to return
-    
-    Returns:
-        List of job matches
     """
     print(f"\n🎯 Analyzing resume for session {session_id}...")
     
@@ -257,6 +298,54 @@ async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int
         await job_match.insert()
     
     print(f"✅ Analysis complete! Top match: {matches[0]['job_title']} ({matches[0]['match_percentage']}%)")
+    
+    return matches
+
+async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n: int = 10, location: str = "India") -> List[Dict]:
+    """
+    Main function to analyze resume and find LIVE job matches via SerpApi
+    """
+    from serp_api_service import SerpJobService
+    print(f"\n🌍 Fetching LIVE jobs for session {session_id} in {location}...")
+    
+    # 1. Extract a good search query from the resume (simplified: just use top skills/titles)
+    # For now, we'll try to find a job title in the resume or use a general fallback
+    resume_skills = extract_skills(resume_text)
+    query = "Software Engineer" # Default
+    if resume_skills:
+        query = f"{resume_skills[0]} Developer" # Simple heuristic
+    
+    # 2. Fetch from SerpApi
+    live_jobs = await SerpJobService.fetch_live_jobs(query, location)
+    
+    if not live_jobs:
+        print("⚠️ No live jobs found from SerpApi.")
+        return []
+
+    # 3. Calculate hybrid matches against the live list
+    matches = calculate_hybrid_scores(resume_text, top_n=top_n, external_jobs=live_jobs)
+    
+    # 4. Store matches in database
+    print(f"💾 Storing {len(matches)} LIVE matches in database...")
+    for rank, match in enumerate(matches, 1):
+        job_match = JobMatch(
+            session_id=session_id,
+            job_title=match['job_title'],
+            job_description=match['job_description'],
+            match_percentage=match['match_percentage'],
+            matched_skills=match['matched_skills'],
+            missing_skills=match['missing_skills'],
+            rank=rank,
+            company_name=match.get('company_name'),
+            location=match.get('location'),
+            thumbnail=match.get('thumbnail'),
+            via=match.get('via'),
+            job_id=match.get('job_id'),
+            is_live=True
+        )
+        await job_match.insert()
+    
+    print(f"✅ Live analysis complete! Top match: {matches[0]['job_title']} at {matches[0].get('company_name')} ({matches[0]['match_percentage']}%)")
     
     return matches
 
