@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
@@ -18,6 +18,9 @@ from metrics import (
     record_round_switch,
     record_answer_metrics
 )
+
+from auth_routes import get_current_user
+from auth_models import User
 
 router = APIRouter()
 
@@ -47,10 +50,21 @@ class GenerateRoadmapRequest(BaseModel):
     session_id: str
     target_job_title: str
 
+class StartInterviewFromRoleRequest(BaseModel):
+    target_job_title: str
+
+class GenerateQuestionsOnlyRequest(BaseModel):
+    resume_text: str
+    round_type: str
+    num_questions: Optional[int] = 5
+
 # ============= Resume Upload & Session Start =============
 
 @router.post("/upload-resume")
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
     """Upload resume and create new interview session"""
     try:
         # Extract text from resume
@@ -62,6 +76,7 @@ async def upload_resume(file: UploadFile = File(...)):
         
         # Create new session
         new_session = InterviewSession(
+            user_id=str(current_user.id),
             status="active",
             started_at=datetime.utcnow()
         )
@@ -102,6 +117,71 @@ async def upload_resume(file: UploadFile = File(...)):
             "filename": file.filename,
             "candidate_name": candidate_name,
             "candidate_email": candidate_email
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/active-session")
+async def get_active_session(current_user: User = Depends(get_current_user)):
+    """Retrieve the most recent active (unfinished) session for the user"""
+    try:
+        session = await InterviewSession.find(
+            InterviewSession.user_id == str(current_user.id),
+            InterviewSession.status == "active"
+        ).sort("-created_at").first_or_none()
+        
+        if not session:
+            return {"session_id": None}
+            
+        return {
+            "session_id": str(session.id),
+            "status": session.status,
+            "created_at": session.created_at.isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/start-interview-from-role")
+async def start_interview_from_role(
+    request: StartInterviewFromRoleRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Start a new interview session directly for a specified role (using user's most recent resume)"""
+    try:
+        # Find user's most recent resume
+        # We need to find the most recent session that has a resume
+        recent_session = await InterviewSession.find(
+            InterviewSession.user_id == str(current_user.id),
+            InterviewSession.resume_id != None
+        ).sort("-created_at").first_or_none()
+        
+        if not recent_session:
+            raise HTTPException(status_code=400, detail="No previous resume found. Please upload a resume first.")
+            
+        resume = await Resume.get(recent_session.resume_id)
+        
+        # Create new session
+        new_session = InterviewSession(
+            user_id=str(current_user.id),
+            status="active",
+            started_at=datetime.utcnow(),
+            resume_id=str(resume.id)
+        )
+        await new_session.insert()
+        
+        # Create all three rounds
+        round_types = ["aptitude", "technical", "hr"]
+        for round_type in round_types:
+            round_obj = InterviewRound(
+                session_id=str(new_session.id),
+                round_type=round_type,
+                status="pending"
+            )
+            await round_obj.insert()
+            
+        return {
+            "session_id": str(new_session.id),
+            "message": f"Interview started for {request.target_job_title}"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -618,6 +698,22 @@ async def end_interview(session_id: str):
     await db_session.save()
     
     return {"message": "Interview ended", "session_id": session_id}
+
+@router.post("/generate-questions-only")
+async def generate_questions_only(request: GenerateQuestionsOnlyRequest):
+    """Standalone endpoint that generates questions without starting an interview session"""
+    try:
+        questions = await generate_questions_from_resume(
+            request.resume_text,
+            request.round_type,
+            request.num_questions
+        )
+        return {
+            "round_type": request.round_type,
+            "questions": questions
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ============= Job Matching Endpoints =============
 

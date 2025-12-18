@@ -22,3 +22,6 @@ python-jose[cryptography]
 email-validator
 google-auth-oauthlib
 google-auth
+torch
+tqdm
+requests
