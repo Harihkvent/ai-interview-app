@@ -211,12 +211,11 @@ The app will be available at `http://localhost:5173`
 ### Interview Flow
 
 - `POST /upload-resume` - Upload resume and create session
-- `POST /analyze-resume` - Analyze resume for job matching
+- `POST /analyze-resume/{session_id}` - Analyze resume for job matching
 - `POST /generate-roadmap` - Generate career roadmap
-- `POST /start-round/{session_id}` - Start interview round
-- `POST /submit-answer` - Submit answer with evaluation
-- `GET /next-round/{session_id}` - Get next pending round
-- `POST /switch-round` - Switch to different round
+- `POST /api/interview/start-round` - Start or resume an interview round (Body: session_id, round_type)
+- `POST /api/interview/submit-answer` - Submit answer with evaluation (Body: question_id, answer_text)
+- `POST /api/interview/switch-round` - Switch to different round (Body: session_id)
 - `GET /rounds-status/{session_id}` - Get all rounds status
 - `GET /report/{session_id}` - Download PDF report
 
@@ -229,11 +228,15 @@ ai-interview-app/
 │   ├── auth_models.py          # User authentication models
 │   ├── auth_routes.py          # Authentication endpoints
 │   ├── user_routes.py          # User dashboard & roadmap management
-│   ├── models.py               # Interview & roadmap models
-│   ├── routes.py               # Interview flow endpoints
-│   ├── services.py             # AI service (Krutrim integration)
+│   ├── models.py               # Data models
+│   ├── routes.py               # Core application routes
+│   ├── interview_router.py     # Modular interview flow endpoints
+│   ├── interview_service.py    # Interview logic and state management
+│   ├── question_service.py     # Question generation service
+│   ├── services.py             # External AI service integration (Krutrim)
 │   ├── file_handler.py         # Resume upload and parsing
 │   ├── report_generator.py    # PDF report generation
+│   ├── ml_job_matcher.py       # Hybrid ML job matching logic
 │   ├── database.py             # MongoDB configuration
 │   ├── metrics.py              # Prometheus metrics
 │   ├── requirements.txt        # Python dependencies

@@ -209,11 +209,12 @@ graph TB
         FastAPI[FastAPI App]
         FastAPI --> AuthR[Auth Routes]
         FastAPI --> UserR[User Routes]
-        FastAPI --> IntR[Interview Routes]
+        FastAPI --> IntR[Interview Router]
 
-        IntR --> MLS[ML Job Matcher]
-        IntR --> RoadS[Roadmap Generator]
         IntR --> IntS[Interview Service]
+        IntR --> QS[Question Service]
+        IntS --> MLS[ML Job Matcher]
+        IntS --> RoadS[Roadmap Generator]
     end
 
     subgraph "Data Layer"
@@ -267,11 +268,12 @@ graph TB
         FastAPI[FastAPI App]
         FastAPI --> AuthR[Auth Routes]
         FastAPI --> UserR[User Routes]
-        FastAPI --> IntR[Interview Routes]
+        FastAPI --> IntR[Interview Router]
 
-        IntR --> MLS[ML Job Matcher]
-        IntR --> RoadS[Roadmap Generator]
         IntR --> IntS[Interview Service]
+        IntR --> QS[Question Service]
+        IntS --> MLS[ML Job Matcher]
+        IntS --> RoadS[Roadmap Generator]
     end
 
     subgraph "Data Layer"
@@ -324,6 +326,7 @@ graph TB
 | **MongoDB**               | Latest           | NoSQL database for flexible schema               |
 | **Beanie ODM**            | Latest           | Async MongoDB ORM with Pydantic                  |
 | **Krutrim AI**            | Spectre-v2       | Question generation, answer evaluation, roadmaps |
+| **Service Architecture**  | Modular          | Separation of concerns (Interview, Question, Auth)|
 | **scikit-learn**          | Latest           | TF-IDF vectorization, cosine similarity          |
 | **Sentence Transformers** | all-MiniLM-L6-v2 | Semantic similarity matching                     |
 | **PyJWT**                 | Latest           | JWT token generation/validation                  |
@@ -559,9 +562,9 @@ erDiagram
 | POST   | `/analyze-resume-live/{session_id}` | Live job matching (SerpAPI)     |
 | GET    | `/job-matches/{session_id}`         | Get stored matches              |
 | POST   | `/generate-roadmap`                 | Generate AI roadmap             |
-| POST   | `/start-round/{session_id}`         | Start interview round           |
-| POST   | `/submit-answer`                    | Submit answer for AI evaluation |
-| POST   | `/switch-round/{session_id}`        | Switch to different round       |
+| POST   | `/api/interview/start-round`        | Start interview round (JSON body)|
+| POST   | `/api/interview/submit-answer`      | Submit answer for AI evaluation |
+| POST   | `/api/interview/switch-round`       | Switch to different round       |
 | GET    | `/rounds-status/{session_id}`       | Get all rounds status           |
 | GET    | `/report/{session_id}`              | Download PDF report             |
 
@@ -612,6 +615,7 @@ erDiagram
 | Skills Gap Analysis         | NLP + Pattern Matching        | ✅     |
 | AI Roadmap Generation       | Krutrim AI                    | ✅     |
 | Roadmap Management          | MongoDB + User Dashboard      | ✅     |
+| **Modular Architecture**    | **Service-Based Design**      | ✅     |
 | Multi-Round Interviews      | Krutrim AI (5+8+5 questions)  | ✅     |
 | **Dynamic Round Switching** | **Session State Management**  | ✅     |
 | Real-Time Evaluation        | Krutrim AI                    | ✅     |
