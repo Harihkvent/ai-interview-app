@@ -66,25 +66,70 @@ async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens:
 
 def clean_ai_json(response: str) -> str:
     """Aggressively clean AI response to extract valid JSON"""
-    response = response.strip()
-    
-    # Clean markdown wrappers
-    if "```json" in response:
-        response = response.split("```json")[1].split("```")[0].strip()
-    elif "```" in response:
-        response = response.split("```")[1].split("```")[0].strip()
+    try:
+        # If response is empty
+        if not response:
+            return "{}"
+
+        # Try to parse directly first
+        try:
+            json.loads(response)
+            return response
+        except json.JSONDecodeError:
+            pass
+
+        cleaned = response.strip()
         
-    # Extract the first matching [...] or {...}
-    array_match = re.search(r'\[.*\]', response, re.DOTALL)
-    object_match = re.search(r'\{.*\}', response, re.DOTALL)
-    
-    if array_match and (not object_match or array_match.start() < object_match.start()):
-        response = array_match.group(0)
-    elif object_match:
-        response = object_match.group(0)
+        # Clean markdown wrappers
+        if "```json" in cleaned:
+            cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+        elif "```" in cleaned:
+            cleaned = cleaned.split("```")[1].split("```")[0].strip()
+            
+        # Extract the first matching [...] or {...}
+        # We start looking from the first [ or {
+        start_idx = -1
+        end_idx = -1
         
-    # Remove trailing commas before closing brackets
-    response = re.sub(r',\s*\]', ']', response)
-    response = re.sub(r',\s*\}', '}', response)
-    
-    return response
+        first_brace = cleaned.find('{')
+        first_bracket = cleaned.find('[')
+        
+        if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
+            # Object detected
+            start_idx = first_brace
+            stack = 0
+            for i, char in enumerate(cleaned[start_idx:], start=start_idx):
+                if char == '{':
+                    stack += 1
+                elif char == '}':
+                    stack -= 1
+                    if stack == 0:
+                        end_idx = i + 1
+                        break
+        elif first_bracket != -1:
+            # Array detected
+            start_idx = first_bracket
+            stack = 0
+            for i, char in enumerate(cleaned[start_idx:], start=start_idx):
+                if char == '[':
+                    stack += 1
+                elif char == ']':
+                    stack -= 1
+                    if stack == 0:
+                        end_idx = i + 1
+                        break
+                        
+        if start_idx != -1 and end_idx != -1:
+            cleaned = cleaned[start_idx:end_idx]
+            
+        # Remove trailing commas
+        cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+        
+        # Verify it parses
+        json.loads(cleaned)
+        return cleaned
+        
+    except Exception as e:
+        logger.error(f"❌ JSON Clean Error: {str(e)}")
+        logger.error(f"Raw Response: {response}")
+        return "{}"

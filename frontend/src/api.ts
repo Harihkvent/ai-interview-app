@@ -13,18 +13,28 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data || "");
+  console.log(
+    `[API Request] ${config.method?.toUpperCase()} ${config.url}`,
+    config.data || ""
+  );
   return config;
 });
 
 // Add response interceptor for logging
 api.interceptors.response.use(
   (response) => {
-    console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
+    console.log(
+      `[API Response] ${response.config.method?.toUpperCase()} ${
+        response.config.url
+      } - ${response.status}`
+    );
     return response;
   },
   (error) => {
-    console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.response?.data || error.message);
+    console.error(
+      `[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+      error.response?.data || error.message
+    );
     return Promise.reject(error);
   }
 );
@@ -49,19 +59,23 @@ export const uploadResume = async (file: File) => {
   return response.data;
 };
 
-export const startRound = async (sessionId: string | number, roundType: string) => {
-  const response = await api.post(
-    `/start-round/${sessionId}?round_type=${roundType}`
-  );
+export const startRound = async (
+  sessionId: string | number,
+  roundType: string
+) => {
+  const response = await api.post("/api/interview/start-round", {
+    session_id: sessionId.toString(),
+    round_type: roundType,
+  });
   return response.data;
 };
 
 export const submitAnswer = async (
-  questionId: number,
+  questionId: string,
   answerText: string,
   timeTaken: number
 ) => {
-  const response = await api.post("/submit-answer", {
+  const response = await api.post("/api/interview/submit-answer", {
     question_id: questionId,
     answer_text: answerText,
     time_taken_seconds: timeTaken,
@@ -93,7 +107,10 @@ export const startInterview = async () => {
   return response.data;
 };
 
-export const sendMessage = async (sessionId: string | number, message: string) => {
+export const sendMessage = async (
+  sessionId: string | number,
+  message: string
+) => {
   const response = await api.post("/chat", {
     session_id: sessionId,
     message: message,
@@ -111,10 +128,14 @@ export const endInterview = async (sessionId: string | number) => {
   return response.data;
 };
 
-export const switchRound = async (sessionId: string | number, roundType: string) => {
-  const response = await api.post(
-    `/switch-round/${sessionId}?round_type=${roundType}`
-  );
+export const switchRound = async (
+  sessionId: string | number,
+  roundType: string
+) => {
+  const response = await api.post("/api/interview/switch-round", {
+    session_id: sessionId.toString(),
+    round_type: roundType,
+  });
   return response.data;
 };
 
@@ -131,13 +152,13 @@ export const analyzeResume = async (sessionId: string) => {
 };
 
 export const getSavedResumes = async () => {
-    const response = await api.get('/user/resumes');
-    return response.data;
+  const response = await api.get("/user/resumes");
+  return response.data;
 };
 
 export const analyzeSavedResume = async (resumeId: string) => {
-    const response = await api.post(`/analyze-saved-resume/${resumeId}`);
-    return response.data;
+  const response = await api.post(`/analyze-saved-resume/${resumeId}`);
+  return response.data;
 };
 
 export const analyzeResumeLive = async (
@@ -156,18 +177,18 @@ export const analyzeResumeLive = async (
  */
 export const getJobMatches = async (sessionId: string) => {
   // Check cache first
-  const cached = cacheService.get<{ matches: any[] }>('jobMatches', sessionId);
+  const cached = cacheService.get<{ matches: any[] }>("jobMatches", sessionId);
   if (cached) {
-    console.log('📦 Returning cached job matches for session:', sessionId);
+    console.log("📦 Returning cached job matches for session:", sessionId);
     return cached;
   }
 
   // Fetch from backend
   const response = await api.get(`/job-matches/${sessionId}`);
-  
+
   // Cache the result
-  cacheService.set('jobMatches', sessionId, response.data);
-  
+  cacheService.set("jobMatches", sessionId, response.data);
+
   return response.data;
 };
 
@@ -179,11 +200,11 @@ export const generateRoadmap = async (
     session_id: sessionId,
     target_job_title: targetJobTitle,
   });
-  
+
   // Cache the roadmap
   const roadmapKey = `${sessionId}_${targetJobTitle}`;
-  cacheService.set('roadmap', roadmapKey, response.data);
-  
+  cacheService.set("roadmap", roadmapKey, response.data);
+
   return response.data;
 };
 
@@ -192,18 +213,18 @@ export const generateRoadmap = async (
  */
 export const getRoadmap = async (sessionId: string) => {
   // Check cache first
-  const cached = cacheService.get<any>('roadmap', sessionId);
+  const cached = cacheService.get<any>("roadmap", sessionId);
   if (cached) {
-    console.log('📦 Returning cached roadmap for session:', sessionId);
+    console.log("📦 Returning cached roadmap for session:", sessionId);
     return cached;
   }
 
   // Fetch from backend
   const response = await api.get(`/roadmap/${sessionId}`);
-  
+
   // Cache the result
-  cacheService.set('roadmap', sessionId, response.data);
-  
+  cacheService.set("roadmap", sessionId, response.data);
+
   return response.data;
 };
 
@@ -269,11 +290,14 @@ export const generateQuestionsOnly = async (
 ): Promise<{ questions: string[] }> => {
   // Create a cache key based on resume text hash and round type
   const cacheKey = `${roundType}_${numQuestions}`;
-  
+
   // Check cache first
-  const cached = cacheService.get<{ questions: string[] }>('questions', cacheKey);
+  const cached = cacheService.get<{ questions: string[] }>(
+    "questions",
+    cacheKey
+  );
   if (cached && cached.questions) {
-    console.log('📦 Returning cached questions for round:', roundType);
+    console.log("📦 Returning cached questions for round:", roundType);
     return cached;
   }
 
@@ -283,10 +307,10 @@ export const generateQuestionsOnly = async (
     round_type: roundType,
     num_questions: numQuestions,
   });
-  
+
   // Cache the result
-  cacheService.set('questions', cacheKey, response.data);
-  
+  cacheService.set("questions", cacheKey, response.data);
+
   return response.data;
 };
 
@@ -297,11 +321,11 @@ export const generateQuestionsOnly = async (
 export const extractText = async (file: File) => {
   // Create cache key based on file name and size (as simple identifier)
   const cacheKey = `${file.name}_${file.size}`;
-  
+
   // Check cache first
-  const cached = cacheService.get<{ text: string }>('resumeText', cacheKey);
+  const cached = cacheService.get<{ text: string }>("resumeText", cacheKey);
   if (cached) {
-    console.log('📦 Returning cached resume text for file:', file.name);
+    console.log("📦 Returning cached resume text for file:", file.name);
     return cached;
   }
 
@@ -311,10 +335,10 @@ export const extractText = async (file: File) => {
   const response = await api.post("/extract-text", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  
+
   // Cache the result
-  cacheService.set('resumeText', cacheKey, response.data);
-  
+  cacheService.set("resumeText", cacheKey, response.data);
+
   return response.data;
 };
 

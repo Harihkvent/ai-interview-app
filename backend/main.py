@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 from contextlib import asynccontextmanager
@@ -14,7 +16,23 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
 logger = logging.getLogger("api")
+
+# Add exception logger for validation errors
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_details = exc.errors()
+    logger.error(f"❌ Validation Error: {error_details}")
+    try:
+        body = await request.json()
+        logger.error(f"Request Body: {body}")
+    except:
+        logger.error("Could not read request body")
+        
+    return JSONResponse(
+        status_code=422,
+        content={"detail": error_details, "body": str(exc.body)},
+    )
 
 from database import init_db
 from routes import router
@@ -44,8 +62,12 @@ app = FastAPI(
     title="AI Interview API",
     description="AI-powered interview system with Krutrim integration",
     version="1.0.0",
+
     lifespan=lifespan
 )
+
+# Register validation exception handler
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 # CORS middleware
 app.add_middleware(
@@ -82,6 +104,8 @@ async def track_requests(request, call_next):
 app.include_router(auth_router)  # Authentication routes
 app.include_router(user_router)  # User dashboard and management
 app.include_router(router)  # Main application routes
+from interview_router import router as interview_router
+app.include_router(interview_router) # New modular interview routes
 
 # Mount Prometheus metrics endpoint
 metrics_app = make_asgi_app()
