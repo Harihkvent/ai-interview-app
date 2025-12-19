@@ -20,7 +20,7 @@ ROUND_CONFIG = {
 }
 
 
-async def generate_questions_from_resume(resume_text: str, round_type: str) -> list[dict]:
+async def generate_questions_from_resume(resume_text: str, round_type: str, count_override: int = None) -> list[dict]:
     """
     Generate round-specific questions based on resume using Krutrim
     Returns list of question objects: {text, type, options, correct_answer}
@@ -30,6 +30,16 @@ async def generate_questions_from_resume(resume_text: str, round_type: str) -> l
     config = ROUND_CONFIG.get(round_type, {"mcq": 0, "descriptive": 5})
     num_mcq = config["mcq"]
     num_desc = config["descriptive"]
+
+    if count_override:
+        if num_mcq > 0 and num_desc > 0:
+            # For mixed rounds (Technical), split evenly
+            num_mcq = count_override // 2
+            num_desc = count_override - num_mcq
+        elif num_mcq > 0:
+            num_mcq = count_override
+        else:
+            num_desc = count_override
     
     logger.info(f"Generating {round_type} questions (MCQ: {num_mcq}, Desc: {num_desc})")
     

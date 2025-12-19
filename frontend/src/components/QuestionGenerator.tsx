@@ -24,7 +24,11 @@ export const QuestionGenerator: React.FC = () => {
             
             setResumeText(text);
             const data = await generateQuestionsOnly(text, roundType, 10);
-            setQuestions(data.questions || []);
+            // Handle both string[] and object[] response formats
+            const processedQuestions = (data.questions || []).map((q: any) => 
+                typeof q === 'string' ? q : q.question
+            );
+            setQuestions(processedQuestions);
             setIsCached(false); // Fresh data from generation
         } catch (err: any) {
             console.error('Question generation failed:', err);
@@ -49,7 +53,10 @@ export const QuestionGenerator: React.FC = () => {
                 setIsCached(true);
             } else {
                 const data = await generateQuestionsOnly(resumeText, type, 10);
-                setQuestions(data.questions || []);
+                const processedQuestions = (data.questions || []).map((q: any) => 
+                    typeof q === 'string' ? q : q.question
+                );
+                setQuestions(processedQuestions);
                 setIsCached(false);
             }
         } catch (err) {
