@@ -1,7 +1,16 @@
 import json
 import time
 import re
+import logging
 from ai_utils import call_krutrim_api, clean_ai_json
+from metrics import (
+    questions_generated, 
+    question_generation_duration,
+    answer_evaluations,
+    answer_evaluation_duration
+)
+
+logger = logging.getLogger("services")
 
 # Question counts per round
 ROUND_CONFIG = {
@@ -21,6 +30,8 @@ async def generate_questions_from_resume(resume_text: str, round_type: str) -> l
     config = ROUND_CONFIG.get(round_type, {"mcq": 0, "descriptive": 5})
     num_mcq = config["mcq"]
     num_desc = config["descriptive"]
+    
+    logger.info(f"Generating {round_type} questions (MCQ: {num_mcq}, Desc: {num_desc})")
     
     questions = []
     
@@ -56,12 +67,20 @@ Generate {num_mcq} MCQs now:"""
         
         try:
             response = await call_krutrim_api(messages, temperature=0.7, max_tokens=3000, operation="generate_mcq")
+            if not response:
+                logger.warning(f"Empty response from Krutrim API for {round_type} MCQs")
+                raise ValueError("Empty response from AI")
+                
             mcqs = parse_json_questions(response, num_mcq, "mcq")
             if not mcqs:
+                logger.warning(f"Failed to parse {round_type} MCQs from response")
                 raise ValueError("Parsed MCQ list is empty")
+                
+            logger.info(f"Successfully generated {len(mcqs)} MCQs for {round_type}")
             questions.extend(mcqs[:num_mcq])
         except Exception as e:
-            print(f"Error generating MCQs: {e}")
+            logger.error(f"Error generating MCQs for {round_type}: {str(e)}")
+            logger.info(f"Using {num_mcq} fallback MCQs for {round_type}")
             for i in range(num_mcq):
                 questions.append(get_fallback_question(round_type, i+1, "mcq"))
 
@@ -93,12 +112,20 @@ Generate {num_desc} questions now:"""
         
         try:
             response = await call_krutrim_api(messages, temperature=0.7, max_tokens=2500, operation="generate_desc")
+            if not response:
+                logger.warning(f"Empty response from Krutrim API for {round_type} descriptive questions")
+                raise ValueError("Empty response from AI")
+                
             descs = parse_json_questions(response, num_desc, "descriptive")
             if not descs:
+                logger.warning(f"Failed to parse {round_type} descriptive questions from response")
                 raise ValueError("Parsed descriptive list is empty")
+                
+            logger.info(f"Successfully generated {len(descs)} descriptive questions for {round_type}")
             questions.extend(descs[:num_desc])
         except Exception as e:
-            print(f"Error generating descriptive questions: {e}")
+            logger.error(f"Error generating descriptive questions for {round_type}: {str(e)}")
+            logger.info(f"Using {num_desc} fallback descriptive questions for {round_type}")
             for i in range(num_desc):
                 questions.append(get_fallback_question(round_type, len(questions)+1, "descriptive"))
 
@@ -107,6 +134,7 @@ Generate {num_desc} questions now:"""
     questions_generated.labels(round_type=round_type).inc(len(questions))
     question_generation_duration.labels(round_type=round_type).observe(duration)
     
+    logger.info(f"Total questions generated for {round_type}: {len(questions)}")
     return questions
 
 def parse_json_questions(response: str, expected_count: int, q_type: str) -> list[dict]:

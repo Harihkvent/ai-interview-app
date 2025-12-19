@@ -4,6 +4,9 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 import io
+import logging
+
+logger = logging.getLogger("routes")
 
 from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap
 from services import generate_questions_from_resume, evaluate_answer, generate_ai_response
@@ -122,6 +125,7 @@ async def upload_resume(
             "candidate_email": candidate_email
         }
     except Exception as e:
+        logger.error(f"Error uploading resume: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/analyze-saved-resume/{resume_id}")
@@ -241,6 +245,7 @@ async def start_interview_from_role(
 async def start_round(session_id: str, round_type: str):
     """Start a specific round and generate questions"""
     try:
+        logger.info(f"Starting round {round_type} for session {session_id}")
         # Verify session exists
         interview_session = await InterviewSession.get(session_id)
         if not interview_session:
@@ -306,6 +311,7 @@ async def start_round(session_id: str, round_type: str):
             } if first_question else None
         }
     except Exception as e:
+        logger.error(f"Error initiating round {round_type} for session {session_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============= Answer Submission & Evaluation =============

@@ -3,6 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 from contextlib import asynccontextmanager
 import time
+import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger("api")
 
 from database import init_db
 from routes import router
@@ -23,6 +35,7 @@ async def lifespan(app: FastAPI):
     warmup_models()
     
     print("📊 Prometheus metrics available at /metrics")
+    logger.info("🚀 API Started and ready to handle requests")
     yield
     # Shutdown
     print("👋 Shutting down...")
@@ -60,6 +73,8 @@ async def track_requests(request, call_next):
     
     http_requests.labels(method=method, endpoint=endpoint, status_code=status_code).inc()
     http_request_duration.labels(method=method, endpoint=endpoint).observe(duration)
+    
+    logger.info(f"{method} {endpoint} - {status_code} ({duration:.2f}s)")
     
     return response
 
