@@ -18,9 +18,12 @@ class InterviewSession(Document):
         name = "interview_sessions"
 
 class Resume(Document):
-    session_id: str
+    user_id: Optional[str] = None  # Link to User
+    session_id: Optional[str] = None # Link to session (optional if uploaded directly)
     filename: str
+    name: Optional[str] = None # User-friendly name
     content: str  # Extracted text from resume
+    raw_content: Optional[bytes] = None # Raw binary file content
     candidate_name: Optional[str] = None
     candidate_email: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
@@ -43,6 +46,9 @@ class InterviewRound(Document):
 class Question(Document):
     round_id: str
     question_text: str
+    question_type: str = "descriptive"  # mcq, descriptive
+    options: Optional[List[str]] = None  # For MCQs
+    correct_answer: Optional[str] = None  # For MCQs
     question_number: int  # 1-based index within the round
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     

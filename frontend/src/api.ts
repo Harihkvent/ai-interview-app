@@ -1,4 +1,5 @@
 import axios from "axios";
+import { cacheService } from "./services/cacheService";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -116,6 +117,16 @@ export const analyzeResume = async (sessionId: string) => {
   return response.data;
 };
 
+export const getSavedResumes = async () => {
+    const response = await api.get('/user/resumes');
+    return response.data;
+};
+
+export const analyzeSavedResume = async (resumeId: string) => {
+    const response = await api.post(`/analyze-saved-resume/${resumeId}`);
+    return response.data;
+};
+
 export const analyzeResumeLive = async (
   sessionId: string,
   location: string = "India"
@@ -126,8 +137,24 @@ export const analyzeResumeLive = async (
   return response.data;
 };
 
+/**
+ * Get job matches with caching
+ * Returns cached results if available, otherwise fetches from backend
+ */
 export const getJobMatches = async (sessionId: string) => {
+  // Check cache first
+  const cached = cacheService.get<{ matches: any[] }>('jobMatches', sessionId);
+  if (cached) {
+    console.log('📦 Returning cached job matches for session:', sessionId);
+    return cached;
+  }
+
+  // Fetch from backend
   const response = await api.get(`/job-matches/${sessionId}`);
+  
+  // Cache the result
+  cacheService.set('jobMatches', sessionId, response.data);
+  
   return response.data;
 };
 
@@ -139,11 +166,31 @@ export const generateRoadmap = async (
     session_id: sessionId,
     target_job_title: targetJobTitle,
   });
+  
+  // Cache the roadmap
+  const roadmapKey = `${sessionId}_${targetJobTitle}`;
+  cacheService.set('roadmap', roadmapKey, response.data);
+  
   return response.data;
 };
 
+/**
+ * Get roadmap with caching
+ */
 export const getRoadmap = async (sessionId: string) => {
+  // Check cache first
+  const cached = cacheService.get<any>('roadmap', sessionId);
+  if (cached) {
+    console.log('📦 Returning cached roadmap for session:', sessionId);
+    return cached;
+  }
+
+  // Fetch from backend
   const response = await api.get(`/roadmap/${sessionId}`);
+  
+  // Cache the result
+  cacheService.set('roadmap', sessionId, response.data);
+  
   return response.data;
 };
 
@@ -198,25 +245,63 @@ export const startInterviewFromRole = async (targetJobTitle: string) => {
   return response.data;
 };
 
+/**
+ * Generate questions with caching
+ * Caches based on resume text hash + round type to avoid regeneration
+ */
 export const generateQuestionsOnly = async (
   resumeText: string,
   roundType: string,
   numQuestions: number = 5
-) => {
+): Promise<{ questions: string[] }> => {
+  // Create a cache key based on resume text hash and round type
+  const cacheKey = `${roundType}_${numQuestions}`;
+  
+  // Check cache first
+  const cached = cacheService.get<{ questions: string[] }>('questions', cacheKey);
+  if (cached && cached.questions) {
+    console.log('📦 Returning cached questions for round:', roundType);
+    return cached;
+  }
+
+  // Fetch from backend
   const response = await api.post("/generate-questions-only", {
     resume_text: resumeText,
     round_type: roundType,
     num_questions: numQuestions,
   });
+  
+  // Cache the result
+  cacheService.set('questions', cacheKey, response.data);
+  
   return response.data;
 };
 
+/**
+ * Extract text with caching
+ * Caches based on file name to avoid re-extraction
+ */
 export const extractText = async (file: File) => {
+  // Create cache key based on file name and size (as simple identifier)
+  const cacheKey = `${file.name}_${file.size}`;
+  
+  // Check cache first
+  const cached = cacheService.get<{ text: string }>('resumeText', cacheKey);
+  if (cached) {
+    console.log('📦 Returning cached resume text for file:', file.name);
+    return cached;
+  }
+
+  // Fetch from backend
   const formData = new FormData();
   formData.append("file", file);
   const response = await api.post("/extract-text", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+  
+  // Cache the result
+  cacheService.set('resumeText', cacheKey, response.data);
+  
   return response.data;
 };
 

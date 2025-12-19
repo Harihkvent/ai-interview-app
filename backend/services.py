@@ -1,251 +1,194 @@
-import os
-import httpx
 import json
 import time
-from dotenv import load_dotenv
-
-from metrics import (
-    track_krutrim_call,
-    questions_generated,
-    question_generation_duration,
-    answer_evaluations,
-    answer_evaluation_duration,
-    krutrim_api_calls,
-    krutrim_api_duration,
-    krutrim_api_errors
-)
-
-load_dotenv()
-
-KRUTRIM_API_KEY = os.getenv("KRUTRIM_API_KEY")
-KRUTRIM_API_URL = os.getenv("KRUTRIM_API_URL", "https://cloud.olakrutrim.com/v1/chat/completions")
+import re
+from ai_utils import call_krutrim_api, clean_ai_json
 
 # Question counts per round
-ROUND_QUESTIONS = {
-    "aptitude": 5,
-    "technical": 8,
-    "hr": 5
+ROUND_CONFIG = {
+    "aptitude": {"mcq": 5, "descriptive": 0},
+    "technical": {"mcq": 10, "descriptive": 10},
+    "hr": {"mcq": 0, "descriptive": 5}
 }
 
-async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens: int = 1000, operation: str = "general") -> str:
-    """Base function to call Krutrim API with metrics tracking"""
-    start_time = time.time()
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                KRUTRIM_API_URL,
-                headers={
-                    "Authorization": f"Bearer {KRUTRIM_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "Krutrim-spectre-v2",
-                    "messages": messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens
-                },
-                timeout=30.0
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            # Record successful API call
-            duration = time.time() - start_time
-            krutrim_api_calls.labels(operation=operation, status='success').inc()
-            krutrim_api_duration.labels(operation=operation).observe(duration)
-            
-            return data["choices"][0]["message"]["content"]
-    except Exception as e:
-        # Record failed API call
-        duration = time.time() - start_time
-        error_type = type(e).__name__
-        krutrim_api_calls.labels(operation=operation, status='error').inc()
-        krutrim_api_errors.labels(operation=operation, error_type=error_type).inc()
-        krutrim_api_duration.labels(operation=operation).observe(duration)
-        
-        print(f"Error calling Krutrim API: {e}")
-        raise Exception(f"AI service error: {str(e)}")
 
-async def generate_questions_from_resume(resume_text: str, round_type: str, num_questions: int = None) -> list:
+async def generate_questions_from_resume(resume_text: str, round_type: str) -> list[dict]:
     """
     Generate round-specific questions based on resume using Krutrim
-    Returns list of question strings
+    Returns list of question objects: {text, type, options, correct_answer}
     """
     start_time = time.time()
     
-    if num_questions is None:
-        num_questions = ROUND_QUESTIONS.get(round_type, 5)
+    config = ROUND_CONFIG.get(round_type, {"mcq": 0, "descriptive": 5})
+    num_mcq = config["mcq"]
+    num_desc = config["descriptive"]
     
-    # Simplified prompts for better JSON generation
-    prompts = {
-        "aptitude": f"""Generate exactly {num_questions} aptitude and logical reasoning questions.
-Return ONLY a JSON array of strings. No explanations, no metadata, just the array.
-
-Example: ["Question 1 text here?", "Question 2 text here?", "Question 3 text here?"]
-
-Generate {num_questions} questions now:""",
+    questions = []
+    
+    # Generate MCQs if needed
+    if num_mcq > 0:
+        content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics related to this resume: {resume_text[:500]}"
         
-        "technical": f"""Based on this resume, generate exactly {num_questions} technical questions:
-
-{resume_text[:400]}
-
-Return ONLY a JSON array of strings. No explanations, no metadata, just the array.
-
-Example: ["Question 1 text here?", "Question 2 text here?"]
-
-Generate {num_questions} questions now:""",
+        prompt = f"""Generate exactly {num_mcq} multiple-choice questions (MCQs) for {content_focus}.
         
-        "hr": f"""Generate exactly {num_questions} HR and behavioral interview questions.
-Return ONLY a JSON array of strings. No explanations, no metadata, just the array.
+IMPORTANT RULES:
+1. Each question must be challenging and professional.
+2. Each MCQ MUST have exactly 4 distinct, meaningful options.
+3. DO NOT use generic placeholders like "Option A", "Option 1", etc. Provide actual possible answers.
+4. Provide exactly one correct answer which must be one of the strings in the options list.
+5. Return ONLY a JSON array of objects.
 
-Example: ["Question 1 text here?", "Question 2 text here?", "Question 3 text here?"]
+Format:
+[
+  {{
+    "question": "What is the time complexity of a binary search?",
+    "options": ["O(n)", "O(log n)", "O(n^2)", "O(1)"],
+    "answer": "O(log n)",
+    "type": "mcq"
+  }}
+]
 
-Generate {num_questions} questions now:"""
-    }
+Generate {num_mcq} MCQs now:"""
+
+        messages = [
+            {"role": "system", "content": "You are an expert technical recruiter. You always return valid JSON arrays focused on high-quality interview questions. Never use placeholders for options."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        try:
+            response = await call_krutrim_api(messages, temperature=0.7, max_tokens=3000, operation="generate_mcq")
+            mcqs = parse_json_questions(response, num_mcq, "mcq")
+            if not mcqs:
+                raise ValueError("Parsed MCQ list is empty")
+            questions.extend(mcqs[:num_mcq])
+        except Exception as e:
+            print(f"Error generating MCQs: {e}")
+            for i in range(num_mcq):
+                questions.append(get_fallback_question(round_type, i+1, "mcq"))
+
+    # Generate Descriptive questions if needed
+    if num_desc > 0:
+        content_focus = f"technical interview questions specifically based on this resume content: {resume_text[:500]}" if round_type == "technical" else "professional HR and behavioral questions to assess culture fit and soft skills"
+        
+        prompt = f"""Generate exactly {num_desc} high-quality descriptive interview questions for {content_focus}.
+        
+RULES:
+1. Questions should be open-ended and require a detailed response.
+2. Focus on specific skills mentioned in the resume for technical rounds.
+3. Return ONLY a JSON array of objects.
+
+Format:
+[
+  {{
+    "question": "Tell me about a time you had to optimize a slow database query?",
+    "type": "descriptive"
+  }}
+]
+
+Generate {num_desc} questions now:"""
+
+        messages = [
+            {"role": "system", "content": "You are an expert interviewer. You always return valid JSON arrays of professional questions."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        try:
+            response = await call_krutrim_api(messages, temperature=0.7, max_tokens=2500, operation="generate_desc")
+            descs = parse_json_questions(response, num_desc, "descriptive")
+            if not descs:
+                raise ValueError("Parsed descriptive list is empty")
+            questions.extend(descs[:num_desc])
+        except Exception as e:
+            print(f"Error generating descriptive questions: {e}")
+            for i in range(num_desc):
+                questions.append(get_fallback_question(round_type, len(questions)+1, "descriptive"))
+
+    # Record metrics
+    duration = time.time() - start_time
+    questions_generated.labels(round_type=round_type).inc(len(questions))
+    question_generation_duration.labels(round_type=round_type).observe(duration)
     
-    prompt = prompts.get(round_type, prompts["technical"])
-    
-    messages = [
-        {"role": "system", "content": "You must return ONLY a valid JSON array of question strings. No other text or formatting."},
-        {"role": "user", "content": prompt}
-    ]
+    return questions
+
+def parse_json_questions(response: str, expected_count: int, q_type: str) -> list[dict]:
+    """Helper to parse JSON questions from API response with aggressive cleaning"""
+    response = clean_ai_json(response)
     
     try:
-        # Increased max_tokens to prevent truncation
-        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=2000, operation="generate_questions")
-        print(f"Krutrim response for {round_type}: {response}")  # Full debug log
+        # Clean control characters inside the string manually if json.loads fails
+        try:
+            parsed = json.loads(response, strict=False)
+        except json.JSONDecodeError:
+            # Last ditch effort: remove all non-printable characters except space/newline/etc
+            response = "".join(char for char in response if char == '\n' or char == '\r' or char == '\t' or 32 <= ord(char) <= 126)
+            parsed = json.loads(response, strict=False)
         
-        # Parse JSON response with multiple fallback strategies
-        response = response.strip()
-        
-        # Try to extract JSON from markdown code blocks
-        if "```json" in response:
-            response = response.split("```json")[1].split("```")[0].strip()
-        elif "```" in response:
-            response = response.split("```")[1].split("```")[0].strip()
-        
-        # Remove trailing commas before closing brackets (common Krutrim error)
-        response = response.replace(",\n]", "\n]").replace(",]", "]")
-        response = response.replace(",\n}", "\n}").replace(",}", "}")
-        
-        # Extract JSON array or object
-        if "[" in response and "]" in response:
-            start = response.index("[")
-            end = response.rindex("]") + 1
-            response = response[start:end]
-        elif "{" in response and "}" in response:
-            start = response.index("{")
-            end = response.rindex("}") + 1
-            response = response[start:end]
-        
-        # Try to parse JSON
-        parsed = json.loads(response)
-        
-        questions = []
-        
-        # Handle different response formats from Krutrim
-        if isinstance(parsed, list):
-            # Could be a flat list, nested list, or list of objects
-            for item in parsed:
-                if isinstance(item, str):
-                    # Simple string
-                    questions.append(item)
-                elif isinstance(item, dict):
-                    # Object with Question key
-                    if "Question" in item:
-                        questions.append(item["Question"])
-                    elif "question" in item:
-                        questions.append(item["question"])
-                    else:
-                        # Try to get first string value
-                        for value in item.values():
-                            if isinstance(value, str) and len(value.strip()) > 10:
-                                questions.append(value)
-                                break
-                elif isinstance(item, list):
-                    # Nested array - flatten it
-                    for subitem in item:
-                        if isinstance(subitem, str):
-                            questions.append(subitem)
-                        elif isinstance(subitem, dict) and "Question" in subitem:
-                            questions.append(subitem["Question"])
-        elif isinstance(parsed, dict):
-            # Object with numbered keys like {"Question 1": "...", "Question 2": "..."}
-            # or {"questions": [...]}
-            if "questions" in parsed and isinstance(parsed["questions"], list):
-                questions = parsed["questions"]
+        if not isinstance(parsed, list):
+            if isinstance(parsed, dict) and "questions" in parsed:
+                parsed = parsed["questions"]
+            elif isinstance(parsed, dict):
+                parsed = [parsed]
             else:
-                # Extract values from numbered keys
-                for key in sorted(parsed.keys()):
-                    if isinstance(parsed[key], str):
-                        questions.append(parsed[key])
+                return []
+                
+        results = []
+        for item in parsed:
+            if isinstance(item, dict) and "question" in item:
+                # Handle options
+                raw_options = item.get("options")
+                options_list = []
+                if isinstance(raw_options, list):
+                    options_list = raw_options
+                elif isinstance(raw_options, dict):
+                    options_list = list(raw_options.values())
+                
+                raw_answer = item.get("answer") or item.get("correct_answer")
+                
+                q_obj = {
+                    "question": item["question"],
+                    "type": item.get("type", q_type),
+                    "options": options_list if options_list else None,
+                    "answer": str(raw_answer) if raw_answer else None
+                }
+                results.append(q_obj)
         
-        # Filter out any non-string items or very short strings
-        questions = [q.strip() for q in questions if isinstance(q, str) and len(q.strip()) > 10]
-        
-        if len(questions) == 0:
-            raise ValueError("No valid questions extracted")
-        
-        # Ensure we have the right number of questions
-        result = questions[:num_questions]
-        
-        # Pad with fallback if needed
-        while len(result) < num_questions:
-            result.append(get_fallback_question(round_type, len(result) + 1))
-        
-        # Record metrics
-        duration = time.time() - start_time
-        questions_generated.labels(round_type=round_type).inc(num_questions)
-        question_generation_duration.labels(round_type=round_type).observe(duration)
-        
-        print(f"✅ Successfully generated {len(result)} questions for {round_type}")
-        return result
-        
-    except json.JSONDecodeError as e:
-        print(f"❌ JSON parsing error: {e}")
-        print(f"Attempted to parse: {response if 'response' in locals() else 'No response'}")
-        # Return meaningful fallback questions
-        return [get_fallback_question(round_type, i+1) for i in range(num_questions)]
+        return results
     except Exception as e:
-        print(f"❌ Error generating questions: {e}")
-        print(f"Raw response: {response if 'response' in locals() else 'No response'}")
-        # Return meaningful fallback questions
-        return [get_fallback_question(round_type, i+1) for i in range(num_questions)]
+        print(f"JSON Parse Error: {e}")
+        return []
 
-def get_fallback_question(round_type: str, question_num: int) -> str:
+def get_fallback_question(round_type: str, question_num: int, q_type: str = "descriptive") -> dict:
     """Get meaningful fallback questions when AI generation fails"""
+    if q_type == "mcq":
+        return {
+            "question": f"Fallback {round_type} MCQ #{question_num}: What is the output of 1 + 1?",
+            "type": "mcq",
+            "options": ["1", "2", "3", "4"],
+            "answer": "2"
+        }
+    
     fallbacks = {
         "aptitude": [
             "If you have 5 apples and give away 2, then buy 3 more, how many apples do you have?",
             "What comes next in the sequence: 2, 4, 8, 16, __?",
-            "If all roses are flowers and some flowers fade quickly, can we conclude that some roses fade quickly?",
-            "A train travels 60 km in 1 hour. How far will it travel in 2.5 hours at the same speed?",
-            "Which number doesn't belong: 2, 3, 5, 7, 9, 11?"
+            "If all roses are flowers and some flowers fade quickly, can we conclude that some roses fade quickly?"
         ],
         "technical": [
             "Explain the difference between a stack and a queue data structure.",
             "What is the time complexity of binary search?",
-            "Describe the concept of object-oriented programming.",
-            "What is the difference between SQL and NoSQL databases?",
-            "Explain what an API is and how it works.",
-            "What is version control and why is it important?",
-            "Describe the software development lifecycle.",
-            "What is the difference between frontend and backend development?"
+            "Describe the concept of object-oriented programming."
         ],
         "hr": [
             "Tell me about yourself and your background.",
             "What are your greatest strengths?",
-            "Describe a challenging situation you faced and how you overcame it.",
-            "Where do you see yourself in 5 years?",
-            "Why do you want to work for our company?",
-            "How do you handle stress and pressure?",
-            "Describe a time when you worked in a team.",
-            "What motivates you in your work?"
+            "Describe a challenging situation you faced and how you overcame it."
         ]
     }
     
     questions_list = fallbacks.get(round_type, fallbacks["technical"])
-    return questions_list[(question_num - 1) % len(questions_list)]
+    return {
+        "question": questions_list[(question_num - 1) % len(questions_list)],
+        "type": "descriptive"
+    }
 
 async def evaluate_answer(question: str, answer: str, resume_context: str, round_type: str = "general") -> dict:
     """
@@ -279,13 +222,8 @@ Return your response in this EXACT JSON format:
     
     # Parse JSON response
     try:
-        response = response.strip()
-        if "```json" in response:
-            response = response.split("```json")[1].split("```")[0].strip()
-        elif "```" in response:
-            response = response.split("```")[1].split("```")[0].strip()
-        
-        result = json.loads(response)
+        response = clean_ai_json(response)
+        result = json.loads(response, strict=False)
         
         # Record metrics
         duration = time.time() - start_time

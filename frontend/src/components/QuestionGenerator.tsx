@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { generateQuestionsOnly, extractText } from '../api';
+import { cacheService } from '../services/cacheService';
 
 export const QuestionGenerator: React.FC = () => {
     const [questions, setQuestions] = useState<string[]>([]);
@@ -7,6 +8,7 @@ export const QuestionGenerator: React.FC = () => {
     const [roundType, setRoundType] = useState('technical');
     const [error, setError] = useState<string | null>(null);
     const [resumeText, setResumeText] = useState<string>('');
+    const [isCached, setIsCached] = useState(false);
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -16,13 +18,14 @@ export const QuestionGenerator: React.FC = () => {
             setLoading(true);
             setError(null);
             
-            // Use backend extraction
+            // Use backend extraction (with caching)
             const extractData = await extractText(file);
             const text = extractData.text;
             
             setResumeText(text);
             const data = await generateQuestionsOnly(text, roundType, 10);
             setQuestions(data.questions || []);
+            setIsCached(false); // Fresh data from generation
         } catch (err: any) {
             console.error('Question generation failed:', err);
             setError(`Failed to process resume: ${err.response?.data?.detail || err.message || 'Please ensure the file is valid and try again'}`);
@@ -36,8 +39,19 @@ export const QuestionGenerator: React.FC = () => {
         setRoundType(type);
         setLoading(true);
         try {
-            const data = await generateQuestionsOnly(resumeText, type, 10);
-            setQuestions(data.questions || []);
+            const cacheKey = `${type}_10`;
+            
+            // Check if cached
+            const cachedData = cacheService.get<{ questions: string[] }>('questions', cacheKey);
+            if (cachedData && cachedData.questions) {
+                console.log('📦 Using cached questions for:', type);
+                setQuestions(cachedData.questions);
+                setIsCached(true);
+            } else {
+                const data = await generateQuestionsOnly(resumeText, type, 10);
+                setQuestions(data.questions || []);
+                setIsCached(false);
+            }
         } catch (err) {
             setError('Failed to regenerate questions.');
         } finally {
@@ -97,6 +111,7 @@ export const QuestionGenerator: React.FC = () => {
                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                 <span className="p-1 bg-accent-500/20 text-accent-400 rounded">📋</span>
                                 Generated {roundType} Questions
+                                {isCached && <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">📦 Cached</span>}
                             </h2>
                             <button 
                                 onClick={() => {

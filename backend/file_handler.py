@@ -72,31 +72,51 @@ def parse_docx(file_path: str) -> str:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error parsing DOCX: {str(e)}")
 
-async def extract_resume_text(file: UploadFile) -> tuple[str, str]:
+async def extract_resume_text(file: UploadFile) -> tuple[bytes, str]:
     """
-    Extract text from resume file
-    Returns: (file_path, extracted_text)
+    Extract text from resume file in-memory
+    Returns: (raw_bytes, extracted_text)
     """
     # Validate file
     validate_resume_file(file)
     
-    # Save file
-    file_path = await save_uploaded_file(file)
+    # Read file content
+    contents = await file.read()
+    
+    # Check file size
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024*1024)}MB"
+        )
     
     # Extract text based on file type
     file_ext = os.path.splitext(file.filename)[1].lower()
     
-    if file_ext == ".pdf":
-        text = parse_pdf(file_path)
-    elif file_ext == ".docx":
-        text = parse_docx(file_path)
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported file type")
-    
-    if not text or len(text.strip()) < 50:
-        raise HTTPException(
-            status_code=400,
-            detail="Could not extract sufficient text from resume. Please ensure the file is not empty or corrupted."
-        )
-    
-    return file_path, text
+    try:
+        if file_ext == ".pdf":
+            # Use BytesIO for in-memory PDF parsing
+            pdf_file = io.BytesIO(contents)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+        elif file_ext == ".docx":
+            # Use BytesIO for in-memory DOCX parsing
+            docx_file = io.BytesIO(contents)
+            doc = Document(docx_file)
+            text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+            
+        text = text.strip()
+        
+        if not text or len(text.strip()) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract sufficient text from resume. Please ensure the file is not empty or corrupted."
+            )
+            
+        return contents, text
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error parsing resume: {str(e)}")

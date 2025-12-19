@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getJobMatches, generateRoadmap, analyzeResumeLive, analyzeResume } from '../api';
+import { getJobMatches, generateRoadmap, analyzeResumeLive } from '../api';
+import { cacheService } from '../services/cacheService';
 
 interface JobMatch {
     rank: number;
@@ -28,6 +29,7 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
     const [generating, setGenerating] = useState(false);
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isCached, setIsCached] = useState(false);
 
     useEffect(() => {
         loadMatches();
@@ -36,6 +38,22 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
     const loadMatches = async () => {
         try {
             setLoading(true);
+            setIsCached(false);
+            
+            // Check cache first for non-live searches
+            if (!isLiveSearch) {
+                const cached = cacheService.get<{ matches: JobMatch[] }>('jobMatches', sessionId);
+                if (cached) {
+                    console.log('📦 Using cached job matches');
+                    const filtered = (cached.matches || []).filter((m: any) => !m.is_live);
+                    setMatches(filtered);
+                    setIsCached(true);
+                    setError(null);
+                    setLoading(false);
+                    return;
+                }
+            }
+            
             const data = await getJobMatches(sessionId);
             
             // Filter based on live toggle if data exists
@@ -48,6 +66,7 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
                 handleLiveSearch();
             } else {
                 setMatches(filtered);
+                setIsCached(data.from_cache || false);
             }
             setError(null);
         } catch (err: any) {
@@ -93,9 +112,9 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
             <div className="min-h-screen flex items-center justify-center p-4">
                 <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
                     <div className="text-6xl animate-pulse">🔍</div>
-                    <h2 className="text-3xl font-bold">Analyzing Your Resume...</h2>
+                    <h2 className="text-3xl font-bold">{isCached ? 'Loading Your Matches...' : 'Analyzing Your Resume...'}</h2>
                     <p className="text-gray-300">
-                        Our AI is matching your skills with 63,000+ job roles
+                        {isCached ? 'Retrieving cached matches' : 'Our AI is matching your skills with 63,000+ job roles'}
                     </p>
                     <div className="flex justify-center gap-2">
                         <div className="w-3 h-3 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -115,6 +134,7 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
                     <div className="text-6xl mb-4">🎯</div>
                     <h1 className="heading-1 text-primary-400 mb-3">
                         {isLiveSearch ? 'Real-Time Job Openings' : 'Your Top Job Matches'}
+                        {isCached && <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded ml-2">📦 Cached</span>}
                     </h1>
                     <p className="body-text max-w-2xl mx-auto">
                         {isLiveSearch 
@@ -146,6 +166,12 @@ export const JobMatches: React.FC<JobMatchesProps> = ({ sessionId, onRoadmapGene
                         )}
                     </div>
                 </div>
+
+                {error && (
+                    <div className="bg-error-500/10 border border-error-500/20 p-4 rounded-xl text-error-400 text-center text-sm font-medium">
+                        {error}
+                    </div>
+                )}
 
                 {/* Job Matches Grid */}
                 <div className="grid gap-6 md:grid-cols-2">

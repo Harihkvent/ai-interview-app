@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
@@ -8,41 +8,50 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
   const { user, logout } = useAuth();
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   const navItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: '🏠' },
     { id: 'jobs' as const, label: 'Job Matcher', icon: '🎯' },
-    { id: 'live_jobs' as const, label: 'Live Jobs', icon: '🌐' },
     { id: 'roadmaps' as const, label: 'My Roadmaps', icon: '🗺️' },
     { id: 'interview' as const, label: 'Interview', icon: '🎤' },
     { id: 'question_gen' as const, label: 'Question Gen', icon: '⚡' },
   ];
 
   return (
-    <nav className="card sticky top-0 z-50 rounded-none border-b-2">
-      <div className="max-w-7xl mx-auto px-4 py-4">
+    <nav className="glass-card sticky top-0 z-50 rounded-none border-b shadow-md">
+      <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo/Brand */}
-          <div className="flex items-center gap-3">
-            <div className="text-3xl">🚀</div>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('dashboard')}>
+            <div className="text-3xl animate-bounce">🚀</div>
             <div>
-              <h1 className="text-xl font-bold text-primary-400">
+              <h1 className="text-xl font-black tracking-tight text-gradient">
                 CareerPath AI
               </h1>
-              <p className="text-xs text-text-tertiary">Your AI Career Companion</p>
+              <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">Your AI Career Companion</p>
             </div>
           </div>
 
           {/* Navigation Links */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 font-semibold ${
                   currentPage === item.id
-                    ? 'bg-primary-100 text-primary-600 font-semibold'
-                    : 'hover:bg-neutral-100 text-text-secondary'
+                    ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
+                    : 'hover:bg-white/10 opacity-70 hover:opacity-100'
                 }`}
               >
                 <span>{item.icon}</span>
@@ -51,48 +60,39 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
             ))}
           </div>
 
-          {/* User Menu */}
-          <div className="flex items-center gap-4">
-            {/* User Info */}
-            <div className="hidden sm:block text-right">
-              <p className="text-sm font-semibold text-text-primary">
-                {user?.full_name || user?.username}
-              </p>
-              <p className="text-xs text-text-tertiary">{user?.email}</p>
+          {/* Actions */}
+          <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 transition-all active:scale-90"
+              title="Toggle Theme"
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
+
+            {/* User Profile */}
+            <div className="flex items-center gap-3 pl-3 border-l border-white/10">
+              <div className="hidden sm:block text-right">
+                <p className="text-xs font-bold leading-tight">
+                  {user?.full_name || user?.username}
+                </p>
+                <p className="text-[10px] opacity-50">{user?.email}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-black shadow-lg shadow-primary-500/20">
+                {(user?.username?.[0] || 'U').toUpperCase()}
+              </div>
             </div>
 
-            {/* User Avatar */}
-            <div className="w-10 h-10 rounded-full bg-primary-400 flex items-center justify-center text-white font-bold">
-              {(user?.username?.[0] || 'U').toUpperCase()}
-            </div>
-
-            {/* Logout Button */}
+            {/* Logout */}
             <button
               onClick={logout}
-              className="px-4 py-2 bg-error-50 hover:bg-error-100 text-error-600 rounded-lg transition-colors flex items-center gap-2"
+              className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-colors border border-red-500/10"
+              title="Logout"
             >
-              <span>🚪</span>
-              <span className="hidden sm:inline">Logout</span>
+              🚪
             </button>
           </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        <div className="md:hidden mt-4 flex gap-2 overflow-x-auto pb-2">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 whitespace-nowrap ${
-                currentPage === item.id
-                  ? 'bg-primary-100 text-primary-600 font-semibold'
-                  : 'hover:bg-neutral-100 text-text-secondary'
-              }`}
-            >
-              <span>{item.icon}</span>
-              <span className="text-sm">{item.label}</span>
-            </button>
-          ))}
         </div>
       </div>
     </nav>

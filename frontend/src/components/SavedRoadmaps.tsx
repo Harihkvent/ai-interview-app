@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { getSavedRoadmaps, deleteRoadmap } from '../api';
-import { useAuth } from '../contexts/AuthContext';
 
 interface Roadmap {
     id: string;

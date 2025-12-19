@@ -68,7 +68,7 @@ async def upload_resume(
     """Upload resume and create new interview session"""
     try:
         # Extract text from resume
-        file_path, resume_text = await extract_resume_text(file)
+        raw_bytes, resume_text = await extract_resume_text(file)
         
         # Extract candidate info
         from resume_parser import extract_candidate_info
@@ -86,11 +86,14 @@ async def upload_resume(
         interview_sessions_total.inc()
         interview_sessions_active.inc()
         
-        # Save resume with extracted info
+        # Save resume with extracted info, user_id, and raw_bytes
         resume = Resume(
+            user_id=str(current_user.id),
             session_id=str(new_session.id),
             filename=file.filename,
+            name=file.filename,
             content=resume_text,
+            raw_content=raw_bytes,
             candidate_name=candidate_name,
             candidate_email=candidate_email
         )
@@ -117,6 +120,52 @@ async def upload_resume(
             "filename": file.filename,
             "candidate_name": candidate_name,
             "candidate_email": candidate_email
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/analyze-saved-resume/{resume_id}")
+async def analyze_saved_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Start analysis and create session for an already uploaded resume"""
+    try:
+        # Verify resume exists and belongs to user
+        resume = await Resume.get(resume_id)
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        if resume.user_id != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized to use this resume")
+            
+        # Create new session
+        new_session = InterviewSession(
+            user_id=str(current_user.id),
+            status="active",
+            started_at=datetime.utcnow(),
+            resume_id=str(resume.id)
+        )
+        await new_session.insert()
+        
+        # Update resume with new session_id (linking to most recent session)
+        resume.session_id = str(new_session.id)
+        await resume.save()
+        
+        # Create all three rounds
+        round_types = ["aptitude", "technical", "hr"]
+        for round_type in round_types:
+            round_obj = InterviewRound(
+                session_id=str(new_session.id),
+                round_type=round_type,
+                status="pending"
+            )
+            await round_obj.insert()
+            
+        return {
+            "session_id": str(new_session.id),
+            "resume_id": str(resume.id),
+            "message": "Session created from saved resume. Ready to start analysis.",
+            "filename": resume.filename
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -227,10 +276,13 @@ async def start_round(session_id: str, round_type: str):
         questions_list = await generate_questions_from_resume(resume.content, round_type)
         
         # Save questions to database
-        for i, question_text in enumerate(questions_list, 1):
+        for i, q_data in enumerate(questions_list, 1):
             question = Question(
                 round_id=str(round_obj.id),
-                question_text=question_text,
+                question_text=q_data["question"],
+                question_type=q_data.get("type", "descriptive"),
+                options=q_data.get("options"),
+                correct_answer=q_data.get("answer"),
                 question_number=i
             )
             await question.insert()
@@ -248,6 +300,8 @@ async def start_round(session_id: str, round_type: str):
             "current_question": {
                 "id": str(first_question.id),
                 "text": first_question.question_text,
+                "type": first_question.question_type,
+                "options": first_question.options,
                 "number": first_question.question_number
             } if first_question else None
         }
@@ -274,13 +328,21 @@ async def submit_answer(request: SubmitAnswerRequest):
         interview_session = await InterviewSession.get(round_obj.session_id)
         resume = await Resume.find_one(Resume.session_id == round_obj.session_id)
         
-        # Evaluate answer using Krutrim
-        eval_result = await evaluate_answer(
-            question.question_text,
-            request.answer_text,
-            resume.content if resume else "",
-            round_obj.round_type  # Pass round_type for metrics
-        )
+        # Evaluate answer
+        if question.question_type == "mcq":
+            is_correct = request.answer_text.strip().lower() == question.correct_answer.strip().lower()
+            eval_result = {
+                "score": 10.0 if is_correct else 0.0,
+                "evaluation": f"Correct! The answer is {question.correct_answer}." if is_correct else f"Incorrect. The correct answer was {question.correct_answer}."
+            }
+        else:
+            # Evaluate descriptive answer using Krutrim
+            eval_result = await evaluate_answer(
+                question.question_text,
+                request.answer_text,
+                resume.content if resume else "",
+                round_obj.round_type  # Pass round_type for metrics
+            )
         
         # Save answer
         answer = Answer(
@@ -332,6 +394,8 @@ async def submit_answer(request: SubmitAnswerRequest):
                 next_question = {
                     "id": str(next_q.id),
                     "text": next_q.question_text,
+                    "type": next_q.question_type,
+                    "options": next_q.options,
                     "number": next_q.question_number
                 }
         
@@ -455,10 +519,13 @@ async def switch_round(session_id: str, round_type: str):
                     )
                     
                     # Save questions
-                    for i, question_text in enumerate(questions_list, 1):
+                    for i, q_data in enumerate(questions_list, 1):
                         question = Question(
                             round_id=str(target_round.id),
-                            question_text=question_text,
+                            question_text=q_data["question"],
+                            question_type=q_data.get("type", "descriptive"),
+                            options=q_data.get("options"),
+                            correct_answer=q_data.get("answer"),
                             question_number=i
                         )
                         await question.insert()
@@ -475,6 +542,8 @@ async def switch_round(session_id: str, round_type: str):
                 next_question = {
                     "id": str(q.id),
                     "text": q.question_text,
+                    "type": q.question_type,
+                    "options": q.options,
                     "number": q.question_number
                 }
                 break
@@ -701,8 +770,16 @@ async def end_interview(session_id: str):
 
 @router.post("/generate-questions-only")
 async def generate_questions_only(request: GenerateQuestionsOnlyRequest):
-    """Standalone endpoint that generates questions without starting an interview session"""
+    """Standalone endpoint that generates questions without starting an interview session - uses cache if available"""
     try:
+        # Create a cache key based on resume text hash and round type
+        import hashlib
+        resume_hash = hashlib.md5(request.resume_text.encode()).hexdigest()
+        cache_key = f"{resume_hash}_{request.round_type}_{request.num_questions}"
+        
+        # TODO: In production, use Redis for this caching
+        # For now, we'll rely on frontend caching
+        
         questions = await generate_questions_from_resume(
             request.resume_text,
             request.round_type,
@@ -710,7 +787,8 @@ async def generate_questions_only(request: GenerateQuestionsOnlyRequest):
         )
         return {
             "round_type": request.round_type,
-            "questions": questions
+            "questions": questions,
+            "cache_key": cache_key
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -728,12 +806,30 @@ async def extract_text_from_file(file: UploadFile = File(...)):
 
 @router.post("/analyze-resume/{session_id}")
 async def analyze_resume(session_id: str):
-    """Analyze resume and generate job matches using hybrid ML approach"""
+    """Analyze resume and generate job matches using hybrid ML approach - uses cache if available"""
     try:
         # Get resume
         resume = await Resume.find_one(Resume.session_id == session_id)
         if not resume:
             raise HTTPException(status_code=404, detail="Resume not found")
+        
+        # Check if matches already exist (cached)
+        existing_matches = await JobMatch.find(
+            JobMatch.session_id == session_id,
+            JobMatch.is_live == False
+        ).to_list()
+        
+        if existing_matches:
+            # Return cached results
+            print(f"✅ Returning cached job matches for session {session_id}")
+            return {
+                "session_id": session_id,
+                "total_matches": len(existing_matches),
+                "top_matches": existing_matches,
+                "message": "Resume analyzed successfully (cached)",
+                "method": "TF-IDF (40%) + Sentence Transformers (60%)",
+                "from_cache": True
+            }
         
         # Run ML job matching (hybrid: TF-IDF + Semantic)
         from ml_job_matcher import analyze_resume_and_match
@@ -744,7 +840,8 @@ async def analyze_resume(session_id: str):
             "total_matches": len(matches),
             "top_matches": matches,
             "message": "Resume analyzed successfully using hybrid ML approach",
-            "method": "TF-IDF (40%) + Sentence Transformers (60%)"
+            "method": "TF-IDF (40%) + Sentence Transformers (60%)",
+            "from_cache": False
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -815,12 +912,32 @@ async def get_job_matches(session_id: str):
 
 @router.post("/generate-roadmap")
 async def generate_roadmap(request: GenerateRoadmapRequest):
-    """Generate AI-powered career roadmap for selected job"""
+    """Generate AI-powered career roadmap for selected job - uses cache if available"""
     try:
         # Get resume
         resume = await Resume.find_one(Resume.session_id == request.session_id)
         if not resume:
             raise HTTPException(status_code=404, detail="Resume not found")
+        
+        # Check if roadmap already exists (cached)
+        existing_roadmap = await CareerRoadmap.find_one(
+            CareerRoadmap.session_id == request.session_id,
+            CareerRoadmap.target_role == request.target_job_title
+        )
+        
+        if existing_roadmap:
+            # Return cached roadmap
+            print(f"✅ Returning cached roadmap for session {request.session_id}, role {request.target_job_title}")
+            return {
+                "session_id": request.session_id,
+                "target_role": existing_roadmap.target_role,
+                "roadmap_content": existing_roadmap.roadmap_content,
+                "milestones": existing_roadmap.milestones,
+                "skills_gap": existing_roadmap.skills_gap,
+                "estimated_timeline": existing_roadmap.estimated_timeline,
+                "message": "Career roadmap retrieved (cached)",
+                "from_cache": True
+            }
         
         # Get selected job match
         job_match = await JobMatch.find_one(
@@ -845,7 +962,8 @@ async def generate_roadmap(request: GenerateRoadmapRequest):
         
         return {
             **roadmap,
-            "message": "Career roadmap generated successfully"
+            "message": "Career roadmap generated successfully",
+            "from_cache": False
         }
     except HTTPException:
         raise

@@ -2,17 +2,90 @@
 User Dashboard and Roadmap Management Routes
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from typing import List, Optional
 from datetime import datetime
 
 from auth_routes import get_current_user
 from auth_models import User
 from models import InterviewSession, CareerRoadmap, InterviewRound, Answer, Question, Resume, JobMatch
+from file_handler import extract_resume_text
 
 router = APIRouter(prefix="/user", tags=["user"])
 
 # ============= User Dashboard =============
+
+# ... (dashboard logic)
+
+# ============= Resume Management =============
+
+@router.get("/resumes")
+async def get_user_resumes(current_user: User = Depends(get_current_user)):
+    """Get all saved resumes for the user"""
+    resumes = await Resume.find(Resume.user_id == str(current_user.id)).sort("-uploaded_at").to_list()
+    return [
+        {
+            "id": str(r.id),
+            "filename": r.filename,
+            "name": r.name or r.filename,
+            "uploaded_at": r.uploaded_at.isoformat(),
+            "candidate_name": r.candidate_name,
+            "candidate_email": r.candidate_email
+        }
+        for r in resumes
+    ]
+
+@router.post("/resumes")
+async def upload_user_resume(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload a resume to user profile without starting a session"""
+    try:
+        # Extract text from resume
+        raw_bytes, resume_text = await extract_resume_text(file)
+        
+        # Extract candidate info
+        from resume_parser import extract_candidate_info
+        candidate_name, candidate_email = extract_candidate_info(resume_text)
+        
+        # Save resume
+        resume = Resume(
+            user_id=str(current_user.id),
+            filename=file.filename,
+            name=file.filename,
+            content=resume_text,
+            raw_content=raw_bytes,
+            candidate_name=candidate_name,
+            candidate_email=candidate_email
+        )
+        await resume.insert()
+        
+        return {
+            "id": str(resume.id),
+            "message": "Resume uploaded successfully",
+            "filename": file.filename
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/resumes/{resume_id}")
+async def delete_user_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a saved resume"""
+    resume = await Resume.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+        
+    if resume.user_id != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this resume")
+        
+    await resume.delete()
+    return {"message": "Resume deleted successfully"}
+
+# ============= Interview History =============
 
 @router.get("/dashboard")
 async def get_user_dashboard(current_user: User = Depends(get_current_user)):

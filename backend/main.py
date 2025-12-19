@@ -9,6 +9,7 @@ from routes import router
 from auth_routes import router as auth_router
 from user_routes import router as user_router
 from metrics import http_requests, http_request_duration
+from ml_job_matcher import warmup_models
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,6 +17,11 @@ async def lifespan(app: FastAPI):
     # Startup
     await init_db()
     print("✅ Database initialized")
+    
+    # Warm up ML models in background
+    print("🔥 Warming up ML models...")
+    warmup_models()
+    
     print("📊 Prometheus metrics available at /metrics")
     yield
     # Shutdown

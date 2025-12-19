@@ -91,9 +91,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl animate-pulse mb-4">📊</div>
-          <p className="text-xl text-gray-300">Loading dashboard...</p>
+        <div className="text-center animate-pulse">
+          <div className="text-8xl mb-4">📊</div>
+          <p className="text-xl font-bold opacity-50">Syncing your progress...</p>
         </div>
       </div>
     );
@@ -102,197 +102,205 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
   if (!data) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl text-red-400">Failed to load dashboard</p>
+        <div className="glass-card p-12 text-center">
+          <p className="text-xl text-red-400 font-bold mb-4">Connection Failed</p>
+          <button onClick={loadDashboard} className="btn-primary">Retry</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="heading-2 mb-1">
-                Welcome back, {data.user.full_name || data.user.username}! 👋
-              </h1>
-              <p className="body-text">{data.user.email}</p>
-            </div>
+    <div className="p-6 animate-fade-in">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Section */}
+        <section className="glass-card p-10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10 text-8xl rotate-12">👋</div>
+          <div className="relative z-10">
+            <h1 className="text-5xl font-black tracking-tight mb-2">
+              Welcome, <span className="text-gradient">{data.user.full_name || data.user.username}</span>!
+            </h1>
+            <p className="text-lg opacity-60 font-medium">{data.user.email}</p>
           </div>
-        </div>
+        </section>
 
-        {/* Resume Session Banner */}
+        {/* Active Session Notification */}
         {activeSession && (
-          <div className="bg-primary-500/10 border-2 border-primary-500/50 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-             <div className="flex items-center gap-4">
-                <div className="text-4xl animate-bounce">🎙️</div>
+          <div className="bg-primary-500/10 border-2 border-primary-500/30 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-primary-500/10 mb-8 border-dashed">
+             <div className="flex items-center gap-6">
+                <div className="text-5xl animate-bounce">🎭</div>
                 <div>
-                   <h3 className="text-xl font-bold text-primary-400">In-progress Interview</h3>
-                   <p className="text-sm text-text-tertiary">You have an unfinished interview session. Pick up where you left off!</p>
+                   <h3 className="text-2xl font-black text-primary-500">Resume Your Journey</h3>
+                   <p className="opacity-70 font-medium">You have an interview waiting for you. Don't let opportunity wait!</p>
                 </div>
              </div>
              <button 
                 onClick={() => onNavigate('interview', { resumeSessionId: activeSession })}
-                className="btn-primary px-8 py-3 whitespace-nowrap"
+                className="btn-primary px-10 py-4 text-lg"
              >
-                Resume Interview Now
+                Continue Now →
              </button>
           </div>
         )}
 
-        {/* Stats Grid */}
+        {/* Statistics Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="card-hover p-6">
-            <div className="flex items-center gap-4">
-              <div className="text-4xl text-primary-400">🎤</div>
-              <div>
-                <div className="text-3xl font-bold text-primary-400">
-                  {data.stats.total_interviews}
+          {[
+            { label: 'Total Interviews', value: data.stats.total_interviews, icon: '🎤', color: 'primary' },
+            { label: 'Completed Rounds', value: data.stats.completed_interviews, icon: '🏆', color: 'green' },
+            { label: 'Saved Roadmaps', value: data.stats.saved_roadmaps, icon: '🗺️', color: 'orange' }
+          ].map((stat, i) => (
+            <div key={i} className="glass-card p-8 group hover:scale-[1.02] transition-all cursor-default">
+              <div className="flex items-center gap-6">
+                <div className={`text-5xl p-4 bg-primary-500/10 rounded-2xl group-hover:rotate-12 transition-transform`}>
+                  {stat.icon}
                 </div>
-                <div className="text-sm text-text-secondary">Total Interviews</div>
+                <div>
+                  <div className="text-4xl font-black">
+                    {stat.value}
+                  </div>
+                  <div className="text-sm font-bold uppercase tracking-widest opacity-40">{stat.label}</div>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="card-hover p-6">
-            <div className="flex items-center gap-4">
-              <div className="text-4xl text-success-400">✅</div>
-              <div>
-                <div className="text-3xl font-bold text-success-400">
-                  {data.stats.completed_interviews}
-                </div>
-                <div className="text-sm text-text-secondary">Completed</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card-hover p-6">
-            <div className="flex items-center gap-4">
-              <div className="text-4xl text-warning-400">🗺️</div>
-              <div>
-                <div className="text-3xl font-bold text-warning-400">
-                  {data.stats.saved_roadmaps}
-                </div>
-                <div className="text-sm text-text-secondary">Saved Roadmaps</div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Action Center */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Interview Actions */}
-          <div className="lg:col-span-2 card p-8 space-y-6">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-               <span className="p-2 bg-primary-500/10 text-primary-400 rounded-xl text-xl">⚡</span>
-               Action Center
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Action Center - 2/3 width */}
+          <div className="lg:col-span-2 glass-card p-10 space-y-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-black flex items-center gap-3">
+                 <span className="w-12 h-12 bg-primary-500/10 text-primary-500 flex items-center justify-center rounded-2xl text-2xl">🚀</span>
+                 Quick Actions
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <button
                 onClick={onStartNewInterview}
-                className="flex flex-col items-center justify-center p-6 bg-primary-600 hover:bg-primary-500 text-white rounded-2xl transition-all shadow-lg hover:shadow-primary-500/20 group"
+                className="flex flex-col items-center justify-center p-10 bg-primary-500 hover:bg-primary-600 text-white rounded-[2rem] transition-all shadow-xl shadow-primary-500/30 group relative overflow-hidden"
               >
-                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">🎤</span>
-                <span className="font-bold text-lg">Start Full Interview</span>
-                <span className="text-xs text-primary-100/70 mt-1">Aptitude + Technical + HR</span>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <span className="text-6xl mb-4 group-hover:scale-110 transition-transform">🎤</span>
+                <span className="font-black text-2xl">Start Interview</span>
+                <span className="text-sm opacity-80 mt-2">Full simulation (Aptitude + Tech + HR)</span>
               </button>
 
               <button
                 onClick={() => onNavigate('question_gen')}
-                className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
+                className="flex flex-col items-center justify-center p-10 bg-white/5 hover:bg-white/10 rounded-[2rem] border-2 border-dashed border-white/10 transition-all group"
               >
-                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">⚡</span>
-                <span className="font-bold text-lg">Question Generator</span>
-                <span className="text-xs text-text-tertiary mt-1">Standalone questions (no interview)</span>
+                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">⚡</span>
+                <span className="font-black text-xl">Quick Practice</span>
+                <span className="text-sm opacity-40 mt-1 text-center">Random AI question generator</span>
               </button>
 
               <button
                 onClick={() => onNavigate('jobs')}
-                className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
+                className="flex flex-col items-center justify-center p-8 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 transition-all group"
               >
-                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">🎯</span>
-                <span className="font-bold text-lg">AI Job Matcher</span>
-                <span className="text-xs text-text-tertiary mt-1">Find your best career path</span>
+                <span className="text-4xl mb-3 group-hover:rotate-12 transition-transform">🎯</span>
+                <span className="font-bold text-lg">Predict Career</span>
+                <span className="text-xs opacity-40 text-center">Skill-based job matching</span>
               </button>
 
               <button
-                onClick={() => onNavigate('live_jobs')}
-                className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
+                 onClick={() => onNavigate('live_jobs')}
+                 className="flex flex-col items-center justify-center p-8 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 transition-all group"
               >
-                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">🌐</span>
-                <span className="font-bold text-lg">Live Jobs</span>
-                <span className="text-xs text-text-tertiary mt-1">Real-time vacancies via SerpApi</span>
+                 <span className="text-4xl mb-3 group-hover:-rotate-12 transition-transform">🌐</span>
+                 <span className="font-bold text-lg">Market Trends</span>
+                 <span className="text-xs opacity-40 text-center">Live vacancy tracking</span>
               </button>
             </div>
           </div>
 
-          {/* User History Preview */}
-          <div className="card p-6 divide-y divide-white/5 flex flex-col">
-             <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold">Recent Roadmaps</h3>
-                <button onClick={onViewRoadmaps} className="text-xs text-primary-400 hover:underline">View All</button>
-             </div>
-             <div className="flex-1 space-y-3 pt-4 overflow-y-auto max-h-[300px]">
+          {/* Side Panel - History & Stats */}
+          <div className="space-y-8">
+            {/* Roadmaps Preview */}
+            <div className="glass-card p-8 flex flex-col h-full">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-black">Roadmaps</h3>
+                <button onClick={onViewRoadmaps} className="text-xs font-bold text-primary-500 hover:underline">View All</button>
+              </div>
+              <div className="space-y-4 flex-1">
                 {data.recent_roadmaps.length > 0 ? (
-                  data.recent_roadmaps.map((roadmap) => (
-                    <div key={roadmap.id} className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer" onClick={() => onNavigate('roadmaps', { selectedId: roadmap.id })}>
-                       <div className="text-sm font-bold truncate">{roadmap.target_role}</div>
-                       <div className="text-[10px] text-gray-500 mt-1 flex justify-between">
-                          <span>{new Date(roadmap.created_at).toLocaleDateString()}</span>
-                          <span className="text-primary-500 opacity-0 group-hover:opacity-100 transition-opacity">Resume →</span>
-                       </div>
+                  data.recent_roadmaps.slice(0, 4).map((roadmap) => (
+                    <div 
+                      key={roadmap.id} 
+                      onClick={() => onNavigate('roadmaps', { selectedId: roadmap.id })}
+                      className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 border border-white/5 transition-all cursor-pointer group"
+                    >
+                      <div className="font-bold text-sm truncate group-hover:text-primary-500 transition-colors uppercase tracking-tight">{roadmap.target_role}</div>
+                      <div className="text-[10px] opacity-40 mt-1">{new Date(roadmap.created_at).toLocaleDateString()}</div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-center text-text-tertiary py-8">No roadmaps yet</p>
+                  <div className="flex-1 flex flex-col items-center justify-center opacity-30 py-10">
+                    <span className="text-4xl mb-2">🗺️</span>
+                    <p className="text-xs font-bold">No roadmaps generated</p>
+                  </div>
                 )}
-             </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Interviews History Table Preview */}
-        <div className="card p-6">
-            <h2 className="heading-4 mb-4">History</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data.recent_interviews.length > 0 ? (
-                data.recent_interviews.map((interview) => (
-                  <div key={interview.id} className="bg-neutral-50 rounded-lg p-4 hover:bg-neutral-100 transition-colors border border-neutral-200 flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`badge ${interview.status === 'completed' ? 'badge-success' : 'badge-primary'}`}>
-                            {interview.status}
-                          </span>
-                          <span className="body-text-sm">{new Date(interview.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <div className="text-lg font-bold text-text-primary">Score: {interview.total_score.toFixed(1)}/10</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {interview.status !== 'completed' && (
-                        <button 
-                            onClick={() => onNavigate('interview', { resumeSessionId: interview.id })}
-                            className="text-xs font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600 p-2 bg-primary-500/5 rounded-lg whitespace-nowrap"
-                        >
-                            Continue →
-                        </button>
-                      )}
-                      <button 
-                        onClick={(e) => handleDeleteInterview(e, interview.id)}
-                        className="text-red-400 hover:text-red-500 p-2 hover:bg-red-500/5 rounded-lg transition-colors"
-                        title="Delete History"
-                      >
-                        🗑️
-                      </button>
-                    </div>
+        {/* History Section */}
+        <section className="glass-card p-10">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-black">Interview History</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {data.recent_interviews.length > 0 ? (
+              data.recent_interviews.map((interview) => (
+                <div 
+                  key={interview.id} 
+                  className="bg-white/5 rounded-3xl p-6 border border-white/5 hover:border-primary-500/30 transition-all group relative overflow-hidden"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                      interview.status === 'completed' 
+                        ? 'bg-green-500/10 text-green-500' 
+                        : 'bg-primary-500/10 text-primary-500'
+                    }`}>
+                      {interview.status}
+                    </span>
+                    <span className="text-[10px] font-bold opacity-30">{new Date(interview.created_at).toLocaleDateString()}</span>
                   </div>
-                ))
-              ) : (
-                <p className="body-text text-center py-8 col-span-2">No interviews yet</p>
-              )}
-            </div>
-        </div>
+                  
+                  <div className="mb-6">
+                    <div className="text-xs font-bold opacity-40 uppercase tracking-widest mb-1">Final Evaluation</div>
+                    <div className="text-3xl font-black tracking-tight">{interview.total_score.toFixed(1)}/10</div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {interview.status !== 'completed' && (
+                      <button 
+                         onClick={() => onNavigate('interview', { resumeSessionId: interview.id })}
+                         className="flex-1 py-3 bg-primary-500/10 hover:bg-primary-500 text-primary-500 hover:text-white rounded-xl text-xs font-black transition-all"
+                      >
+                         CONTINUE SESSION
+                      </button>
+                    )}
+                    <button 
+                      onClick={(e) => handleDeleteInterview(e, interview.id)}
+                      className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full py-20 text-center opacity-20">
+                <div className="text-8xl mb-4">📭</div>
+                <p className="text-xl font-black">YOUR HISTORY IS EMPTY</p>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 
@@ -11,6 +11,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   // Form fields
   const [email, setEmail] = useState('');
@@ -26,10 +36,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
     try {
       if (isLogin) {
-        // Login
         await login(email, password);
       } else {
-        // Register
         if (password !== confirmPassword) {
           setError('Passwords do not match');
           setLoading(false);
@@ -75,173 +83,135 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="card p-8 max-w-md w-full space-y-6">
-        {/* Header */}
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden backdrop-blur-sm">
+      {/* Background blobs */}
+      <div className="absolute top-0 -left-10 w-72 h-72 bg-primary-500/10 rounded-full blur-[100px] animate-pulse"></div>
+      <div className="absolute bottom-0 -right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] animate-pulse"></div>
+
+      {/* Theme Toggle - Top Right */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-6 right-6 w-12 h-12 rounded-2xl glass-card flex items-center justify-center shadow-2xl active:scale-95 transition-all text-xl"
+      >
+        {theme === 'light' ? '🌙' : '☀️'}
+      </button>
+
+      <div className="glass-card p-10 max-w-lg w-full space-y-8 relative z-10 shadow-2xl">
         <div className="text-center">
-          <div className="text-6xl mb-4">🔐</div>
-          <h1 className="heading-1 mb-2">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
+          <div className="text-7xl mb-4 animate-bounce">🚀</div>
+          <h1 className="text-4xl font-black mb-2 tracking-tight">
+            <span className="text-gradient">CareerPath AI</span>
           </h1>
-          <p className="body-text">
-            {isLogin ? 'Sign in to continue your journey' : 'Start your AI interview journey'}
+          <p className="text-lg opacity-60 font-medium">
+            {isLogin ? 'Welcome back! Accelerate your career.' : 'Join the next generation of career advisory.'}
           </p>
         </div>
 
-        {/* Error Message */}
         {error && (
-          <div className="bg-error-50 border border-error-400 rounded-lg p-3 text-error-600 text-sm">
-            {error}
+          <div className="bg-red-500/10 border-2 border-red-500/20 rounded-2xl p-4 text-red-500 text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+             <span>⚠️</span>
+             {error}
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="input"
-              placeholder="you@example.com"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-4">
+            <div className="relative group">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
+                placeholder="Email Address"
+              />
+            </div>
 
-          {/* Username (Register only) */}
-          {!isLogin && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  Username
-                </label>
+            {!isLogin && (
+              <>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  className="input"
-                  placeholder="johndoe"
+                  className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
+                  placeholder="Choose Username"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  Full Name (Optional)
-                </label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="input"
-                  placeholder="John Doe"
+                  className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
+                  placeholder="Full Name (John Doe)"
                 />
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Password
-            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="input"
-              placeholder="••••••••"
+              className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
+              placeholder="Password"
             />
-          </div>
 
-          {/* Confirm Password (Register only) */}
-          {!isLogin && (
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">
-                Confirm Password
-              </label>
+            {!isLogin && (
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="input"
-                placeholder="••••••••"
+                className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
+                placeholder="Confirm Password"
               />
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full btn-primary text-xl py-4 shadow-2xl shadow-primary-500/40"
           >
             {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin">⚙️</span>
-                {isLogin ? 'Signing in...' : 'Creating account...'}
+              <span className="flex items-center justify-center gap-3">
+                <span className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></span>
+                Processing...
               </span>
             ) : (
-              isLogin ? 'Sign In' : 'Create Account'
+              isLogin ? 'Get Started →' : 'Create Account →'
             )}
           </button>
         </form>
 
-        {/* OR Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">OR</span>
-          </div>
+        <div className="flex items-center gap-4 py-2">
+            <div className="flex-1 h-[1px] bg-white/10"></div>
+            <span className="text-xs font-black opacity-30 uppercase">Or continue with</span>
+            <div className="flex-1 h-[1px] bg-white/10"></div>
         </div>
 
-        {/* Google Sign-In Button */}
-        <div className="flex justify-center">
+        <div className="flex justify-center transform scale-110 hover:scale-[1.12] transition-transform">
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
             useOneTap={false}
             size="large"
-            text={isLogin ? "signin_with" : "signup_with"}
-            shape="rectangular"
-            theme="outline"
+            theme={theme === 'dark' ? 'filled_blue' : 'outline'}
           />
         </div>
 
-        {/* Toggle Mode */}
-        <div className="text-center">
+        <div className="text-center pt-4">
           <button
             onClick={toggleMode}
-            className="text-primary-400 hover:text-primary-500 text-sm transition-colors"
+            className="text-primary-500 hover:text-primary-400 font-bold tracking-tight transition-colors"
           >
             {isLogin ? (
-              <>
-                Don't have an account? <span className="font-semibold">Sign up</span>
-              </>
+              <>Don't have an account? <span className="underline decoration-2 underline-offset-4">Sign up FREE</span></>
             ) : (
-              <>
-                Already have an account? <span className="font-semibold">Sign in</span>
-              </>
+              <>Already member? <span className="underline decoration-2 underline-offset-4">Sign in</span></>
             )}
           </button>
         </div>
-
-        {/* Info */}
-        {!isLogin && (
-          <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
-            <p className="text-xs text-text-secondary">
-              By creating an account, you'll be able to save your career roadmaps, track interview history, and access personalized recommendations.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

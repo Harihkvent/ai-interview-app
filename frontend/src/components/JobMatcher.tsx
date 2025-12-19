@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getJobMatches, generateRoadmap, uploadResume, analyzeResume } from '../api';
+import { cacheService } from '../services/cacheService';
 
 interface JobMatch {
     rank: number;
@@ -24,6 +25,8 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [internalSessionId, setInternalSessionId] = useState<string | null>(null);
+    const [isCached, setIsCached] = useState(false);
+    const [savedResumes, setSavedResumes] = useState<any[]>([]);
 
     // Use prop sessionId if provided, otherwise use internal
     const activeSessionId = propSessionId || internalSessionId;
@@ -33,13 +36,37 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
             setInternalSessionId(propSessionId.toString());
             loadMatches(propSessionId.toString());
         }
+        fetchSavedResumes();
     }, [propSessionId]);
+
+    const fetchSavedResumes = async () => {
+        try {
+            const data = await import('../api').then(m => m.getSavedResumes());
+            setSavedResumes(data);
+        } catch (err) {
+            console.error('Failed to fetch saved resumes:', err);
+        }
+    };
 
     const loadMatches = async (sid: string) => {
         try {
             setLoading(true);
+            setIsCached(false);
+            
+            // Check cache first
+            const cached = cacheService.get<{ matches: JobMatch[] }>('jobMatches', sid);
+            if (cached) {
+                console.log('📦 Using cached job matches');
+                setMatches((cached.matches || []).filter((m: any) => !m.is_live));
+                setIsCached(true);
+                setStage('results');
+                setLoading(false);
+                return;
+            }
+            
             const data = await getJobMatches(sid);
             setMatches((data.matches || []).filter((m: any) => !m.is_live));
+            setIsCached(data.from_cache || false);
             setStage('results');
         } catch (err: any) {
             console.error('Failed to load matches:', err);
@@ -69,9 +96,34 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
             const data = await getJobMatches(newSessionId);
             setMatches((data.matches || []).filter((m: any) => !m.is_live));
             setStage('results');
+            fetchSavedResumes(); // Refresh list
         } catch (err: any) {
             console.error('Upload/Analysis failed:', err);
             setError(err.response?.data?.detail || 'Failed to process resume');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSavedResumeSelect = async (resumeId: string) => {
+        try {
+            setLoading(true);
+            setError(null);
+            
+            // 1. Create session from saved resume
+            const data = await import('../api').then(m => m.analyzeSavedResume(resumeId));
+            const newSessionId = data.session_id;
+            setInternalSessionId(newSessionId);
+            if (onSessionIdChange) onSessionIdChange(newSessionId);
+            
+            // 2. Analyze
+            await analyzeResume(newSessionId);
+            
+            // 3. Load Matches
+            await loadMatches(newSessionId);
+        } catch (err: any) {
+            console.error('Saved resume analysis failed:', err);
+            setError(err.response?.data?.detail || 'Failed to process saved resume');
         } finally {
             setLoading(false);
         }
@@ -100,18 +152,47 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
                     <div className="text-7xl mb-4">🎯</div>
                     <div>
                         <h1 className="text-4xl font-bold text-primary-400 mb-2">AI Job Matcher</h1>
-                        <p className="text-gray-300">Upload your resume to find your perfect career match from 63k+ job roles</p>
+                        <p className="text-gray-300">Choose a saved resume or upload a new one to find your perfect job matches</p>
                     </div>
 
                     <div className="flex flex-col items-center gap-6">
-                        <label className="w-full max-w-md flex flex-col items-center px-4 py-8 bg-black/20 text-blue rounded-2xl border-2 border-dashed border-primary-500/30 cursor-pointer hover:bg-primary-500/5 hover:border-primary-500 transition-all group">
-                            <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">📄</span>
-                            <span className="text-lg font-semibold text-text-secondary">Upload Resume (PDF/DOCX)</span>
+                        {savedResumes.length > 0 && (
+                            <div className="w-full space-y-3">
+                                <h3 className="text-left text-sm font-semibold text-gray-400 uppercase tracking-wider">Your Resumes</h3>
+                                <div className="grid gap-3">
+                                    {savedResumes.slice(0, 3).map(resume => (
+                                        <button
+                                            key={resume.id}
+                                            onClick={() => handleSavedResumeSelect(resume.id)}
+                                            disabled={loading}
+                                            className="w-full flex items-center gap-4 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-left group"
+                                        >
+                                            <span className="text-2xl group-hover:scale-110 transition-transform">📄</span>
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-white">{resume.name}</div>
+                                                <div className="text-xs text-gray-400">Uploaded {new Date(resume.uploaded_at).toLocaleDateString()}</div>
+                                            </div>
+                                            <span className="text-primary-400 opacity-0 group-hover:opacity-100 transition-all">Match →</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="w-full flex items-center gap-4 py-2">
+                            <div className="h-px flex-1 bg-white/10"></div>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">or</span>
+                            <div className="h-px flex-1 bg-white/10"></div>
+                        </div>
+
+                        <label className="w-full flex flex-col items-center px-4 py-8 bg-black/20 text-blue rounded-2xl border-2 border-dashed border-primary-500/30 cursor-pointer hover:bg-primary-500/5 hover:border-primary-500 transition-all group">
+                            <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">📤</span>
+                            <span className="text-lg font-semibold text-text-secondary">Upload New Resume (PDF/DOCX)</span>
                             <input type='file' className="hidden" onChange={handleFileUpload} accept=".pdf,.docx" disabled={loading} />
                         </label>
                         
                         {loading && (
-                            <div className="space-y-4 w-full max-w-md">
+                            <div className="space-y-4 w-full">
                                 <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
                                     <div className="h-full bg-primary-500 animate-progress"></div>
                                 </div>
@@ -131,12 +212,12 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
             <div className="max-w-6xl mx-auto space-y-6">
                 <div className="glass-card p-8 text-center bg-gradient-to-br from-primary-900/20 to-transparent">
                     <div className="text-6xl mb-4">✨</div>
-                    <h1 className="text-4xl font-bold text-primary-400 mb-2">Your Top AI Matches</h1>
+                    <h1 className="text-4xl font-bold text-primary-400 mb-2">Your Top AI Matches {isCached && <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded ml-2">📦 Cached</span>}</h1>
                     <p className="text-gray-300 max-w-2xl mx-auto">We've identified these roles as the best fit for your unique skill set.</p>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                    {matches.map((match) => (
+                    {matches.slice(0, 10).map((match) => (
                         <div key={match.rank} className="glass-card p-6 border border-white/10 hover:border-primary-500/50 hover:scale-[1.01] transition-all">
                             <div className="flex items-start gap-4 mb-4">
                                 <div className="bg-primary-500 text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold">
@@ -172,14 +253,22 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
                                     </div>
                                 </div>
                             </div>
-
-                            <button
-                                onClick={() => handleGenerateRoadmap(match.job_title)}
-                                disabled={generating}
-                                className="w-full py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-bold transition-all disabled:opacity-50"
-                            >
-                                {generating && selectedJob === match.job_title ? 'Generating...' : 'View Career Roadmap'}
-                            </button>
+                            
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleGenerateRoadmap(match.job_title)}
+                                    disabled={generating}
+                                    className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-bold transition-all disabled:opacity-50"
+                                >
+                                    {generating && selectedJob === match.job_title ? 'Generating...' : 'Career Roadmap'}
+                                </button>
+                                <button
+                                    onClick={() => {/* View Details logic */}}
+                                    className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-semibold border border-white/10 transition-all"
+                                >
+                                    Details
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

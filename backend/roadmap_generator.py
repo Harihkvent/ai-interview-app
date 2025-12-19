@@ -7,7 +7,7 @@ from typing import List, Dict
 import httpx
 import os
 import json
-import re
+from ai_utils import clean_ai_json
 from models import CareerRoadmap
 
 KRUTRIM_API_KEY = os.getenv("KRUTRIM_API_KEY")
@@ -166,15 +166,12 @@ Provide ONLY the JSON object, no additional text."""
             result = response.json()
             content = result['choices'][0]['message']['content']
             
-            # Extract JSON from response
-            # Try to find JSON in markdown code blocks
-            json_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
-            if json_match:
-                content = json_match.group(1)
+            # Use centralized cleaning
+            content = clean_ai_json(content)
             
             # Try to parse JSON
             try:
-                roadmap_data = json.loads(content)
+                roadmap_data = json.loads(content, strict=False)
                 print("✅ Successfully generated roadmap from AI")
                 return roadmap_data
             except json.JSONDecodeError as e:
