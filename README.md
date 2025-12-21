@@ -308,3 +308,60 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📧 Support
 
 For issues and questions, please open an issue on GitHub.
+
+## 📚 Full API Reference
+
+### Authentication (`/auth`)
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login with email/password
+- `POST /auth/google` - Google OAuth login
+- `POST /auth/logout` - Logout user
+- `GET /auth/me` - Get current user profile
+- `PUT /auth/profile` - Update user profile
+
+### User Management (`/user`)
+- `GET /user/dashboard` - Get dashboard statistics
+- `GET /user/resumes` - List saved resumes
+- `POST /user/resumes` - Upload new resume
+- `DELETE /user/resumes/{resume_id}` - Delete a resume
+- `GET /user/interviews` - List interview history
+- `DELETE /user/interviews/{session_id}` - Delete interview session
+- `GET /user/roadmaps` - List career roadmaps (Optional: `?saved_only=true`)
+- `GET /user/roadmaps/{roadmap_id}` - Get roadmap details
+- `POST /user/roadmaps/{roadmap_id}/save` - Save a roadmap
+- `DELETE /user/roadmaps/{roadmap_id}` - Delete/Unsave roadmap
+
+### Interview Core (`/api/interview`)
+- `POST /api/interview/start-round` - Start or resume an interview round
+- `POST /api/interview/submit-answer` - Submit answer for evaluation
+- `POST /api/interview/switch-round` - Switch to a different round dynamically
+
+### Application Routes (Root)
+#### Session & Resume
+- `POST /upload-resume` - Upload resume and create session
+- `POST /analyze-saved-resume/{resume_id}` - Start session from saved resume
+- `GET /active-session` - Get current active session
+- `POST /start-interview-from-role` - Start interview for specific role
+- `GET /session/{session_id}` - Get full session info
+
+#### Round Management
+- `POST /start-round/{session_id}` - Start specific round (Query param: `round_type`)
+- `GET /next-round/{session_id}` - Get next pending round
+- `POST /switch-round/{session_id}` - Switch round (Query param: `round_type`)
+- `GET /rounds-status/{session_id}` - Get status of all rounds
+
+#### Interview Actions
+- `POST /submit-answer` - Submit answer (Legacy/Direct)
+- `POST /generate-questions-only` - Generate questions without session
+- `GET /report/{session_id}` - Download PDF report
+
+#### Legacy / Chat
+- `POST /start` - Start variable interview
+- `POST /chat` - Chat interactions
+- `GET /history/{session_id}` - Get chat history
+- `POST /end/{session_id}` - End interview
+
+### System
+- `GET /` - API Root & Version
+- `GET /health` - Health Check
+- `GET /metrics` - Prometheus Metrics

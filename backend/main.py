@@ -111,6 +111,11 @@ app.include_router(interview_router) # New modular interview routes
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
+
 @app.get("/")
 async def root():
     return {
