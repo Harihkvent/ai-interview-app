@@ -106,5 +106,17 @@ class CareerRoadmap(Document):
     is_saved: bool = False  # Whether user saved this roadmap
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
+
+class QuestionBank(Document):
+    category: str  # aptitude, technical, hr
+    question_text: str
+    question_type: str = "descriptive"  # mcq, descriptive
+    options: Optional[List[str]] = None
+    correct_answer: Optional[str] = None
+    difficulty: str = "medium"  # easy, medium, hard
+    tags: Optional[List[str]] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
     class Settings:
-        name = "career_roadmaps"
+        name = "question_bank"
+

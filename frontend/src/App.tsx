@@ -265,7 +265,14 @@ function App() {
             case 'liveJobs':
                 return <LiveJobs />;
             case 'questionGen':
-                return <QuestionGenerator />;
+                return (
+                    <QuestionGenerator 
+                        onSessionCreated={(sid) => {
+                            setSessionId(sid);
+                            setStage('interview_session');
+                        }}
+                    />
+                );
             default:
                 return (
                     <div className="flex items-center justify-center p-12 text-center h-[calc(100vh-80px)]">

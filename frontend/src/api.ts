@@ -289,7 +289,14 @@ export const generateQuestionsOnly = async (
   numQuestions: number = 5
 ): Promise<{ questions: string[] }> => {
   // Create a cache key based on resume text hash and round type
-  const cacheKey = `${roundType}_${numQuestions}`;
+  // Simple hash function for client-side caching
+  const textHash = resumeText.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  
+  // v2 prefix to invalidate old cache
+  const cacheKey = `v2_${roundType}_${numQuestions}_${textHash}`;
 
   // Check cache first
   const cached = cacheService.get<{ questions: string[] }>(
@@ -344,5 +351,20 @@ export const extractText = async (file: File) => {
 
 export const deleteInterview = async (sessionId: string | number) => {
   const response = await api.delete(`/user/interviews/${sessionId}`);
+  return response.data;
+};
+
+export const saveGeneratedSession = async (
+  resumeText: string,
+  resumeFilename: string,
+  roundType: string,
+  questions: any[]
+) => {
+  const response = await api.post("/save-generated-session", {
+    resume_text: resumeText,
+    resume_filename: resumeFilename,
+    round_type: roundType,
+    questions: questions,
+  });
   return response.data;
 };

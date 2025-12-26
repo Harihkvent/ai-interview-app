@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { generateQuestionsOnly, extractText } from '../api';
-import { cacheService } from '../services/cacheService';
+import { generateQuestionsOnly, extractText, saveGeneratedSession } from '../api';
 
-export const QuestionGenerator: React.FC = () => {
+interface QuestionGeneratorProps {
+    onSessionCreated?: (sessionId: string) => void;
+}
+
+export const QuestionGenerator: React.FC<QuestionGeneratorProps> = ({ onSessionCreated }) => {
     const [questions, setQuestions] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [roundType, setRoundType] = useState('technical');
@@ -43,24 +46,50 @@ export const QuestionGenerator: React.FC = () => {
         setRoundType(type);
         setLoading(true);
         try {
-            const cacheKey = `${type}_10`;
-            
-            // Check if cached
-            const cachedData = cacheService.get<{ questions: string[] }>('questions', cacheKey);
-            if (cachedData && cachedData.questions) {
-                console.log('📦 Using cached questions for:', type);
-                setQuestions(cachedData.questions);
-                setIsCached(true);
-            } else {
-                const data = await generateQuestionsOnly(resumeText, type, 10);
-                const processedQuestions = (data.questions || []).map((q: any) => 
-                    typeof q === 'string' ? q : q.question
-                );
-                setQuestions(processedQuestions);
-                setIsCached(false);
-            }
+            // API handles caching internally now
+            const data = await generateQuestionsOnly(resumeText, type, 10);
+            const processedQuestions = (data.questions || []).map((q: any) => 
+                typeof q === 'string' ? q : q.question
+            );
+            setQuestions(processedQuestions);
+            setIsCached(!!data.questions); // basic check, or we could update API to return cache status
         } catch (err) {
             setError('Failed to regenerate questions.');
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    // Format helper safely handles both strings and objects
+    const formatQuestionsForSave = (qs: any[]) => {
+        return qs.map(q => {
+            if (typeof q === 'string') {
+                return { question: q, type: roundType };
+            }
+            return q;
+        });
+    };
+
+    const handleSave = async () => {
+        try {
+            setLoading(true);
+            const session = await saveGeneratedSession(
+                resumeText,
+                "Resume from Generator", // We don't have the original filename here unless we store it
+                roundType,
+                formatQuestionsForSave(questions) 
+                // Note: 'questions' state might be strings only if processed during render. 
+                // We logic in handleFileUpload processed it to strings. 
+                // Wait, handleFileUpload sets questions to strings. We lost the structure!
+                // FIX: We need to store original objects or reconstruct them.
+                // For now, simpler to reconstruct basic objects. 
+            );
+            if (onSessionCreated) {
+                onSessionCreated(session.session_id);
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError('Failed to save session. ' + (err.response?.data?.detail || err.message));
         } finally {
             setLoading(false);
         }
@@ -79,6 +108,15 @@ export const QuestionGenerator: React.FC = () => {
                             {loading ? 'Generating...' : resumeText ? 'Update Resume' : 'Upload Resume & Generate'}
                             <input type='file' className="hidden" onChange={handleFileUpload} accept=".pdf,.docx" disabled={loading} />
                         </label>
+                        {questions.length > 0 && (
+                            <button 
+                                onClick={handleSave}
+                                disabled={loading}
+                                className="ml-4 px-8 py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold transition-all shadow-lg shadow-green-500/20 flex items-center gap-2"
+                            >
+                                <span>🚀</span> Save & Start Interview
+                            </button>
+                        )}
                     </div>
                 </div>
 

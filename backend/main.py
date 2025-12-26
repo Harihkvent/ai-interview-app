@@ -48,6 +48,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("✅ Database initialized")
     
+    # Seed Question Bank if needed
+    from init_question_bank import seed_questions
+    try:
+        await seed_questions()
+    except Exception as e:
+        logger.error(f"Failed to seed question bank: {e}")
+    
     # Warm up ML models in background
     print("🔥 Warming up ML models...")
     warmup_models()

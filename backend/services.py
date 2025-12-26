@@ -47,16 +47,15 @@ async def generate_questions_from_resume(resume_text: str, round_type: str, coun
     
     # Generate MCQs if needed
     if num_mcq > 0:
-        content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics related to this resume: {resume_text[:500]}"
+        content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics related to this resume: {resume_text[:4000]}"
         
         prompt = f"""Generate exactly {num_mcq} multiple-choice questions (MCQs) for {content_focus}.
         
 IMPORTANT RULES:
-1. Each question must be challenging and professional.
-2. Each MCQ MUST have exactly 4 distinct, meaningful options.
-3. DO NOT use generic placeholders like "Option A", "Option 1", etc. Provide actual possible answers.
+1. Return ONLY a valid JSON array of objects.
+2. Do NOT include any introductory or concluding text.
+3. Each MCQ MUST have exactly 4 distinct, meaningful options.
 4. Provide exactly one correct answer which must be one of the strings in the options list.
-5. Return ONLY a JSON array of objects.
 
 Format:
 [
@@ -66,12 +65,10 @@ Format:
     "answer": "O(log n)",
     "type": "mcq"
   }}
-]
-
-Generate {num_mcq} MCQs now:"""
+]"""
 
         messages = [
-            {"role": "system", "content": "You are an expert technical recruiter. You always return valid JSON arrays focused on high-quality interview questions. Never use placeholders for options."},
+            {"role": "system", "content": "You are a standard JSON API. You must return ONLY a raw JSON array. Do not output any markdown formatting (like ```json), commentary, or conversational text."},
             {"role": "user", "content": prompt}
         ]
         
@@ -96,14 +93,15 @@ Generate {num_mcq} MCQs now:"""
 
     # Generate Descriptive questions if needed
     if num_desc > 0:
-        content_focus = f"technical interview questions specifically based on this resume content: {resume_text[:500]}" if round_type == "technical" else "professional HR and behavioral questions to assess culture fit and soft skills"
+        content_focus = f"technical interview questions specifically based on this resume content: {resume_text[:4000]}" if round_type == "technical" else "professional HR and behavioral questions to assess culture fit and soft skills"
         
         prompt = f"""Generate exactly {num_desc} high-quality descriptive interview questions for {content_focus}.
         
 RULES:
-1. Questions should be open-ended and require a detailed response.
-2. Focus on specific skills mentioned in the resume for technical rounds.
-3. Return ONLY a JSON array of objects.
+1. Return ONLY a valid JSON array of objects.
+2. Do NOT include any introductory or concluding text.
+3. Questions should be open-ended and require a detailed response.
+4. Focus on specific skills mentioned in the resume for technical rounds.
 
 Format:
 [
@@ -111,12 +109,10 @@ Format:
     "question": "Tell me about a time you had to optimize a slow database query?",
     "type": "descriptive"
   }}
-]
-
-Generate {num_desc} questions now:"""
+]"""
 
         messages = [
-            {"role": "system", "content": "You are an expert interviewer. You always return valid JSON arrays of professional questions."},
+            {"role": "system", "content": "You are a standard JSON API. You must return ONLY a raw JSON array. Do not output any markdown formatting, commentary, or conversational text."},
             {"role": "user", "content": prompt}
         ]
         

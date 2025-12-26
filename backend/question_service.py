@@ -1,6 +1,8 @@
 import json
 import logging
 import time
+import random
+from models import QuestionBank
 from ai_utils import call_krutrim_api, clean_ai_json
 from metrics import (
     questions_generated, 
@@ -88,7 +90,7 @@ Generate {count} MCQs now:"""
         return questions[:count]
     except Exception as e:
         logger.error(f"Error generating MCQs: {e}")
-        return [get_fallback_question(round_type, i+1, "mcq") for i in range(count)]
+        return await get_db_fallback_questions(round_type, count, "mcq")
 
 async def _generate_descriptive(resume_text: str, round_type: str, count: int) -> list[dict]:
     """Helper to generate Descriptive questions"""
@@ -125,9 +127,7 @@ Generate {count} questions now:"""
         return questions[:count]
     except Exception as e:
         logger.error(f"Error generating descriptive questions: {e}")
-        # Need to know the starting index for fallback numbering if mixed with MCQs, 
-        # but for simplicity we just use 1-indexed relative to this batch
-        return [get_fallback_question(round_type, i+1, "descriptive") for i in range(count)]
+        return await get_db_fallback_questions(round_type, count, "descriptive")
 
 def parse_json_questions(response: str, expected_count: int, q_type: str) -> list[dict]:
     """Helper to parse JSON questions from API response with aggressive cleaning"""
@@ -175,8 +175,62 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
         print(f"JSON Parse Error: {e}")
         return []
 
-def get_fallback_question(round_type: str, question_num: int, q_type: str = "descriptive") -> dict:
-    """Get meaningful fallback questions when AI generation fails"""
+async def get_db_fallback_questions(round_type: str, count: int, q_type: str) -> list[dict]:
+    """Retrieve fallback questions from the Question Bank in DB"""
+    try:
+        # Map round_type to category if needed (usually 1:1)
+        category = round_type
+        
+        # specific handling for technical to include programming
+        query = {
+            "category": category,
+            "question_type": q_type
+        }
+        
+        # Find all matching questions
+        # Using aggregation for random sampling would be better for large sets,
+        # but for now, we fetch matches and sample in python to keep it simple with Beanie
+        all_matches = await QuestionBank.find(
+            QuestionBank.category == category,
+            QuestionBank.question_type == q_type
+        ).to_list()
+        
+        if not all_matches and q_type == "mcq" and category == "technical":
+             # Fallback: maybe we have general technical questions
+             all_matches = await QuestionBank.find(
+                QuestionBank.category == "technical",
+                QuestionBank.question_type == "mcq"
+             ).to_list()
+             
+        if not all_matches:
+            logger.warning(f"No fallback questions found in DB for {category} {q_type}. Using hardcoded.")
+            return [get_hardcoded_fallback(round_type, i+1, q_type) for i in range(count)]
+            
+        # Sample random questions
+        selected = random.sample(all_matches, min(count, len(all_matches)))
+        
+        # If we don't have enough, we might need to duplicate or fill with hardcoded
+        results = []
+        for q in selected:
+            results.append({
+                "question": q.question_text,
+                "type": q.question_type,
+                "options": q.options,
+                "answer": q.correct_answer
+            })
+            
+        # Fill remaining if needed
+        while len(results) < count:
+            results.append(get_hardcoded_fallback(round_type, len(results)+1, q_type))
+            
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error retrieving DB fallbacks: {e}")
+        return [get_hardcoded_fallback(round_type, i+1, q_type) for i in range(count)]
+
+def get_hardcoded_fallback(round_type: str, question_num: int, q_type: str = "descriptive") -> dict:
+    """Get meaningful fallback questions when AI generation fails AND DB is empty"""
     if q_type == "mcq":
         return {
             "question": f"Fallback {round_type} MCQ #{question_num}: Select the best option.",
