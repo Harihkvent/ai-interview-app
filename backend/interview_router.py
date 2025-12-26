@@ -3,7 +3,7 @@ from auth_models import User
 from auth_routes import get_current_user
 import logging
 
-from interview_service import (
+from session_service import (
     create_new_session, 
     activate_round, 
     process_answer

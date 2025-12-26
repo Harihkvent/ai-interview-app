@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { getJobMatches, uploadResume, analyzeResumeLive } from '../api';
+import { getJobMatches, uploadResume, analyzeResumeLive, saveJob } from '../api';
 
 interface JobMatch {
+    id: string;
     rank: number;
     job_title: string;
     match_percentage: number;
@@ -11,6 +12,8 @@ interface JobMatch {
     location?: string;
     thumbnail?: string;
     via?: string;
+    apply_link?: string;
+    is_saved?: boolean;
 }
 
 export const LiveJobs: React.FC = () => {
@@ -31,13 +34,36 @@ export const LiveJobs: React.FC = () => {
             await analyzeResumeLive(uploadData.session_id, 'India');
             
             const data = await getJobMatches(uploadData.session_id);
-            setMatches((data.matches || []).filter((m: any) => m.is_live));
+            const formattedMatches = (data.matches || []).map((m: any) => ({
+                ...m,
+                id: m.id || m.job_id // Fallback if id is missing
+            }));
+            setMatches(formattedMatches.filter((m: any) => m.is_live));
             setStage('results');
         } catch (err: any) {
             console.error('Live search failed:', err);
             setError(err.response?.data?.detail || 'Failed to search live jobs');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveJob = async (jobId: string, currentStatus: boolean) => {
+        try {
+            await saveJob(jobId);
+            setMatches((prev: JobMatch[]) => prev.map((m: JobMatch) => 
+                m.id === jobId ? { ...m, is_saved: !currentStatus } : m
+            ));
+        } catch (err) {
+            console.error('Failed to save job:', err);
+        }
+    };
+
+    const handleApplyNow = (link?: string) => {
+        if (link) {
+            window.open(link, '_blank');
+        } else {
+            alert('Application link not available for this job.');
         }
     };
 
@@ -106,9 +132,26 @@ export const LiveJobs: React.FC = () => {
                             <div className="flex flex-col items-center gap-2">
                                 <div className="text-2xl font-black text-secondary-400">{match.match_percentage}%</div>
                                 <div className="text-[10px] text-gray-400 uppercase font-bold">Match Score</div>
-                                <button className="mt-2 px-6 py-2 bg-secondary-600 hover:bg-secondary-500 rounded-lg text-white font-bold transition-all text-sm">
-                                    Quick Apply
-                                </button>
+                                
+                                <div className="mt-2 flex gap-2">
+                                    <button 
+                                        onClick={() => handleSaveJob(match.id, !!match.is_saved)}
+                                        className={`p-2 rounded-lg border transition-all ${
+                                            match.is_saved 
+                                            ? 'bg-red-500/20 border-red-500/50 text-red-500' 
+                                            : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                                        }`}
+                                        title={match.is_saved ? "Unsave Job" : "Save Job"}
+                                    >
+                                        {match.is_saved ? '❤️' : '🤍'}
+                                    </button>
+                                    <button 
+                                        onClick={() => handleApplyNow(match.apply_link)}
+                                        className="px-6 py-2 bg-secondary-600 hover:bg-secondary-500 rounded-lg text-white font-bold transition-all text-sm whitespace-nowrap"
+                                    >
+                                        Apply Now
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))}

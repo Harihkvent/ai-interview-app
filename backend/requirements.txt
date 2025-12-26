@@ -25,3 +25,5 @@ google-auth
 torch
 tqdm
 requests
+redis
+aioredis

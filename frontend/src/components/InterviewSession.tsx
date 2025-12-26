@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { startRound, submitAnswer, switchRound, getRoundsStatus, downloadReport } from '../api';
-import { getNextRound } from '../api';
+import { startRound, submitAnswer, switchRound, getRoundsStatus, downloadReport, getNextRound } from '../api';
+import { useParams } from 'react-router-dom';
 
 type RoundType = 'aptitude' | 'technical' | 'hr';
 
@@ -13,18 +13,20 @@ interface Question {
 }
 
 interface InterviewSessionProps {
-    sessionId: string;
+    sessionId?: string;
     initialRound?: RoundType;
     onComplete: () => void;
     onExit: () => void;
 }
 
 export const InterviewSession: React.FC<InterviewSessionProps> = ({ 
-    sessionId, 
+    sessionId: propsSessionId, 
     initialRound, 
     onComplete,
     onExit 
 }) => {
+    const { id: paramSessionId } = useParams<{ id: string }>();
+    const sessionId = propsSessionId || paramSessionId;
     const [currentRound, setCurrentRound] = useState<RoundType | null>(initialRound || null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
     const [loading, setLoading] = useState(false);
@@ -36,16 +38,91 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
     const [showRoundSelector, setShowRoundSelector] = useState(false);
     const [interviewComplete, setInterviewComplete] = useState(false);
     const [roundComplete, setRoundComplete] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recognition, setRecognition] = useState<any>(null);
+
+    // Initialize Speech Recognition
+    useEffect(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognitionInstance = new SpeechRecognition();
+            recognitionInstance.continuous = true;
+            recognitionInstance.interimResults = true;
+            recognitionInstance.lang = 'en-US';
+
+            recognitionInstance.onresult = (event: any) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                
+                if (finalTranscript) {
+                    setAnswer(prev => prev + (prev ? ' ' : '') + finalTranscript);
+                }
+            };
+
+            recognitionInstance.onerror = (event: any) => {
+                console.error('Speech recognition error:', event.error);
+                setIsRecording(false);
+            };
+
+            recognitionInstance.onend = () => {
+                setIsRecording(false);
+            };
+
+            setRecognition(recognitionInstance);
+        }
+    }, []);
+
+    const toggleRecording = () => {
+        if (!recognition) {
+            alert('Speech recognition is not supported in your browser.');
+            return;
+        }
+
+        if (isRecording) {
+            recognition.stop();
+        } else {
+            try {
+                recognition.start();
+                setIsRecording(true);
+            } catch (e) {
+                console.error('Failed to start recognition:', e);
+            }
+        }
+    };
 
     // Fetch initial status
     useEffect(() => {
+        if (!sessionId) return;
         loadStatus();
         if (!currentRound) {
              determineNextRound();
         } else {
             startcurrentRound();
         }
-    }, []);
+    }, [sessionId]);
+
+    if (!sessionId) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4">
+                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
+                    <div className="text-6xl">⚠️</div>
+                    <h2 className="text-3xl font-bold text-red-400">Session ID Missing</h2>
+                    <p className="text-gray-300">Could not find a valid interview session.</p>
+                    <button onClick={onExit} className="btn-primary">
+                        Back to Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     useEffect(() => {
         let interval: any;
@@ -296,12 +373,31 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
                                     ))}
                                 </div>
                             ) : (
+                            <div className="relative group">
                                 <textarea
-                                    className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white min-h-[200px] mb-8 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all resize-none"
-                                    placeholder="Type your answer here..."
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl p-4 pr-16 text-white min-h-[200px] mb-8 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all resize-none"
+                                    placeholder="Type your answer here or use the microphone..."
                                     value={answer}
                                     onChange={(e) => setAnswer(e.target.value)}
                                 />
+                                <button
+                                    onClick={toggleRecording}
+                                    className={`absolute right-4 top-4 p-3 rounded-full transition-all ${
+                                        isRecording 
+                                        ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/50' 
+                                        : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                                    }`}
+                                    title={isRecording ? 'Stop Recording' : 'Start Voice-to-Text'}
+                                >
+                                    {isRecording ? '🛑' : '🎤'}
+                                </button>
+                                {isRecording && (
+                                    <div className="absolute bottom-12 right-4 flex items-center gap-2 text-xs text-red-400 animate-pulse font-medium">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                        Recording...
+                                    </div>
+                                )}
+                            </div>
                             )}
 
                             <div className="mt-auto">

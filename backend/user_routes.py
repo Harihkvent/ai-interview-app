@@ -42,20 +42,20 @@ async def upload_user_resume(
 ):
     """Upload a resume to user profile without starting a session"""
     try:
-        # Extract text from resume
-        raw_bytes, resume_text = await extract_resume_text(file)
+        # Extract text from resume and save to disk
+        file_path, resume_text = await extract_resume_text(file)
         
         # Extract candidate info
         from resume_parser import extract_candidate_info
         candidate_name, candidate_email = extract_candidate_info(resume_text)
         
-        # Save resume
+        # Save resume to database
         resume = Resume(
             user_id=str(current_user.id),
             filename=file.filename,
             name=file.filename,
             content=resume_text,
-            raw_content=raw_bytes,
+            file_path=file_path,
             candidate_name=candidate_name,
             candidate_email=candidate_email
         )
@@ -87,6 +87,51 @@ async def delete_user_resume(
 
 # ============= Interview History =============
 
+@router.post("/jobs/{job_db_id}/save")
+async def toggle_save_job(
+    job_db_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Toggle the saved status of a job match"""
+    try:
+        from bson import ObjectId
+        job = await JobMatch.get(job_db_id)
+        if not job:
+            # Try to find by SerpApi job_id if query fails
+            job = await JobMatch.find_one(JobMatch.job_id == job_db_id)
+            
+        if not job:
+            raise HTTPException(status_code=404, detail="Job match not found")
+        
+        # Ensure user owns this match or it's a global live job they want to save
+        # For now, we allow saving any job they can see
+        job.is_saved = not job.is_saved
+        job.user_id = str(current_user.id) # Ensure it's linked to this user
+        await job.save()
+        
+        return {
+            "job_id": str(job.id),
+            "is_saved": job.is_saved,
+            "message": "Job saved successfully" if job.is_saved else "Job removed from saved"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/jobs/saved")
+async def get_saved_jobs(current_user: User = Depends(get_current_user)):
+    """Get all jobs saved by the user"""
+    try:
+        saved_jobs = await JobMatch.find(
+            JobMatch.user_id == str(current_user.id),
+            JobMatch.is_saved == True
+        ).to_list()
+        
+        return {
+            "total": len(saved_jobs),
+            "jobs": saved_jobs
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @router.get("/dashboard")
 async def get_user_dashboard(current_user: User = Depends(get_current_user)):
     """Get user dashboard with stats and recent activity"""

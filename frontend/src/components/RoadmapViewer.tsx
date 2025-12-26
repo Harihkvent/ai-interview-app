@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getRoadmapById } from '../api';
+import { useParams } from 'react-router-dom';
 
 interface Milestone {
     phase: string;
@@ -27,20 +28,25 @@ interface RoadmapData {
 }
 
 interface RoadmapViewerProps {
-    roadmapId: string;
+    roadmapId?: string;
     onBack: () => void;
 }
 
-export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId, onBack }) => {
+export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRoadmapId, onBack }) => {
+    const { id: paramRoadmapId } = useParams<{ id: string }>();
+    const roadmapId = propsRoadmapId || paramRoadmapId;
     const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        loadRoadmap();
+        if (roadmapId) {
+            loadRoadmap();
+        }
     }, [roadmapId]);
 
     const loadRoadmap = async () => {
+        if (!roadmapId) return;
         try {
             setLoading(true);
             const data = await getRoadmapById(roadmapId);

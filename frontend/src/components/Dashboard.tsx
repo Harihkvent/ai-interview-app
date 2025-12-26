@@ -206,7 +206,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
               </button>
 
               <button
-                 onClick={() => onNavigate('live_jobs')}
+                 onClick={() => onNavigate('live-jobs')}
                  className="flex flex-col items-center justify-center p-8 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 transition-all group"
               >
                  <span className="text-4xl mb-3 group-hover:-rotate-12 transition-transform">🌐</span>
@@ -257,36 +257,59 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
               data.recent_interviews.map((interview) => (
                 <div 
                   key={interview.id} 
-                  className="bg-white/5 rounded-3xl p-6 border border-white/5 hover:border-primary-500/30 transition-all group relative overflow-hidden"
+                  className={`rounded-3xl p-6 border transition-all group relative overflow-hidden ${
+                    interview.status === 'completed'
+                    ? 'bg-green-500/5 border-green-500/10 hover:border-green-500/30'
+                    : 'bg-white/5 border-white/5 hover:border-primary-500/30'
+                  }`}
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
-                      interview.status === 'completed' 
-                        ? 'bg-green-500/10 text-green-500' 
-                        : 'bg-primary-500/10 text-primary-500'
-                    }`}>
-                      {interview.status}
-                    </span>
-                    <span className="text-[10px] font-bold opacity-30">{new Date(interview.created_at).toLocaleDateString()}</span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter w-fit ${
+                        interview.status === 'completed' 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-primary-500/10 text-primary-500'
+                      }`}>
+                        {interview.status === 'completed' ? '✨ COMPLETED' : '🕒 ' + interview.status.toUpperCase()}
+                      </span>
+                      <span className="text-[10px] font-bold opacity-30 pl-1">{new Date(interview.created_at).toLocaleDateString()}</span>
+                    </div>
+                    {interview.status === 'completed' && (
+                      <div className="text-2xl">🏆</div>
+                    )}
                   </div>
                   
                   <div className="mb-6">
-                    <div className="text-xs font-bold opacity-40 uppercase tracking-widest mb-1">Final Evaluation</div>
-                    <div className="text-3xl font-black tracking-tight">{interview.total_score.toFixed(1)}/10</div>
+                    <div className="text-xs font-bold opacity-40 uppercase tracking-widest mb-1">
+                      {interview.status === 'completed' ? 'Final Score' : 'Current Progress'}
+                    </div>
+                    <div className={`text-4xl font-black tracking-tight ${
+                      interview.status === 'completed' ? 'text-green-400' : 'text-white'
+                    }`}>
+                      {interview.total_score.toFixed(1)}<span className="text-sm opacity-30">/10</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {interview.status !== 'completed' && (
+                    {interview.status === 'completed' ? (
+                      <button 
+                        onClick={() => window.open(`http://localhost:8000/report/${interview.id}`, '_blank')}
+                        className="flex-1 py-3 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2"
+                      >
+                        📥 VIEW REPORT
+                      </button>
+                    ) : (
                       <button 
                          onClick={() => onNavigate('interview', { resumeSessionId: interview.id })}
                          className="flex-1 py-3 bg-primary-500/10 hover:bg-primary-500 text-primary-500 hover:text-white rounded-xl text-xs font-black transition-all"
                       >
-                         CONTINUE SESSION
+                         RESUME INTERVIEW
                       </button>
                     )}
                     <button 
                       onClick={(e) => handleDeleteInterview(e, interview.id)}
                       className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all"
+                      title="Delete History"
                     >
                       🗑️
                     </button>

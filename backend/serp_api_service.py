@@ -40,6 +40,10 @@ class SerpJobService:
                 # Format jobs to match our expected structure
                 formatted_jobs = []
                 for job in jobs:
+                    # Extract primary apply link
+                    apply_options = job.get("apply_options", [])
+                    apply_link = apply_options[0].get("link") if apply_options else None
+                    
                     formatted_jobs.append({
                         "job_title": job.get("title", "N/A"),
                         "company_name": job.get("company_name", "N/A"),
@@ -48,7 +52,8 @@ class SerpJobService:
                         "thumbnail": job.get("thumbnail"),
                         "via": job.get("via"),
                         "extensions": job.get("extensions", []),
-                        "job_id": job.get("job_id")
+                        "job_id": job.get("job_id"),
+                        "apply_link": apply_link
                     })
                 
                 return formatted_jobs

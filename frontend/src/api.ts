@@ -368,3 +368,12 @@ export const saveGeneratedSession = async (
   });
   return response.data;
 };
+export const saveJob = async (jobDbId: string) => {
+  const response = await api.post(`/user/jobs/${jobDbId}/save`);
+  return response.data;
+};
+
+export const getSavedJobs = async () => {
+  const response = await api.get("/user/jobs/saved");
+  return response.data;
+};

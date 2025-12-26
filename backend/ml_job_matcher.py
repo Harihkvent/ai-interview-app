@@ -274,7 +274,7 @@ def calculate_hybrid_scores(resume_text: str, top_n: int = 10, external_jobs: Li
     
     return matches[:top_n]
 
-async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int = 10) -> List[Dict]:
+async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int = 10, user_id: str = None) -> List[Dict]:
     """
     Main function to analyze resume and find job matches
     """
@@ -287,6 +287,7 @@ async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int
     print(f"💾 Storing {len(matches)} matches in database...")
     for rank, match in enumerate(matches, 1):
         job_match = JobMatch(
+            user_id=user_id,
             session_id=session_id,
             job_title=match['job_title'],
             job_description=match['job_description'],
@@ -301,7 +302,7 @@ async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int
     
     return matches
 
-async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n: int = 10, location: str = "India") -> List[Dict]:
+async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n: int = 10, location: str = "India", user_id: str = None) -> List[Dict]:
     """
     Main function to analyze resume and find LIVE job matches via SerpApi
     """
@@ -329,6 +330,7 @@ async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n
     print(f"💾 Storing {len(matches)} LIVE matches in database...")
     for rank, match in enumerate(matches, 1):
         job_match = JobMatch(
+            user_id=user_id,
             session_id=session_id,
             job_title=match['job_title'],
             job_description=match['job_description'],
@@ -341,6 +343,7 @@ async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n
             thumbnail=match.get('thumbnail'),
             via=match.get('via'),
             job_id=match.get('job_id'),
+            apply_link=match.get('apply_link'),
             is_live=True
         )
         await job_match.insert()

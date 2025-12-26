@@ -40,6 +40,7 @@ from auth_routes import router as auth_router
 from user_routes import router as user_router
 from metrics import http_requests, http_request_duration
 from ml_job_matcher import warmup_models
+from cache_manager import cache_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,10 +60,14 @@ async def lifespan(app: FastAPI):
     print("🔥 Warming up ML models...")
     warmup_models()
     
+    # Connect to Redis
+    await cache_manager.connect()
+    
     print("📊 Prometheus metrics available at /metrics")
     logger.info("🚀 API Started and ready to handle requests")
     yield
     # Shutdown
+    await cache_manager.disconnect()
     print("👋 Shutting down...")
 
 app = FastAPI(

@@ -23,7 +23,7 @@ class Resume(Document):
     filename: str
     name: Optional[str] = None # User-friendly name
     content: str  # Extracted text from resume
-    raw_content: Optional[bytes] = None # Raw binary file content
+    file_path: Optional[str] = None # Path to raw file on disk
     candidate_name: Optional[str] = None
     candidate_email: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
@@ -76,7 +76,8 @@ class Message(Document):
         name = "messages"
 
 class JobMatch(Document):
-    session_id: str
+    user_id: Optional[str] = None  # Link to User
+    session_id: Optional[str] = None
     job_title: str
     job_description: str
     match_percentage: float  # 0-100
@@ -88,7 +89,9 @@ class JobMatch(Document):
     thumbnail: Optional[str] = None
     via: Optional[str] = None
     job_id: Optional[str] = None
+    apply_link: Optional[str] = None
     is_live: bool = False
+    is_saved: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:

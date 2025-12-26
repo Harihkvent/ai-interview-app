@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
-  currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'interview' | 'roadmaps' | 'question_gen';
+  currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'saved_jobs' | 'interview' | 'roadmaps' | 'question_gen';
   onNavigate: (page: any) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
@@ -20,11 +22,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
   };
 
   const navItems = [
-    { id: 'dashboard' as const, label: 'Dashboard', icon: '🏠' },
-    { id: 'jobs' as const, label: 'Job Matcher', icon: '🎯' },
-    { id: 'roadmaps' as const, label: 'My Roadmaps', icon: '🗺️' },
-    { id: 'interview' as const, label: 'Interview', icon: '🎤' },
-    { id: 'question_gen' as const, label: 'Question Gen', icon: '⚡' },
+    { id: 'dashboard' as const, path: '/dashboard', label: 'Dashboard', icon: '🏠' },
+    { id: 'jobs' as const, path: '/jobs', label: 'Job Matcher', icon: '🎯' },
+    { id: 'roadmaps' as const, path: '/roadmaps', label: 'My Roadmaps', icon: '🗺️' },
+    { id: 'interview' as const, path: '/upload', label: 'Interview', icon: '🎤' },
+    { id: 'live_jobs' as const, path: '/live-jobs', label: 'Live Jobs', icon: '🌐' },
+    { id: 'saved_jobs' as const, path: '/saved-jobs', label: 'Saved Jobs', icon: '❤️' },
+    { id: 'question_gen' as const, path: '/question-gen', label: 'Question Gen', icon: '⚡' },
   ];
 
   return (
@@ -32,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo/Brand */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('dashboard')}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
             <div className="text-3xl animate-bounce">🚀</div>
             <div>
               <h1 className="text-xl font-black tracking-tight text-gradient">
@@ -47,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => navigate(item.path)}
                 className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 font-semibold ${
                   currentPage === item.id
                     ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'

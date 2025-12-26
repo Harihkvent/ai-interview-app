@@ -10,8 +10,9 @@ logger = logging.getLogger("routes")
 
 from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap
 from services import generate_questions_from_resume, evaluate_answer, generate_ai_response
-from report_generator import generate_pdf_report
+from report_generator import generate_pdf_report, calculate_overall_score, generate_final_report_data
 from file_handler import extract_resume_text
+from session_service import create_new_session
 from metrics import (
     interview_sessions_total,
     interview_sessions_active,
@@ -76,33 +77,24 @@ async def upload_resume(
 ):
     """Upload resume and create new interview session"""
     try:
-        # Extract text from resume
-        raw_bytes, resume_text = await extract_resume_text(file)
+        # Extract text from resume and save to disk
+        file_path, resume_text = await extract_resume_text(file)
         
         # Extract candidate info
         from resume_parser import extract_candidate_info
         candidate_name, candidate_email = extract_candidate_info(resume_text)
         
-        # Create new session
-        new_session = InterviewSession(
-            user_id=str(current_user.id),
-            status="active",
-            started_at=datetime.utcnow()
-        )
-        await new_session.insert()
+        # Create new session and initialization rounds via SessionService
+        new_session = await create_new_session(user_id=str(current_user.id))
         
-        # Track metrics
-        interview_sessions_total.inc()
-        interview_sessions_active.inc()
-        
-        # Save resume with extracted info, user_id, and raw_bytes
+        # Save resume with extracted info, user_id, and file_path
         resume = Resume(
             user_id=str(current_user.id),
             session_id=str(new_session.id),
             filename=file.filename,
             name=file.filename,
             content=resume_text,
-            raw_content=raw_bytes,
+            file_path=file_path,
             candidate_name=candidate_name,
             candidate_email=candidate_email
         )
@@ -111,16 +103,6 @@ async def upload_resume(
         # Update session with resume_id
         new_session.resume_id = str(resume.id)
         await new_session.save()
-        
-        # Create all three rounds
-        round_types = ["aptitude", "technical", "hr"]
-        for round_type in round_types:
-            round_obj = InterviewRound(
-                session_id=str(new_session.id),
-                round_type=round_type,
-                status="pending"
-            )
-            await round_obj.insert()
         
         return {
             "session_id": str(new_session.id),
@@ -429,7 +411,12 @@ async def submit_answer(request: SubmitAnswerRequest):
         interview_complete = all(r.status == "completed" for r in all_rounds)
         
         if interview_complete:
+            # Calculate final score
+            session_report_data = await generate_final_report_data(str(interview_session.id))
+            final_score = session_report_data.get('total_score', 0.0)
+            
             interview_session.status = "completed"
+            interview_session.total_score = final_score
             interview_session.completed_at = datetime.utcnow()
             await interview_session.save()
             
@@ -817,7 +804,7 @@ async def extract_text_from_file(file: UploadFile = File(...)):
 # ============= Job Matching Endpoints =============
 
 @router.post("/analyze-resume/{session_id}")
-async def analyze_resume(session_id: str):
+async def analyze_resume(session_id: str, current_user: User = Depends(get_current_user)):
     """Analyze resume and generate job matches using hybrid ML approach - uses cache if available"""
     try:
         # Get resume
@@ -845,7 +832,7 @@ async def analyze_resume(session_id: str):
         
         # Run ML job matching (hybrid: TF-IDF + Semantic)
         from ml_job_matcher import analyze_resume_and_match
-        matches = await analyze_resume_and_match(session_id, resume.content, top_n=10)
+        matches = await analyze_resume_and_match(session_id, resume.content, top_n=10, user_id=str(current_user.id))
         
         return {
             "session_id": session_id,
@@ -859,7 +846,7 @@ async def analyze_resume(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/analyze-resume-live/{session_id}")
-async def analyze_resume_live(session_id: str, location: str = "India"):
+async def analyze_resume_live(session_id: str, location: str = "India", current_user: User = Depends(get_current_user)):
     """Analyze resume and generate LIVE job matches using SerpApi"""
     try:
         # Get resume
@@ -869,7 +856,7 @@ async def analyze_resume_live(session_id: str, location: str = "India"):
         
         # Run LIVE job matching
         from ml_job_matcher import analyze_resume_and_match_live
-        matches = await analyze_resume_and_match_live(session_id, resume.content, top_n=10, location=location)
+        matches = await analyze_resume_and_match_live(session_id, resume.content, top_n=10, location=location, user_id=str(current_user.id))
         
         return {
             "session_id": session_id,
@@ -910,7 +897,9 @@ async def get_job_matches(session_id: str):
                     "location": m.location,
                     "thumbnail": m.thumbnail,
                     "via": m.via,
-                    "is_live": m.is_live
+                    "apply_link": m.apply_link,
+                    "is_live": m.is_live,
+                    "is_saved": m.is_saved
                 }
                 for m in matches
             ]
