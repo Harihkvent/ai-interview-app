@@ -15,13 +15,15 @@ from metrics import (
 
 logger = logging.getLogger("interview_service")
 
-async def create_new_session(user_id: str, resume_id: str = None) -> InterviewSession:
+async def create_new_session(user_id: str, resume_id: str = None, session_type: str = "interview", job_title: str = "General Interview") -> InterviewSession:
     """Initialize a new interview session with all rounds pending"""
     session = InterviewSession(
         user_id=user_id,
         status="active",
         started_at=datetime.utcnow(),
-        resume_id=resume_id
+        resume_id=resume_id,
+        session_type=session_type,
+        job_title=job_title
     )
     await session.insert()
     
@@ -36,6 +38,13 @@ async def create_new_session(user_id: str, resume_id: str = None) -> InterviewSe
         await round_obj.insert()
         
     return session
+
+async def start_generation_tasks(session_id: str, resume_text: str):
+    """Trigger background question generation for all rounds"""
+    from mq_service import publish_question_generation
+    round_types = ["aptitude", "technical", "hr"]
+    for r_type in round_types:
+        await publish_question_generation(session_id, r_type, resume_text)
 
 async def activate_round(session_id: str, round_type: str, resume_text: str) -> dict:
     """Activate a round, generating questions if needed"""
@@ -75,6 +84,9 @@ async def activate_round(session_id: str, round_type: str, resume_text: str) -> 
                 question_type=q_data.get("type", "descriptive"),
                 options=q_data.get("options"),
                 correct_answer=q_data.get("answer"),
+                starter_code=q_data.get("starter_code"),
+                test_cases=q_data.get("test_cases"),
+                language=q_data.get("language", "python"),
                 question_number=i
             )
             await q_model.insert()
@@ -140,4 +152,80 @@ async def process_answer(question_id: str, answer_text: str, time_taken: int) ->
     return {
         "evaluation": evaluation,
         "round_obj": round_obj
+    }
+
+async def toggle_session_pause(session_id: str) -> dict:
+    """Pause or resume an interview session"""
+    session = await InterviewSession.get(session_id)
+    if not session:
+        raise ValueError("Session not found")
+        
+    now = datetime.utcnow()
+    if session.is_paused:
+        # Resume
+        if session.last_pause_at:
+            paused_duration = (now - session.last_pause_at).total_seconds()
+            session.total_paused_time += int(paused_duration)
+        session.is_paused = False
+        session.status = "active"
+        session.last_pause_at = None
+    else:
+        # Pause
+        session.is_paused = True
+        session.status = "paused"
+        session.last_pause_at = now
+        
+    await session.save()
+    return {
+        "is_paused": session.is_paused,
+        "status": session.status,
+        "total_paused_time": session.total_paused_time
+    }
+
+async def get_full_session_state(session_id: str) -> dict:
+    """Get the complete state of the interview for navigation"""
+    session = await InterviewSession.get(session_id)
+    if not session:
+        raise ValueError("Session not found")
+        
+    rounds = await InterviewRound.find(InterviewRound.session_id == session_id).to_list()
+    
+    rounds_data = []
+    for r in rounds:
+        questions = await Question.find(Question.round_id == str(r.id)).sort("+question_number").to_list()
+        
+        qs_status = []
+        for q in questions:
+            ans = await Answer.find_one(Answer.question_id == str(q.id))
+            status = "pending"
+            if ans:
+                status = ans.status if hasattr(ans, 'status') else "submitted"
+            
+            qs_status.append({
+                "id": str(q.id),
+                "number": q.question_number,
+                "type": q.question_type,
+                "status": status,
+                "text": q.question_text,
+                "options": q.options,
+                "starter_code": q.starter_code,
+                "language": q.language,
+                "isCurrent": str(q.id) == session.current_question_id
+            })
+            
+        rounds_data.append({
+            "round_type": r.round_type,
+            "round_id": str(r.id),
+            "status": r.status,
+            "questions": qs_status,
+            "is_current": str(r.id) == session.current_round_id
+        })
+        
+    return {
+        "session_id": session_id,
+        "status": session.status,
+        "is_paused": session.is_paused,
+        "total_time_seconds": session.total_time_seconds,
+        "total_paused_time": session.total_paused_time,
+        "rounds": rounds_data
     }

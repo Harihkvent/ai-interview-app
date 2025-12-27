@@ -1,229 +1,151 @@
-import React, { useState, useEffect } from 'react';
-import { startRound, submitAnswer, switchRound, getRoundsStatus, downloadReport, getNextRound } from '../api';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+    getSessionState, 
+    submitAnswer, 
+    pauseSession, 
+    jumpQuestion, 
+    finalizeInterview,
+    downloadReport 
+} from '../api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { QuestionSidebar } from './QuestionSidebar';
+import { CodeEditor } from './CodeEditor';
 
-type RoundType = 'aptitude' | 'technical' | 'hr';
+// type RoundType = 'aptitude' | 'technical' | 'hr';
 
 interface Question {
     id: string;
     text: string;
     number: number;
-    type?: 'mcq' | 'descriptive';
+    type: 'mcq' | 'descriptive' | 'coding';
     options?: string[];
+    starter_code?: string;
+    status: string;
 }
 
 interface InterviewSessionProps {
     sessionId?: string;
-    initialRound?: RoundType;
-    onComplete: () => void;
     onExit: () => void;
 }
 
 export const InterviewSession: React.FC<InterviewSessionProps> = ({ 
     sessionId: propsSessionId, 
-    initialRound, 
-    onComplete,
     onExit 
 }) => {
     const { id: paramSessionId } = useParams<{ id: string }>();
-    const sessionId = propsSessionId || paramSessionId;
-    const [currentRound, setCurrentRound] = useState<RoundType | null>(initialRound || null);
+    const sessionId = (propsSessionId || paramSessionId)!;
+    const navigate = useNavigate();
+
+    const [sessionState, setSessionState] = useState<any>(null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [answer, setAnswer] = useState('');
-    const [timer, setTimer] = useState(0);
-    const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const [timer, setTimer] = useState(0); // Per-question timer
+    const [globalTimer, setGlobalTimer] = useState(0);
+    const [isPaused, setIsPaused] = useState(false);
+    const [verificationMode, setVerificationMode] = useState(false);
     const [evaluation, setEvaluation] = useState<any | null>(null);
-    const [roundStatus, setRoundStatus] = useState<any[]>([]);
-    const [showRoundSelector, setShowRoundSelector] = useState(false);
-    const [interviewComplete, setInterviewComplete] = useState(false);
-    const [roundComplete, setRoundComplete] = useState(false);
+    
+    // Voice-to-Text state
     const [isRecording, setIsRecording] = useState(false);
     const [recognition, setRecognition] = useState<any>(null);
 
-    // Initialize Speech Recognition
+    // Sync with backend every few seconds
+    const syncInterval = useRef<any>(null);
+
     useEffect(() => {
+        loadSession();
+        // Setup speech recognition
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (SpeechRecognition) {
             const recognitionInstance = new SpeechRecognition();
             recognitionInstance.continuous = true;
             recognitionInstance.interimResults = true;
             recognitionInstance.lang = 'en-US';
-
             recognitionInstance.onresult = (event: any) => {
-                let interimTranscript = '';
                 let finalTranscript = '';
-
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+                    if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
                 }
-                
-                if (finalTranscript) {
-                    setAnswer(prev => prev + (prev ? ' ' : '') + finalTranscript);
-                }
+                if (finalTranscript) setAnswer(prev => prev + (prev ? ' ' : '') + finalTranscript);
             };
-
-            recognitionInstance.onerror = (event: any) => {
-                console.error('Speech recognition error:', event.error);
-                setIsRecording(false);
-            };
-
-            recognitionInstance.onend = () => {
-                setIsRecording(false);
-            };
-
             setRecognition(recognitionInstance);
         }
-    }, []);
 
-    const toggleRecording = () => {
-        if (!recognition) {
-            alert('Speech recognition is not supported in your browser.');
-            return;
-        }
-
-        if (isRecording) {
-            recognition.stop();
-        } else {
-            try {
-                recognition.start();
-                setIsRecording(true);
-            } catch (e) {
-                console.error('Failed to start recognition:', e);
-            }
-        }
-    };
-
-    // Fetch initial status
-    useEffect(() => {
-        if (!sessionId) return;
-        loadStatus();
-        if (!currentRound) {
-             determineNextRound();
-        } else {
-            startcurrentRound();
-        }
+        return () => {
+            if (syncInterval.current) clearInterval(syncInterval.current);
+        };
     }, [sessionId]);
 
-    if (!sessionId) {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
-                    <div className="text-6xl">⚠️</div>
-                    <h2 className="text-3xl font-bold text-red-400">Session ID Missing</h2>
-                    <p className="text-gray-300">Could not find a valid interview session.</p>
-                    <button onClick={onExit} className="btn-primary">
-                        Back to Dashboard
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    useEffect(() => {
-        let interval: any;
-        if (isTimerRunning) {
-            interval = setInterval(() => setTimer(t => t + 1), 1000);
-        }
-        return () => clearInterval(interval);
-    }, [isTimerRunning]);
-
-    const loadStatus = async () => {
+    const loadSession = async () => {
         try {
-            const status = await getRoundsStatus(sessionId);
-            setRoundStatus(status.rounds || []);
-        } catch (e) {
-            console.error("Failed to load status", e);
-        }
-    };
+            const state = await getSessionState(sessionId);
+            setSessionState(state);
+            setIsPaused(state.is_paused);
+            setGlobalTimer(state.total_time_seconds);
+            
+            if (state.status === 'verification') {
+                setVerificationMode(true);
+            }
 
-    const determineNextRound = async () => {
-        try {
-            const next = await getNextRound(sessionId);
-            if (next.round_type) {
-                setCurrentRound(next.round_type as RoundType);
-                startcurrentRound(next.round_type);
-            } else {
-                setInterviewComplete(true);
+            // Handle case where questions are still generating
+            const currentRound = state.rounds.find((r: any) => r.is_current) || state.rounds[0];
+            const currentQState = currentRound && currentRound.questions 
+                ? (currentRound.questions.find((q: any) => q.isCurrent) || currentRound.questions[0])
+                : null;
+            
+            if (currentQState) {
+                handleJump(currentQState.id);
+            } else if (state.status === 'active') {
+                // Poll if questions are missing but interview is active
+                setTimeout(loadSession, 3000);
             }
         } catch (e) {
-            console.error(e);
-        }
-    };
-
-    const startcurrentRound = async (round: RoundType = currentRound!) => {
-        setLoading(true);
-        try {
-            const data = await startRound(sessionId, round);
-            if (data.questions && data.questions.length > 0) {
-                // Find first unanswered question
-                // backend service returns list of questions. 
-                // We need to track index locally or rely on backend to tell us "next question".
-                // The new backend `activate_round` returns "questions" list and "current_question_index".
-                // We can find the first one without an answer? 
-                // Wait, `activate_round` returns `questions` (list of objects).
-                // It does NOT return which ones are answered unless we check.
-                // However, the `startRound` API response structure in `interview_router` returns what `activate_round` returns.
-                // `activate_round` returns: { round_id, round_type, questions, current_question_index }
-                
-                // Ideally we should filter for unanswered or rely on `current_question_index`.
-                // For simplicity, let's assume we start at current_question_index.
-                const qIndex = data.current_question_index || 0;
-                if (qIndex < data.questions.length) {
-                    const qData = data.questions[qIndex];
-                    console.log('Current Question Data:', qData); // Debug log
-                     setCurrentQuestion({
-                        id: qData.id || qData._id, // Handle both id and _id
-                        text: qData.question_text,
-                        number: qData.question_number,
-                        type: qData.question_type,
-                        options: qData.options
-                    });
-                    setTimer(0);
-                    setIsTimerRunning(true);
-                    setRoundComplete(false);
-                } else {
-                    setRoundComplete(true);
-                }
-            }
-        } catch (e) {
-            console.error("Error starting round", e);
+            console.error("Failed to load session", e);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSwitchRound = async (round: RoundType) => {
+    const handleJump = async (qId: string) => {
         setLoading(true);
         try {
-            const data = await switchRound(sessionId, round);
-            setCurrentRound(round);
-            // Logic to set question similar to startcurrentRound
-             if (data.round_details && data.round_details.questions) {
-                const qIndex = data.round_details.current_question_index || 0;
-                if (qIndex < data.round_details.questions.length) {
-                     const qData = data.round_details.questions[qIndex];
-                     console.log('Switch Round Question Data:', qData); // Debug log
-                     setCurrentQuestion({
-                        id: qData.id || qData._id,
-                        text: qData.question_text,
-                        number: qData.question_number,
-                        type: qData.question_type,
-                        options: qData.options
-                    });
-                    setTimer(0);
-                    setIsTimerRunning(true);
-                    setRoundComplete(false);
-                } else {
-                     setRoundComplete(true);
+            const result = await jumpQuestion(sessionId, qId);
+            // Now refresh full state to get specific question details
+            const state = await getSessionState(sessionId);
+            setSessionState(state);
+            
+            // Find the specific question data from state or fetch separately
+            // Since our jumpQuestion currently returns question info, let's use it.
+            // But jumpQuestion needs to return actual question content too.
+            // Let's re-fetch the round's currently active setup.
+            // For now, I'll update the component to handle question content from the state if I update backend.
+            
+            // Actually, let's just use the current question logic:
+            // I'll make a more robust jumpQuestion or state response.
+            // For now, I can find the question text because I'll update the backend.
+            
+            // Wait, I already have question_text in my updated backend models and state logic.
+            // Let's look for it in the state.
+            let foundQ = null;
+            for (const r of state.rounds) {
+                const q = r.questions.find((q: any) => q.id === qId);
+                if (q) {
+                    foundQ = { ...q, round_type: r.round_type };
+                    break;
                 }
             }
-            setShowRoundSelector(false);
-            loadStatus();
+            
+            if (foundQ) {
+                // If coding question, we need starter_code. Our state API might be limited.
+                // Let's assume for now we have enough or we'll add it.
+                // Actually, I should probably add an API `GET /question/{id}`
+                // But for now let's manually fetch round details if needed.
+                setCurrentQuestion(foundQ);
+                setAnswer(foundQ.status === 'submitted' ? '' : ''); // Clear or load draft
+                setTimer(0);
+                setEvaluation(null);
+            }
         } catch (e) {
             console.error(e);
         } finally {
@@ -231,248 +153,260 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
         }
     };
 
-    const handleSubmit = async () => {
+    const handlePause = async () => {
+        try {
+            await pauseSession(sessionId);
+            loadSession(); // Refresh state
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleSubmit = async (submitStatus: string = 'submitted') => {
         if (!currentQuestion) return;
         setLoading(true);
-        setIsTimerRunning(false);
         try {
-            const result = await submitAnswer(currentQuestion.id, answer, timer);
-            setEvaluation(result);
-            setAnswer('');
-            loadStatus();
-            
-            // Check progress
-            // result contains { evaluation, round_obj }
-            // logic to determine next question is needed.
-            // For now, we wait for user to click "Next"
+            const result = await submitAnswer(currentQuestion.id, answer, timer, submitStatus);
+            if (submitStatus === 'submitted') {
+                setEvaluation(result);
+            }
+            // Update local state after submit/skip
+            const newState = await getSessionState(sessionId);
+            setSessionState(newState);
         } catch (e) {
             console.error(e);
-            setIsTimerRunning(true);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleNext = async () => {
-        setEvaluation(null);
-        // Refresh round to get next question
-        if (currentRound) {
-            startcurrentRound(currentRound);
+    const handleEnd = async () => {
+        try {
+            await finalizeInterview(sessionId);
+            setVerificationMode(true);
+        } catch (e) {
+            console.error(e);
         }
+    };
+
+    const toggleRecording = () => {
+        if (!recognition) return;
+        if (isRecording) recognition.stop();
+        else {
+            recognition.start();
+            setIsRecording(true);
+        }
+        recognition.onend = () => setIsRecording(false);
     };
 
     const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return h > 0 
+            ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+            : `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
-    if (interviewComplete) {
+    // Timer logic
+    useEffect(() => {
+        let interval: any;
+        if (!isPaused && !verificationMode && currentQuestion) {
+            interval = setInterval(() => {
+                setTimer(t => t + 1);
+                setGlobalTimer(t => t + 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isPaused, verificationMode, currentQuestion]);
+
+    if (loading && !sessionState) return <div className="min-h-screen flex items-center justify-center">Loading Interview...</div>;
+
+    if (verificationMode) {
         return (
-             <div className="flex items-center justify-center p-4 h-full">
-                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-8">
-                    <div className="text-8xl mb-4">🎉</div>
-                    <h1 className="text-5xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">Interview Complete!</h1>
+            <div className="min-h-screen p-8 max-w-4xl mx-auto flex flex-col justify-center text-center space-y-8 animate-fadeIn">
+                <div className="text-8xl">📊</div>
+                <h1 className="text-5xl font-bold">Interview Review</h1>
+                <p className="text-xl text-gray-400">You have completed the interview sessions. Review your progress before final report generation.</p>
+                
+                <div className="grid grid-cols-3 gap-4">
+                    {sessionState.rounds.map((r: any) => (
+                        <div key={r.round_id} className="glass-card p-6 flex flex-col">
+                            <h4 className="capitalize font-bold mb-2">{r.round_type}</h4>
+                            <div className="text-2xl font-bold text-primary-400">
+                                {r.questions.filter((q: any) => q.status === 'submitted').length}/{r.questions.length}
+                            </div>
+                            <span className="text-xs text-gray-500">Answered</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="space-y-4">
                     <button onClick={async () => {
                         const blob = await downloadReport(sessionId);
-                         const url = window.URL.createObjectURL(blob);
-                         const a = document.createElement('a');
-                         a.href = url;
-                         a.download = `report-${sessionId}.pdf`;
-                         a.click();
-                    }} className="btn-primary w-full text-lg">📥 Download Report</button>
-                    <button onClick={onComplete} className="text-gray-400 hover:text-white mt-4">Return to Dashboard</button>
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `interview-report-${sessionId}.pdf`;
+                        a.click();
+                        navigate('/dashboard');
+                    }} className="btn-primary w-full py-4 text-xl font-bold">Generation & Download Final Report</button>
+                    
+                    <button onClick={() => setVerificationMode(false)} className="text-gray-400 hover:text-white underline">Go back to interview</button>
                 </div>
             </div>
         );
     }
 
-    if (!currentQuestion && !loading && !roundComplete) {
-        return <div className="p-12 text-center text-xl">Loading Interview...</div>;
-    }
-
-    if (roundComplete && !loading) {
-         return (
-             <div className="flex items-center justify-center p-4 h-full">
-                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-8">
-                    <div className="text-6xl mb-4">✅</div>
-                    <h1 className="text-4xl font-bold">{currentRound?.toUpperCase()} Round Complete!</h1>
-                    <button onClick={determineNextRound} className="btn-primary w-full text-lg">Continue to Next Round</button>
-                    <button onClick={() => setShowRoundSelector(true)} className="text-primary-400 mt-4 block mx-auto">Switch Round Manually</button>
-                </div>
-                 {showRoundSelector && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-                        <div className="bg-gray-900 p-8 rounded-xl max-w-md w-full">
-                            <h3 className="text-xl font-bold mb-4">Select Round</h3>
-                            <div className="space-y-2">
-                                {['aptitude', 'technical', 'hr'].map(r => (
-                                    <button key={r} onClick={() => handleSwitchRound(r as RoundType)} className="w-full p-4 bg-white/5 hover:bg-white/10 rounded-lg capitalize text-left">
-                                        {r} Round
-                                    </button>
-                                ))}
-                            </div>
-                            <button onClick={() => setShowRoundSelector(false)} className="mt-4 text-gray-400">Cancel</button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        ); 
-    }
-
     return (
-        <div className="flex-1 flex flex-col p-4 max-w-6xl mx-auto w-full">
-            {/* Header */}
-            <header className="glass-card p-4 mb-6 flex justify-between items-center">
-                <div>
-                    <h2 className="text-2xl font-bold capitalize bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
-                        {currentRound} Round
-                    </h2>
-                    <p className="text-gray-400 text-sm">Question {currentQuestion?.number}</p>
-                </div>
-                <div className="flex items-center gap-6">
-                    <div className="text-right">
-                        <div className="text-3xl font-mono font-bold text-primary-400">{formatTime(timer)}</div>
-                        <p className="text-xs text-gray-500">Time Elapsed</p>
-                    </div>
-                    <button onClick={() => setShowRoundSelector(true)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
-                        Switch Round
-                    </button>
-                    <button onClick={onExit} className="px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg text-sm transition-colors">
-                        Exit
-                    </button>
-                </div>
-            </header>
+        <div className="flex h-screen bg-black overflow-hidden">
+            {/* Sidebar */}
+            <QuestionSidebar 
+                rounds={sessionState?.rounds || []} 
+                onJump={handleJump} 
+                overallTime={formatTime(globalTimer)} 
+            />
 
-            {/* Main Content */}
-            <main className="flex-1 flex gap-6">
-                {/* Question Area */}
-                <div className="flex-1 glass-card p-8 flex flex-col">
-                    {!evaluation ? (
-                        <>
-                            <div className="mb-8">
-                                <h3 className="text-xl text-white leading-relaxed font-medium">
-                                    {currentQuestion?.text}
-                                </h3>
+            {/* Main Area */}
+            <div className="flex-1 flex flex-col relative overflow-y-auto">
+                {/* Header */}
+                <header className="p-6 flex justify-between items-center border-b border-white/5 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
+                    {currentQuestion ? (
+                        <div>
+                             <h2 className="text-xl font-bold capitalize flex items-center gap-2">
+                                  {currentQuestion?.type === 'coding' ? '👨‍💻' : '📝'} 
+                                  {currentQuestion?.type === 'mcq' ? 'MCQ' : currentQuestion?.type === 'coding' ? 'Coding' : 'Descriptive'} Section
+                             </h2>
+                             <p className="text-xs text-gray-500 underline">Question {currentQuestion?.number}</p>
+                        </div>
+                    ) : <div></div>}
+                    
+                    <div className="flex items-center gap-4">
+                        <div className="text-right px-4 py-1.5 bg-white/5 rounded-lg border border-white/10">
+                            <div className="text-sm font-mono text-gray-400">Current Question: {formatTime(timer)}</div>
+                        </div>
+                        <button onClick={handlePause} className={`p-2 rounded-lg transition-colors ${isPaused ? 'bg-primary-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
+                            {isPaused ? '▶️ Resume' : '⏸️ Pause'}
+                        </button>
+                        <button onClick={handleEnd} className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-600/30 transition-all font-bold">
+                            End Interview
+                        </button>
+                    </div>
+                </header>
+
+                {/* Content Area */}
+                <main className="flex-1 p-8 flex flex-col max-w-4xl mx-auto w-full">
+                    {!currentQuestion ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 animate-pulse">
+                            <div className="text-6xl animate-bounce">🤖</div>
+                            <h2 className="text-3xl font-bold">Preparing Your Questions</h2>
+                            <p className="text-gray-400 max-w-md">Our AI is analyzing your resume to generate tailored interview questions. This will only take a moment...</p>
+                        </div>
+                    ) : evaluation ? (
+                        <div className="glass-card p-12 text-center space-y-8 animate-fadeIn">
+                             <div className="text-7xl">🎉</div>
+                             <h2 className="text-3xl font-bold">Submission Received</h2>
+                             <div className="text-5xl font-mono text-primary-400">{evaluation.score}/10</div>
+                             <div className="bg-white/5 p-6 rounded-xl text-left border border-white/10">
+                                 <h4 className="text-primary-300 font-bold mb-2">Feedback</h4>
+                                 <p className="text-gray-300 text-sm leading-relaxed">{evaluation.evaluation}</p>
+                             </div>
+                             <button onClick={() => {
+                                 // Logic to jump to next unanswered or next question
+                                 const nextQ = sessionState.rounds.flatMap((r: any) => r.questions).find((q: any) => currentQuestion && q.number === currentQuestion.number + 1);
+                                 if (nextQ) handleJump(nextQ.id);
+                                 else setEvaluation(null);
+                             }} className="btn-primary w-full py-4 font-bold text-lg">Next Question</button>
+                        </div>
+                    ) : (
+                        <div className="space-y-8">
+                            <div className="glass-card p-8 border border-white/10">
+                                <h3 className="text-2xl font-medium leading-relaxed">{currentQuestion?.text}</h3>
                             </div>
 
-                            {currentQuestion?.type === 'mcq' ? (
-                                <div className="grid gap-3 mb-8">
+                            {currentQuestion?.type === 'mcq' && (
+                                <div className="grid gap-3">
                                     {currentQuestion.options?.map((opt, i) => (
                                         <button
                                             key={i}
                                             onClick={() => setAnswer(opt)}
-                                            className={`p-4 text-left rounded-xl border-2 transition-all ${
+                                            className={`p-5 text-left rounded-2xl border-2 transition-all group flex justify-between items-center ${
                                                 answer === opt 
                                                 ? 'border-primary-500 bg-primary-500/10 text-white' 
-                                                : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/30'
+                                                : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/30'
                                             }`}
                                         >
-                                            <span className="inline-block w-8 font-bold text-primary-400">{String.fromCharCode(65 + i)}.</span>
-                                            {opt}
+                                            <span className="flex gap-4 items-center">
+                                                <span className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold font-mono group-hover:bg-primary-500/20 transition-colors">
+                                                    {String.fromCharCode(65 + i)}
+                                                </span>
+                                                {opt}
+                                            </span>
+                                            {answer === opt && <span className="text-primary-400">✓</span>}
                                         </button>
                                     ))}
                                 </div>
-                            ) : (
-                            <div className="relative group">
-                                <textarea
-                                    className="w-full bg-black/20 border border-white/10 rounded-xl p-4 pr-16 text-white min-h-[200px] mb-8 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all resize-none"
-                                    placeholder="Type your answer here or use the microphone..."
-                                    value={answer}
-                                    onChange={(e) => setAnswer(e.target.value)}
-                                />
-                                <button
-                                    onClick={toggleRecording}
-                                    className={`absolute right-4 top-4 p-3 rounded-full transition-all ${
-                                        isRecording 
-                                        ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/50' 
-                                        : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
-                                    }`}
-                                    title={isRecording ? 'Stop Recording' : 'Start Voice-to-Text'}
-                                >
-                                    {isRecording ? '🛑' : '🎤'}
-                                </button>
-                                {isRecording && (
-                                    <div className="absolute bottom-12 right-4 flex items-center gap-2 text-xs text-red-400 animate-pulse font-medium">
-                                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                        Recording...
-                                    </div>
-                                )}
-                            </div>
                             )}
 
-                            <div className="mt-auto">
-                                <button 
-                                    onClick={handleSubmit} 
-                                    disabled={!answer || loading}
-                                    className="btn-primary w-full py-4 text-lg font-bold shadow-lg shadow-primary-500/20"
+                            {currentQuestion?.type === 'coding' && (
+                                <CodeEditor 
+                                    code={answer || currentQuestion.starter_code || ''} 
+                                    onChange={setAnswer} 
+                                />
+                            )}
+
+                            {currentQuestion?.type === 'descriptive' && (
+                                <div className="relative">
+                                    <textarea
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-white min-h-[300px] focus:ring-2 focus:ring-primary-500/50 outline-none transition-all resize-none shadow-inner"
+                                        placeholder="Type your response here..."
+                                        value={answer}
+                                        onChange={(e) => setAnswer(e.target.value)}
+                                    />
+                                    <button
+                                        onClick={toggleRecording}
+                                        className={`absolute bottom-6 right-6 p-4 rounded-full transition-all shadow-xl ${
+                                            isRecording 
+                                            ? 'bg-red-500 animate-pulse' 
+                                            : 'bg-white/10 text-gray-400 hover:bg-primary-500 hover:text-white'
+                                        }`}
+                                    >
+                                        {isRecording ? '🛑' : '🎤'}
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex gap-4 pt-8">
+                                <button
+                                    onClick={() => handleSubmit('skipped')}
+                                    className="flex-1 py-4 px-6 rounded-xl border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 transition-all font-bold"
                                 >
-                                    {loading ? 'Submitting...' : 'Submit Answer'}
+                                    Skip Question
+                                </button>
+                                <button
+                                    onClick={() => handleSubmit('submitted')}
+                                    disabled={!answer || loading}
+                                    className="flex-[2] btn-primary py-4 px-6 rounded-xl font-bold text-lg shadow-2xl shadow-primary-500/20"
+                                >
+                                    {loading ? 'Submitting...' : 'Submit Final Answer'}
                                 </button>
                             </div>
-                        </>
-                    ) : (
-                        <div className="text-center space-y-6 animate-fadeIn">
-                             <div className="text-6xl mb-4">{evaluation.evaluation.score >= 8 ? '🌟' : '👍'}</div>
-                             <h2 className="text-3xl font-bold">Answer Evaluated</h2>
-                             <div className="text-5xl font-bold text-primary-400">{evaluation.evaluation.score}/10</div>
-                             <div className="bg-white/5 rounded-xl p-6 text-left">
-                                <h4 className="text-primary-300 font-bold mb-2">Feedback</h4>
-                                <p className="text-gray-200">{evaluation.evaluation.evaluation}</p>
-                             </div>
-                             <button onClick={handleNext} className="btn-primary w-full py-3">Next Question</button>
                         </div>
                     )}
-                </div>
+                </main>
 
-                {/* Status Sidebar */}
-                <div className="w-80 glass-card p-6 hidden lg:block">
-                    <h3 className="text-lg font-bold mb-4">Session Progress</h3>
-                    <div className="space-y-4">
-                        {roundStatus.map((r: any) => (
-                            <div key={r.round_type} className={`p-4 rounded-xl border ${
-                                r.is_current ? 'border-primary-500 bg-primary-500/10' : 'border-white/10 bg-white/5'
-                            }`}>
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="capitalize font-bold">{r.round_type}</span>
-                                    <span className={`text-xs px-2 py-1 rounded-full ${
-                                        r.status === 'completed' ? 'bg-green-500/20 text-green-400' : 
-                                        r.status === 'active' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'
-                                    }`}>{r.status}</span>
-                                </div>
-                                <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                                     <div className="bg-primary-500 h-full transition-all duration-500" 
-                                          style={{ width: `${(r.answered_questions / Math.max(r.total_questions, 1)) * 100}%` }}></div>
-                                </div>
-                                <p className="text-xs text-gray-400 mt-2 text-right">{r.answered_questions}/{r.total_questions}</p>
-                            </div>
-                        ))}
+                {/* Pause Overlay */}
+                {isPaused && (
+                    <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-8 backdrop-blur-xl animate-fadeIn">
+                        <div className="text-9xl mb-8 animate-bounce">⏸️</div>
+                        <h2 className="text-5xl font-bold mb-4">Interview Paused</h2>
+                        <p className="text-gray-400 mb-12 text-center max-w-md">Your interview task and timers are frozen. Take a break and click the button below to resume.</p>
+                        <button onClick={handlePause} className="btn-primary px-12 py-5 text-2xl font-bold rounded-2xl shadow-2xl shadow-primary-500/40">
+                            Resume Session
+                        </button>
                     </div>
-                </div>
-            </main>
-
-            {/* Selector Modal */}
-            {showRoundSelector && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-                    <div className="bg-gray-900 border border-white/10 p-8 rounded-2xl max-w-md w-full shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold">Jump to Round</h3>
-                            <button onClick={() => setShowRoundSelector(false)} className="text-gray-400 hover:text-white">✕</button>
-                        </div>
-                        <div className="space-y-3">
-                            {['aptitude', 'technical', 'hr'].map(r => (
-                                <button 
-                                    key={r} 
-                                    onClick={() => handleSwitchRound(r as RoundType)} 
-                                    className="w-full p-4 bg-white/5 hover:bg-primary-500/20 border border-white/10 hover:border-primary-500/50 rounded-xl capitalize text-left transition-all flex justify-between items-center group"
-                                >
-                                    <span className="font-medium group-hover:text-primary-300">{r}</span>
-                                    {r === currentRound && <span className="text-xs bg-primary-500 text-white px-2 py-1 rounded">Current</span>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };

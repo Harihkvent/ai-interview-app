@@ -19,6 +19,7 @@ interface DashboardData {
     status: string;
     created_at: string;
     total_score: number;
+    job_title?: string;
   }>;
   recent_roadmaps: Array<{
     id: string;
@@ -277,6 +278,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                     {interview.status === 'completed' && (
                       <div className="text-2xl">🏆</div>
                     )}
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-white truncate group-hover:text-primary-400 transition-colors uppercase tracking-tight">
+                        {interview.job_title || 'General Interview'}
+                    </h3>
                   </div>
                   
                   <div className="mb-6">

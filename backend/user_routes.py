@@ -139,13 +139,15 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
     
     # Get total interviews
     total_interviews = await InterviewSession.find(
-        InterviewSession.user_id == user_id
+        InterviewSession.user_id == user_id,
+        InterviewSession.session_type == "interview"
     ).count()
     
     # Get completed interviews
     completed_interviews = await InterviewSession.find(
         InterviewSession.user_id == user_id,
-        InterviewSession.status == "completed"
+        InterviewSession.status == "completed",
+        InterviewSession.session_type == "interview"
     ).count()
     
     # Get saved roadmaps count
@@ -156,7 +158,8 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
     
     # Get recent interviews (last 5)
     recent_interviews = await InterviewSession.find(
-        InterviewSession.user_id == user_id
+        InterviewSession.user_id == user_id,
+        InterviewSession.session_type == "interview"
     ).sort("-created_at").limit(5).to_list()
     
     # Get recent roadmaps (last 3)
@@ -182,7 +185,8 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
                 "id": str(interview.id),
                 "status": interview.status,
                 "created_at": interview.created_at.isoformat(),
-                "total_score": interview.total_score
+                "total_score": interview.total_score,
+                "job_title": interview.job_title
             }
             for interview in recent_interviews
         ],
@@ -205,7 +209,8 @@ async def get_user_interviews(current_user: User = Depends(get_current_user)):
     user_id = str(current_user.id)
     
     interviews = await InterviewSession.find(
-        InterviewSession.user_id == user_id
+        InterviewSession.user_id == user_id,
+        InterviewSession.session_type == "interview"
     ).sort("-created_at").to_list()
     
     result = []
@@ -222,6 +227,7 @@ async def get_user_interviews(current_user: User = Depends(get_current_user)):
             "completed_at": interview.completed_at.isoformat() if interview.completed_at else None,
             "total_score": interview.total_score,
             "total_time_seconds": interview.total_time_seconds,
+            "job_title": interview.job_title,
             "rounds": [
                 {
                     "type": round.round_type,

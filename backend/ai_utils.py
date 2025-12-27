@@ -149,56 +149,64 @@ def clean_ai_json(response: str) -> str:
         
     except Exception as e:
         logger.error(f"❌ JSON Clean Error: {str(e)}")
-        try:
-             logger.error(f"Raw Response snippet: {response[:500]}")
-        except:
-             pass
         
         # Last Resort: Try to parse numbered list format using Regex
-        # Matches: "1. Question... \n - Opt1..."
         try:
             logger.info("Attempting regex fallback for numbered list...")
             questions = []
             
-            # Split by numbered items like "1. ", "2. "
-            # We look for \d+\. at start of line
-            import re
-            items = re.split(r'\n\d+\.\s+', '\n' + response.strip())
+            # Split items by "1. ", "2. " etc at start of lines
+            items = re.split(r'\n\s*\d+[.)]\s+', '\n' + response.strip())
             
-            # First item is usually empty or intro text
             for item in items[1:]:
-                # Extract question (first line)
                 lines = item.strip().split('\n')
                 if not lines: continue
                 
-                q_text = lines[0].strip()
+                raw_q = lines[0].strip()
+                q_text = re.sub(r'^Question:\s*', '', raw_q).strip()
                 
-                # Extract options (lines starting with - or a letter)
                 options = []
+                starter_code = ""
+                test_cases = []
+                q_type = "descriptive"
+                
                 for line in lines[1:]:
                     line = line.strip()
+                    # Check for MCQs
                     if line.startswith('- ') or line.startswith('* '):
                         options.append(line[2:].strip())
-                    elif re.match(r'^[A-D]\)', line):
-                         options.append(line.split(')', 1)[1].strip())
-                         
-                # If we found options, it's MCQ, else Descriptive (maybe)
-                if options:
-                    questions.append({
-                        "question": q_text,
-                        "options": options,
-                        "type": "mcq",
-                        "answer": options[0] if options else "" # We can't easily parse the answer from text without more regex
-                    })
-                else:
-                    questions.append({
-                        "question": q_text,
-                        "type": "descriptive"
-                    })
+                        q_type = "mcq"
+                    elif re.match(r'^[A-D][).]\s*', line):
+                        options.append(re.sub(r'^[A-D][).]\s*', '', line).strip())
+                        q_type = "mcq"
+                    elif line.startswith('Options:'):
+                        opts = line.replace('Options:', '').split(',')
+                        options.extend([o.strip() for o in opts if o.strip()])
+                        q_type = "mcq"
+                    # Check for Coding
+                    elif "Starter Code:" in line:
+                        starter_code = line.split("Starter Code:", 1)[1].strip()
+                        q_type = "coding"
+                    elif "Test Cases:" in line:
+                        try:
+                            tc_str = line.split("Test Cases:", 1)[1].strip()
+                            test_cases = json.loads(tc_str)
+                            q_type = "coding"
+                        except: pass
+                
+                questions.append({
+                    "question": q_text,
+                    "options": options if options else None,
+                    "type": q_type,
+                    "answer": options[0] if options else None,
+                    "starter_code": starter_code if starter_code else None,
+                    "test_cases": test_cases if test_cases else None
+                })
             
             if questions:
+                logger.info(f"Regex fallback successfully extracted {len(questions)} questions")
                 return json.dumps(questions)
         except Exception as regex_err:
              logger.error(f"Regex Fallback Failed: {regex_err}")
 
-        return "{}"
+        return "[]"

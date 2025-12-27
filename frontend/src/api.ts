@@ -47,11 +47,11 @@ export const getAuthHeaders = () => {
 
 // ============= New Interview Flow =============
 
-export const uploadResume = async (file: File) => {
+export const uploadResume = async (file: File, sessionType: string = 'interview', jobTitle: string = 'General Interview') => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await api.post("/upload-resume", formData, {
+  const response = await api.post(`/upload-resume?session_type=${sessionType}&job_title=${encodeURIComponent(jobTitle)}`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -73,12 +73,14 @@ export const startRound = async (
 export const submitAnswer = async (
   questionId: string,
   answerText: string,
-  timeTaken: number
+  timeTaken: number,
+  status: string = "submitted"
 ) => {
-  const response = await api.post("/api/interview/submit-answer", {
+  const response = await api.post("/submit-answer", {
     question_id: questionId,
     answer_text: answerText,
     time_taken_seconds: timeTaken,
+    status: status
   });
   return response.data;
 };
@@ -144,6 +146,31 @@ export const getRoundsStatus = async (sessionId: string | number) => {
   return response.data;
 };
 
+// ============= Unified Session & Navigation =============
+
+export const getSessionState = async (sessionId: string) => {
+  const response = await api.get(`/session/state/${sessionId}`);
+  return response.data;
+};
+
+export const pauseSession = async (sessionId: string) => {
+  const response = await api.post(`/session/pause/${sessionId}`);
+  return response.data;
+};
+
+export const jumpQuestion = async (sessionId: string, questionId: string) => {
+  const response = await api.post("/session/jump", {
+    session_id: sessionId,
+    question_id: questionId
+  });
+  return response.data;
+};
+
+export const finalizeInterview = async (sessionId: string) => {
+  const response = await api.post(`/session/end/${sessionId}`);
+  return response.data;
+};
+
 // ============= Job Matching & Roadmap Functions =============
 
 export const analyzeResume = async (sessionId: string) => {
@@ -156,8 +183,8 @@ export const getSavedResumes = async () => {
   return response.data;
 };
 
-export const analyzeSavedResume = async (resumeId: string) => {
-  const response = await api.post(`/analyze-saved-resume/${resumeId}`);
+export const analyzeSavedResume = async (resumeId: string, sessionType: string = 'interview', jobTitle: string = 'General Interview') => {
+  const response = await api.post(`/analyze-saved-resume/${resumeId}?session_type=${sessionType}&job_title=${encodeURIComponent(jobTitle)}`);
   return response.data;
 };
 

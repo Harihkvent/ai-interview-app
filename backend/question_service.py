@@ -12,11 +12,10 @@ from metrics import (
 logger = logging.getLogger("question_service")
 
 # Question counts per round
-# Technical round now includes MCQs and Descriptive questions
 ROUND_CONFIG = {
-    "aptitude": {"mcq": 5, "descriptive": 0},
-    "technical": {"mcq": 5, "descriptive": 5}, # Updated as per requirements
-    "hr": {"mcq": 0, "descriptive": 5}
+    "aptitude": {"mcq": 10, "descriptive": 0, "coding": 0},
+    "technical": {"mcq": 10, "descriptive": 5, "coding": 2},
+    "hr": {"mcq": 0, "descriptive": 5, "coding": 0}
 }
 
 async def generate_questions(resume_text: str, round_type: str) -> list[dict]:
@@ -43,6 +42,12 @@ async def generate_questions(resume_text: str, round_type: str) -> list[dict]:
     if num_desc > 0:
         descs = await _generate_descriptive(resume_text, round_type, num_desc)
         questions.extend(descs)
+        
+    # Generate Coding
+    num_coding = config.get("coding", 0)
+    if num_coding > 0:
+        coding_qs = await _generate_coding(resume_text, round_type, num_coding)
+        questions.extend(coding_qs)
 
     # Record metrics
     duration = time.time() - start_time
@@ -53,16 +58,17 @@ async def generate_questions(resume_text: str, round_type: str) -> list[dict]:
 
 async def _generate_mcqs(resume_text: str, round_type: str, count: int) -> list[dict]:
     """Helper to generate MCQs"""
-    content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics related to this resume: {resume_text[:500]}"
+    content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics related to this resume: {resume_text[:2000]}"
     
     prompt = f"""Generate exactly {count} multiple-choice questions (MCQs) for {content_focus}.
     
-IMPORTANT RULES:
+CRITICAL RULES:
 1. Each question must be challenging and professional.
-2. Each MCQ MUST have exactly 4 distinct, meaningful options.
-3. DO NOT use generic placeholders like "Option A". Provide actual answers.
-4. Provide exactly one correct answer which must be one of the options.
+2. Each MCQ MUST have exactly 4 distinct, meaningful options in a flat array of strings.
+3. The "options" field MUST be a list of 4 simple strings. Do NOT put all options in one string or use labels like "A)".
+4. Provide exactly one correct answer which MUST BE IDENTICAL to one of the strings in the options list.
 5. Return ONLY a JSON array of objects.
+6. NO markdown formatting (NO ```json), NO commentary.
 
 Format:
 [
@@ -94,7 +100,7 @@ Generate {count} MCQs now:"""
 
 async def _generate_descriptive(resume_text: str, round_type: str, count: int) -> list[dict]:
     """Helper to generate Descriptive questions"""
-    content_focus = f"technical interview questions specific to: {resume_text[:500]}" if round_type == "technical" else "professional HR and behavioral questions"
+    content_focus = f"technical interview questions specific to: {resume_text[:2000]}" if round_type == "technical" else f"professional HR and behavioral questions based on this resume: {resume_text[:1000]}"
     
     prompt = f"""Generate exactly {count} high-quality descriptive interview questions for {content_focus}.
     
@@ -129,6 +135,48 @@ Generate {count} questions now:"""
         logger.error(f"Error generating descriptive questions: {e}")
         return await get_db_fallback_questions(round_type, count, "descriptive")
 
+async def _generate_coding(resume_text: str, round_type: str, count: int) -> list[dict]:
+    """Helper to generate coding challenges based on resume"""
+    content_focus = f"coding challenges for a candidate with this background: {resume_text[:2000]}"
+    
+    prompt = f"""Generate exactly {count} coding interview questions based on {content_focus}.
+    
+RULES:
+1. Each question must be a coding challenge.
+2. Provide a 'question' description, 'starter_code', and 'test_cases'.
+3. 'test_cases' must be a JSON array of objects with 'input' and 'output' keys.
+4. Return ONLY a JSON array of objects.
+5. NO markdown formatting.
+
+Format:
+[
+  {{
+    "question": "Implement a function to...?",
+    "starter_code": "def solution(n):\\n    # Your code here\\n    pass",
+    "test_cases": [{{"input": "5", "output": "120"}}],
+    "language": "python",
+    "type": "coding"
+  }}
+]
+
+Generate {count} coding challenges now:"""
+
+    messages = [
+        {"role": "system", "content": "You are a senior software engineer. Return valid JSON arrays only."},
+        {"role": "user", "content": prompt}
+    ]
+    
+    try:
+        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=3000, operation=f"generate_coding_{round_type}")
+        if not response:
+            raise ValueError("Empty response from AI")
+            
+        questions = parse_json_questions(response, count, "coding")
+        return questions[:count]
+    except Exception as e:
+        logger.error(f"Error generating coding questions: {e}")
+        return await get_db_fallback_questions(round_type, count, "coding")
+
 def parse_json_questions(response: str, expected_count: int, q_type: str) -> list[dict]:
     """Helper to parse JSON questions from API response with aggressive cleaning"""
     response = clean_ai_json(response)
@@ -159,14 +207,37 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                     options_list = raw_options
                 elif isinstance(raw_options, dict):
                     options_list = list(raw_options.values())
+                elif isinstance(raw_options, str):
+                    # AI might have stuffed all options into one string
+                    if "," in raw_options:
+                        options_list = [opt.strip() for opt in raw_options.replace("Options:", "").split(",")]
+                
+                # Further sanitize options
+                import re
+                sanitized_options = []
+                for opt in options_list:
+                    if not isinstance(opt, str):
+                        sanitized_options.append(str(opt))
+                        continue
+                    # Remove common prefixes
+                    cleaned_opt = re.sub(r'^[A-D][).]\s*|^[1-4][).]\s*|^Option [A-D]:\s*|^Opt\d+:\s*|^Answer:\s*|^Options:\s*', '', opt).strip()
+                    if cleaned_opt:
+                        sanitized_options.append(cleaned_opt)
                 
                 raw_answer = item.get("answer") or item.get("correct_answer")
+                final_answer = str(raw_answer) if raw_answer else None
+                if final_answer:
+                    # Clean the answer string too
+                    final_answer = re.sub(r'^[A-D][).]\s*|^[1-4][).]\s*|^Option [A-D]:\s*|^Answer:\s*', '', final_answer).strip()
                 
                 q_obj = {
                     "question": item["question"],
                     "type": item.get("type", q_type),
-                    "options": options_list if options_list else None,
-                    "answer": str(raw_answer) if raw_answer else None
+                    "options": sanitized_options if sanitized_options else None,
+                    "answer": final_answer,
+                    "starter_code": item.get("starter_code"),
+                    "test_cases": item.get("test_cases"),
+                    "language": item.get("language", "python")
                 }
                 results.append(q_obj)
         

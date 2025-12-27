@@ -51,13 +51,14 @@ async def generate_questions_from_resume(resume_text: str, round_type: str, coun
         
         prompt = f"""Generate exactly {num_mcq} multiple-choice questions (MCQs) for {content_focus}.
         
-IMPORTANT RULES:
+CRITICAL RULES:
 1. Return ONLY a valid JSON array of objects.
-2. Do NOT include any introductory or concluding text.
-3. Each MCQ MUST have exactly 4 distinct, meaningful options.
-4. Provide exactly one correct answer which must be one of the strings in the options list.
+2. NO conversational text, NO markdown formatting (NO ```json blocks), just the raw JSON.
+3. Each MCQ MUST have exactly 4 distinct, meaningful options in a flat array of strings.
+4. The "options" field MUST be a list of 4 simple strings. Do NOT put all options in one string.
+5. Provide exactly one correct answer which MUST BE IDENTICAL to one of the strings in the options list.
 
-Format:
+Format Example:
 [
   {{
     "question": "What is the time complexity of a binary search?",
@@ -174,14 +175,36 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                     options_list = raw_options
                 elif isinstance(raw_options, dict):
                     options_list = list(raw_options.values())
+                elif isinstance(raw_options, str):
+                    # AI might have stuffed all options into one string
+                    if "," in raw_options:
+                        options_list = [opt.strip() for opt in raw_options.replace("Options:", "").split(",")]
+                
+                # Further sanitize options if they look like "A) Option 1" or "1. Option 1"
+                sanitized_options = []
+                for opt in options_list:
+                    if not isinstance(opt, str):
+                        sanitized_options.append(str(opt))
+                        continue
+                    # Remove common prefixes like "A) ", "1. ", "Option A: "
+                    cleaned_opt = re.sub(r'^[A-D][).]\s*|^[1-4][).]\s*|^Option [A-D]:\s*|^Answer:\s*|^Options:\s*', '', opt).strip()
+                    if cleaned_opt:
+                        sanitized_options.append(cleaned_opt)
+                
+                # If AI returned fewer than 4 options, try to fill with plausible ones if it's math/logic
+                # or just use what we have. Most importantly, ensure we don't show "Answer: 13" as an option.
                 
                 raw_answer = item.get("answer") or item.get("correct_answer")
+                final_answer = str(raw_answer) if raw_answer else None
+                if final_answer:
+                    # Clean the answer string too
+                    final_answer = re.sub(r'^[A-D][).]\s*|^[1-4][).]\s*|^Option [A-D]:\s*|^Answer:\s*', '', final_answer).strip()
                 
                 q_obj = {
                     "question": item["question"],
                     "type": item.get("type", q_type),
-                    "options": options_list if options_list else None,
-                    "answer": str(raw_answer) if raw_answer else None
+                    "options": sanitized_options if sanitized_options else None,
+                    "answer": final_answer
                 }
                 results.append(q_obj)
         

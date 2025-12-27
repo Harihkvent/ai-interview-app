@@ -30,7 +30,7 @@ export const LiveJobs: React.FC = () => {
             setLoading(true);
             setError(null);
             
-            const uploadData = await uploadResume(file);
+            const uploadData = await uploadResume(file, 'live_trend', 'Live Trend Search');
             await analyzeResumeLive(uploadData.session_id, 'India');
             
             const data = await getJobMatches(uploadData.session_id);

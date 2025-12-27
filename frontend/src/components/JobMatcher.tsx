@@ -84,7 +84,7 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
             setError(null);
             
             // 1. Upload
-            const uploadData = await uploadResume(file);
+            const uploadData = await uploadResume(file, 'job_match', 'Job Matching');
             const newSessionId = uploadData.session_id;
             setInternalSessionId(newSessionId);
             if (onSessionIdChange) onSessionIdChange(newSessionId);
@@ -111,7 +111,7 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
             setError(null);
             
             // 1. Create session from saved resume
-            const data = await import('../api').then(m => m.analyzeSavedResume(resumeId));
+            const data = await import('../api').then(m => m.analyzeSavedResume(resumeId, 'job_match', 'Job Matching'));
             const newSessionId = data.session_id;
             setInternalSessionId(newSessionId);
             if (onSessionIdChange) onSessionIdChange(newSessionId);

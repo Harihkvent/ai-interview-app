@@ -8,11 +8,17 @@ class InterviewSession(Document):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    status: str = "active"  # active, completed
+    status: str = "active"  # active, completed, paused, verification
     current_round_id: Optional[str] = None
+    current_question_id: Optional[str] = None
     resume_id: Optional[str] = None
+    session_type: Optional[str] = "interview" # interview, job_match, live_trend
+    job_title: Optional[str] = "General Interview"
     total_score: float = 0.0
     total_time_seconds: int = 0
+    total_paused_time: int = 0
+    is_paused: bool = False
+    last_pause_at: Optional[datetime] = None
     
     class Settings:
         name = "interview_sessions"
@@ -39,6 +45,7 @@ class InterviewRound(Document):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     total_time_seconds: int = 0
+    last_accessed_at: Optional[datetime] = None
     
     class Settings:
         name = "interview_rounds"
@@ -46,9 +53,12 @@ class InterviewRound(Document):
 class Question(Document):
     round_id: str
     question_text: str
-    question_type: str = "descriptive"  # mcq, descriptive
+    question_type: str = "descriptive"  # mcq, descriptive, coding
     options: Optional[List[str]] = None  # For MCQs
     correct_answer: Optional[str] = None  # For MCQs
+    starter_code: Optional[str] = None  # For Coding
+    test_cases: Optional[List[dict]] = None  # For Coding: [{"input": "", "output": ""}]
+    language: Optional[str] = "python" # For Coding
     question_number: int  # 1-based index within the round
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -58,9 +68,11 @@ class Question(Document):
 class Answer(Document):
     question_id: str
     answer_text: str
-    evaluation: str  # Krutrim's evaluation feedback
-    score: float  # Score for this answer (e.g., 0-10)
-    time_taken_seconds: int  # Time taken to answer this question
+    draft_text: Optional[str] = None # For real-time auto-saving
+    evaluation: Optional[str] = None  # Krutrim's evaluation feedback
+    score: float = 0.0  # Score for this answer (e.g., 0-10)
+    time_taken_seconds: int = 0 # Time taken to answer this question
+    status: str = "submitted" # drafted, submitted, skipped
     answered_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:

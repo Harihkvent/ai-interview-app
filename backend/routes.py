@@ -42,6 +42,7 @@ class SubmitAnswerRequest(BaseModel):
     question_id: str
     answer_text: str
     time_taken_seconds: int
+    status: str = "submitted" # drafted, submitted, skipped
 
 class SubmitAnswerResponse(BaseModel):
     evaluation: str
@@ -56,6 +57,10 @@ class GenerateRoadmapRequest(BaseModel):
 
 class StartInterviewFromRoleRequest(BaseModel):
     target_job_title: str
+
+class JumpQuestionRequest(BaseModel):
+    session_id: str
+    question_id: str
 
 class GenerateQuestionsOnlyRequest(BaseModel):
     resume_text: str
@@ -73,6 +78,8 @@ class SaveGeneratedSessionRequest(BaseModel):
 @router.post("/upload-resume")
 async def upload_resume(
     file: UploadFile = File(...),
+    session_type: str = "interview",
+    job_title: str = "General Interview",
     current_user: User = Depends(get_current_user)
 ):
     """Upload resume and create new interview session"""
@@ -85,7 +92,11 @@ async def upload_resume(
         candidate_name, candidate_email = extract_candidate_info(resume_text)
         
         # Create new session and initialization rounds via SessionService
-        new_session = await create_new_session(user_id=str(current_user.id))
+        new_session = await create_new_session(
+            user_id=str(current_user.id),
+            session_type=session_type,
+            job_title=job_title
+        )
         
         # Save resume with extracted info, user_id, and file_path
         resume = Resume(
@@ -103,6 +114,10 @@ async def upload_resume(
         # Update session with resume_id
         new_session.resume_id = str(resume.id)
         await new_session.save()
+
+        # Trigger AI generation in background for all rounds
+        from session_service import start_generation_tasks
+        await start_generation_tasks(str(new_session.id), resume_text)
         
         return {
             "session_id": str(new_session.id),
@@ -119,6 +134,8 @@ async def upload_resume(
 @router.post("/analyze-saved-resume/{resume_id}")
 async def analyze_saved_resume(
     resume_id: str,
+    session_type: str = "interview",
+    job_title: str = "General Interview",
     current_user: User = Depends(get_current_user)
 ):
     """Start analysis and create session for an already uploaded resume"""
@@ -135,7 +152,9 @@ async def analyze_saved_resume(
             user_id=str(current_user.id),
             status="active",
             started_at=datetime.utcnow(),
-            resume_id=str(resume.id)
+            resume_id=str(resume.id),
+            session_type=session_type,
+            job_title=job_title
         )
         await new_session.insert()
         
@@ -153,6 +172,10 @@ async def analyze_saved_resume(
             )
             await round_obj.insert()
             
+        # Trigger AI generation
+        from session_service import start_generation_tasks
+        await start_generation_tasks(str(new_session.id), resume.content)
+            
         return {
             "session_id": str(new_session.id),
             "resume_id": str(resume.id),
@@ -168,7 +191,8 @@ async def get_active_session(current_user: User = Depends(get_current_user)):
     try:
         session = await InterviewSession.find(
             InterviewSession.user_id == str(current_user.id),
-            InterviewSession.status == "active"
+            InterviewSession.status == "active",
+            InterviewSession.session_type == "interview"
         ).sort("-created_at").first_or_none()
         
         if not session:
@@ -206,7 +230,9 @@ async def start_interview_from_role(
             user_id=str(current_user.id),
             status="active",
             started_at=datetime.utcnow(),
-            resume_id=str(resume.id)
+            resume_id=str(resume.id),
+            session_type="interview",
+            job_title=request.target_job_title
         )
         await new_session.insert()
         
@@ -339,18 +365,32 @@ async def submit_answer(request: SubmitAnswerRequest):
             )
         
         # Save answer
-        answer = Answer(
-            question_id=request.question_id,
-            answer_text=request.answer_text,
-            evaluation=eval_result["evaluation"],
-            score=eval_result["score"],
-            time_taken_seconds=request.time_taken_seconds
-        )
-        await answer.insert()
+        answer = await Answer.find_one(Answer.question_id == request.question_id)
+        if not answer:
+            answer = Answer(
+                question_id=request.question_id,
+                answer_text=request.answer_text,
+                evaluation=eval_result.get("evaluation") if request.status == "submitted" else None,
+                score=eval_result.get("score", 0) if request.status == "submitted" else 0,
+                time_taken_seconds=request.time_taken_seconds,
+                status=request.status
+            )
+            await answer.insert()
+        else:
+            answer.answer_text = request.answer_text
+            if request.status == "submitted":
+                answer.evaluation = eval_result.get("evaluation")
+                answer.score = eval_result.get("score", 0)
+            answer.time_taken_seconds += request.time_taken_seconds
+            answer.status = request.status
+            answer.answered_at = datetime.utcnow()
+            await answer.save()
         
         # Update round time
         round_obj.total_time_seconds += request.time_taken_seconds
-        round_obj.current_question_index += 1
+        
+        # If submitted, increment index only if it's the sequential next (optional, but let's just update last_accessed)
+        round_obj.last_accessed_at = datetime.utcnow()
         await round_obj.save()
         
         # Update session time
@@ -755,17 +795,68 @@ async def get_history(session_id: str):
         ]
     }
 
-@router.post("/end/{session_id}")
-async def end_interview(session_id: str):
-    """End an interview session (legacy)"""
-    db_session = await InterviewSession.get(session_id)
-    if not db_session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    db_session.status = "completed"
-    await db_session.save()
-    
-    return {"message": "Interview ended", "session_id": session_id}
+# ============= Unified Session & Navigation =============
+
+@router.get("/session/state/{session_id}")
+async def get_session_state_endpoint(session_id: str):
+    """Get the full state of the interview session"""
+    try:
+        from session_service import get_full_session_state
+        state = await get_full_session_state(session_id)
+        return state
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/session/pause/{session_id}")
+async def pause_session_endpoint(session_id: str):
+    """Toggle pause state for the session"""
+    try:
+        from session_service import toggle_session_pause
+        result = await toggle_session_pause(session_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/session/jump")
+async def jump_question(request: JumpQuestionRequest):
+    """Jump to a specific question and update current_round_id if needed"""
+    try:
+        session = await InterviewSession.get(request.session_id)
+        question = await Question.get(request.question_id)
+        if not session or not question:
+            raise HTTPException(status_code=404, detail="Session or Question not found")
+        
+        session.current_round_id = question.round_id
+        session.current_question_id = str(question.id)
+        await session.save()
+        
+        # Update round timing
+        round_obj = await InterviewRound.get(question.round_id)
+        round_obj.last_accessed_at = datetime.utcnow()
+        await round_obj.save()
+        
+        return {
+            "session_id": request.session_id,
+            "round_id": question.round_id,
+            "question_id": str(question.id),
+            "question_number": question.question_number
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/session/end/{session_id}")
+async def end_session_for_verification(session_id: str):
+    """Move session to verification state before final report"""
+    try:
+        session = await InterviewSession.get(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        session.status = "verification"
+        await session.save()
+        return {"status": "verification", "message": "Interview moves to verification stage."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-questions-only")
 async def generate_questions_only(request: GenerateQuestionsOnlyRequest):
@@ -1042,6 +1133,10 @@ async def save_generated_session(
                 status="active" if is_active else "pending",
                 started_at=datetime.utcnow() if is_active else None
             )
+            # Set job title for generated session
+            if is_active:
+                new_session.job_title = f"{request.round_type.capitalize()} Interview"
+                new_session.session_type = "interview"
             await round_obj.insert()
             
             if is_active:
