@@ -1,4 +1,4 @@
-# CareerPath AI - Intelligent Career Advisory Platform
+# CareerPath AI - Intelligent Career Advisory Platform for students
 
 An AI-driven career advisory and interview platform built with **FastAPI** (backend), **React + Vite** (frontend), and **MongoDB**, powered by **Krutrim AI**.
 
