@@ -313,20 +313,21 @@ export const startInterviewFromRole = async (targetJobTitle: string) => {
 export const generateQuestionsOnly = async (
   resumeText: string,
   roundType: string,
-  numQuestions: number = 5
-): Promise<{ questions: string[] }> => {
-  // Create a cache key based on resume text hash and round type
+  numQuestions: number = 5,
+  jobTitle: string = "General"
+): Promise<{ questions: any[] }> => {
+  // Create a cache key based on resume text hash, round type, and job title
   // Simple hash function for client-side caching
   const textHash = resumeText.split('').reduce((a, b) => {
     a = ((a << 5) - a) + b.charCodeAt(0);
     return a & a;
   }, 0);
   
-  // v2 prefix to invalidate old cache
-  const cacheKey = `v2_${roundType}_${numQuestions}_${textHash}`;
+  // v3 prefix to invalidate old cache and include jobTitle in key
+  const cacheKey = `v3_${roundType}_${jobTitle}_${textHash}`;
 
   // Check cache first
-  const cached = cacheService.get<{ questions: string[] }>(
+  const cached = cacheService.get<{ questions: any[] }>(
     "questions",
     cacheKey
   );
@@ -340,6 +341,7 @@ export const generateQuestionsOnly = async (
     resume_text: resumeText,
     round_type: roundType,
     num_questions: numQuestions,
+    job_title: jobTitle,
   });
 
   // Cache the result

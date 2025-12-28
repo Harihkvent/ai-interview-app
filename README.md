@@ -64,14 +64,28 @@ An AI-driven career advisory and interview platform built with **FastAPI** (back
 
 ## 📋 Setup Instructions
 
-### Prerequisites
-- Python 3.12+ (supports `redis.asyncio`)
-- Node.js 18+
-- Docker & Docker Compose (for MongoDB and Redis)
-- SerpApi Key (for Live Jobs)
-- Krutrim API Key (for AI features)
+### 🚀 Unified Startup (Recommended)
+If you want to start everything with a single command from the root folder:
 
-### Infrastructure Setup
+```powershell
+python start_all.py
+```
+
+---
+
+### 🚀 Unified Startup (Local Dev)
+If you prefer running locally (better for hot-reloading code) but want a single command:
+
+```powershell
+python start_all.py
+```
+
+---
+
+### Manual Setup
+If you prefer running terminals separately:
+
+#### Infrastructure Setup
 The application uses Docker for database and caching services.
 ```bash
 docker-compose up -d

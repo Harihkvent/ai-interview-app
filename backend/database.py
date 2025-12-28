@@ -10,7 +10,7 @@ DATABASE_NAME = "ai_interview_db"
 
 async def init_db():
     """Initialize MongoDB connection and Beanie ODM"""
-    from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap, QuestionBank
+    from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap, QuestionBank, QuestionCache
     from auth_models import User
     
     client = AsyncIOMotorClient(MONGODB_URL)
@@ -29,7 +29,8 @@ async def init_db():
             JobMatch,
             JobMatch,
             CareerRoadmap,
-            QuestionBank
+            QuestionBank,
+            QuestionCache
         ]
     )
     

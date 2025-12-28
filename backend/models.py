@@ -135,3 +135,18 @@ class QuestionBank(Document):
     class Settings:
         name = "question_bank"
 
+class QuestionCache(Document):
+    resume_hash: str
+    job_title: str
+    round_type: str
+    questions: List[dict]
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "question_cache"
+        indexes = [
+            "resume_hash",
+            "job_title",
+            "round_type"
+        ]
+

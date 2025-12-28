@@ -5,7 +5,7 @@ import aio_pika
 import logging
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
-from models import Question, InterviewRound, InterviewSession, Resume, Answer, Message, JobMatch, CareerRoadmap, QuestionBank
+from models import Question, InterviewRound, InterviewSession, Resume, Answer, Message, JobMatch, CareerRoadmap, QuestionBank, QuestionCache
 from question_service import generate_questions
 
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +18,7 @@ RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 async def init_db():
     client = AsyncIOMotorClient(MONGO_URL)
     await init_beanie(database=client[DATABASE_NAME], document_models=[
-        InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap, QuestionBank
+        InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap, QuestionBank, QuestionCache
     ])
     logger.info("Worker connected to MongoDB")
 

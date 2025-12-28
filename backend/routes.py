@@ -66,6 +66,7 @@ class GenerateQuestionsOnlyRequest(BaseModel):
     resume_text: str
     round_type: str
     num_questions: Optional[int] = 5
+    job_title: Optional[str] = "General"
 
 class SaveGeneratedSessionRequest(BaseModel):
     resume_text: str
@@ -115,10 +116,7 @@ async def upload_resume(
         new_session.resume_id = str(resume.id)
         await new_session.save()
 
-        # Trigger AI generation in background for all rounds
-        from session_service import start_generation_tasks
-        await start_generation_tasks(str(new_session.id), resume_text)
-        
+        # No background generation here anymore. Questions generated on start-round.
         return {
             "session_id": str(new_session.id),
             "resume_id": str(resume.id),
@@ -171,10 +169,6 @@ async def analyze_saved_resume(
                 status="pending"
             )
             await round_obj.insert()
-            
-        # Trigger AI generation
-        from session_service import start_generation_tasks
-        await start_generation_tasks(str(new_session.id), resume.content)
             
         return {
             "session_id": str(new_session.id),
@@ -287,43 +281,11 @@ async def start_round(session_id: str, round_type: str):
         # Track metrics
         record_round_start(round_type)
         
-        # Update session current round
-        interview_session.current_round_id = str(round_obj.id)
-        await interview_session.save()
+        # Use activate_round for consolidated logic (bulk generation, caching, etc)
+        from session_service import activate_round
+        result = await activate_round(session_id, round_type, resume.content)
         
-        # Generate questions
-        questions_list = await generate_questions_from_resume(resume.content, round_type)
-        
-        # Save questions to database
-        for i, q_data in enumerate(questions_list, 1):
-            question = Question(
-                round_id=str(round_obj.id),
-                question_text=q_data["question"],
-                question_type=q_data.get("type", "descriptive"),
-                options=q_data.get("options"),
-                correct_answer=q_data.get("answer"),
-                question_number=i
-            )
-            await question.insert()
-        
-        # Get first question
-        first_question = await Question.find_one(
-            Question.round_id == str(round_obj.id),
-            Question.question_number == 1
-        )
-        
-        return {
-            "round_id": str(round_obj.id),
-            "round_type": round_type,
-            "total_questions": len(questions_list),
-            "current_question": {
-                "id": str(first_question.id),
-                "text": first_question.question_text,
-                "type": first_question.question_type,
-                "options": first_question.options,
-                "number": first_question.question_number
-            } if first_question else None
-        }
+        return result
     except Exception as e:
         logger.error(f"Error initiating round {round_type} for session {session_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -862,23 +824,17 @@ async def end_session_for_verification(session_id: str):
 async def generate_questions_only(request: GenerateQuestionsOnlyRequest):
     """Standalone endpoint that generates questions without starting an interview session - uses cache if available"""
     try:
-        # Create a cache key based on resume text hash and round type
-        import hashlib
-        resume_hash = hashlib.md5(request.resume_text.encode()).hexdigest()
-        cache_key = f"{resume_hash}_{request.round_type}_{request.num_questions}"
-        
-        # TODO: In production, use Redis for this caching
-        # For now, we'll rely on frontend caching
-        
-        questions = await generate_questions_from_resume(
+        from question_service import generate_questions
+        questions = await generate_questions(
             request.resume_text,
             request.round_type,
-            request.num_questions
+            request.job_title
         )
+        
         return {
             "round_type": request.round_type,
             "questions": questions,
-            "cache_key": cache_key
+            "job_title": request.job_title
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -4,6 +4,7 @@ import time
 import random
 from models import QuestionBank
 from ai_utils import call_krutrim_api, clean_ai_json
+from cache_service import get_cached_questions, cache_questions
 from metrics import (
     questions_generated, 
     question_generation_duration
@@ -18,12 +19,19 @@ ROUND_CONFIG = {
     "hr": {"mcq": 0, "descriptive": 5, "coding": 0}
 }
 
-async def generate_questions(resume_text: str, round_type: str) -> list[dict]:
+async def generate_questions(resume_text: str, round_type: str, job_title: str = "General") -> list[dict]:
     """
     Generate round-specific questions based on resume using Krutrim.
     Orchestrates the generation of MCQs and Descriptive questions based on configuration.
+    Uses caching to avoid redundant generation.
     """
     start_time = time.time()
+    
+    # Check Cache First
+    cached_qs = await get_cached_questions(resume_text, job_title, round_type)
+    if cached_qs:
+        logger.info(f"Using cached questions for {round_type} - {job_title}")
+        return cached_qs
     
     config = ROUND_CONFIG.get(round_type, {"mcq": 0, "descriptive": 5})
     num_mcq = config["mcq"]
@@ -54,16 +62,22 @@ async def generate_questions(resume_text: str, round_type: str) -> list[dict]:
     questions_generated.labels(round_type=round_type).inc(len(questions))
     question_generation_duration.labels(round_type=round_type).observe(duration)
     
+    # Store in Cache
+    if questions:
+        await cache_questions(resume_text, job_title, round_type, questions)
+    
     return questions
 
 async def _generate_mcqs(resume_text: str, round_type: str, count: int) -> list[dict]:
     """Helper to generate MCQs"""
-    content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics related to this resume: {resume_text[:2000]}"
+    resume_context = resume_text[:3000] # Use more context for better relevance
+    content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics STRICTLY related to this candidate's resume content: {resume_context}"
     
     prompt = f"""Generate exactly {count} multiple-choice questions (MCQs) for {content_focus}.
     
 CRITICAL RULES:
-1. Each question must be challenging and professional.
+1. Each question MUST be highly relevant to the provided resume context.
+2. Each question must be challenging and professional.
 2. Each MCQ MUST have exactly 4 distinct, meaningful options in a flat array of strings.
 3. The "options" field MUST be a list of 4 simple strings. Do NOT put all options in one string or use labels like "A)".
 4. Provide exactly one correct answer which MUST BE IDENTICAL to one of the strings in the options list.
@@ -100,13 +114,15 @@ Generate {count} MCQs now:"""
 
 async def _generate_descriptive(resume_text: str, round_type: str, count: int) -> list[dict]:
     """Helper to generate Descriptive questions"""
-    content_focus = f"technical interview questions specific to: {resume_text[:2000]}" if round_type == "technical" else f"professional HR and behavioral questions based on this resume: {resume_text[:1000]}"
+    resume_context = resume_text[:3000]
+    content_focus = f"technical interview questions based STRICTLY on the skills and experience in this resume: {resume_context}" if round_type == "technical" else f"professional HR and behavioral questions tailored to this candidate's background: {resume_context}"
     
     prompt = f"""Generate exactly {count} high-quality descriptive interview questions for {content_focus}.
     
 RULES:
-1. Questions should be open-ended.
-2. Focus on specific skills in the resume if technical.
+1. Questions MUST be strictly relevant to the resume provided.
+2. Questions should be open-ended.
+3. Focus on specific projects and skills mentioned in the resume.
 3. Return ONLY a JSON array of objects.
 
 Format:
