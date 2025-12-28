@@ -264,7 +264,8 @@ def calculate_hybrid_scores(resume_text: str, top_n: int = 10, external_jobs: Li
                 'location': orig_job.get('location'),
                 'thumbnail': orig_job.get('thumbnail'),
                 'via': orig_job.get('via'),
-                'job_id': orig_job.get('job_id')
+                'job_id': orig_job.get('job_id'),
+                'apply_link': orig_job.get('apply_link')
             })
             
         matches.append(match_data)
@@ -284,6 +285,7 @@ async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int
     matches = calculate_hybrid_scores(resume_text, top_n=top_n)
     
     # Store matches in database
+    db_matches = []
     print(f"💾 Storing {len(matches)} matches in database...")
     for rank, match in enumerate(matches, 1):
         job_match = JobMatch(
@@ -297,10 +299,11 @@ async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int
             rank=rank
         )
         await job_match.insert()
+        db_matches.append(job_match)
     
     print(f"✅ Analysis complete! Top match: {matches[0]['job_title']} ({matches[0]['match_percentage']}%)")
     
-    return matches
+    return db_matches
 
 async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n: int = 10, location: str = "India", user_id: str = None) -> List[Dict]:
     """
@@ -327,6 +330,7 @@ async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n
     matches = calculate_hybrid_scores(resume_text, top_n=top_n, external_jobs=live_jobs)
     
     # 4. Store matches in database
+    db_matches = []
     print(f"💾 Storing {len(matches)} LIVE matches in database...")
     for rank, match in enumerate(matches, 1):
         job_match = JobMatch(
@@ -347,10 +351,11 @@ async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n
             is_live=True
         )
         await job_match.insert()
+        db_matches.append(job_match)
     
     print(f"✅ Live analysis complete! Top match: {matches[0]['job_title']} at {matches[0].get('company_name')} ({matches[0]['match_percentage']}%)")
     
-    return matches
+    return db_matches
 
 # Warm-up function to initialize models at startup
 def warmup_models():

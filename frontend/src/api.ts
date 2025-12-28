@@ -192,6 +192,9 @@ export const analyzeResumeLive = async (
   sessionId: string,
   location: string = "India"
 ) => {
+  // Clear job matches cache for this session to ensure fresh results are shown later
+  cacheService.clear("jobMatches", sessionId);
+  
   const response = await api.post(
     `/analyze-resume-live/${sessionId}?location=${location}`
   );
@@ -204,10 +207,20 @@ export const analyzeResumeLive = async (
  */
 export const getJobMatches = async (sessionId: string) => {
   // Check cache first
-  const cached = cacheService.get<{ matches: any[] }>("jobMatches", sessionId);
-  if (cached) {
+  const cached = cacheService.get<{ matches?: any[], top_matches?: any[] }>("jobMatches", sessionId);
+  
+  // Robust check: Ensure cached matches have IDs. If not, bypass cache.
+  // Stale cache from previous versions might lack 'id' or '_id'.
+  const matches = cached?.matches || cached?.top_matches || [];
+  const hasIds = matches.length > 0 && matches.every(m => m.id || m._id);
+
+  if (cached && hasIds) {
     console.log("📦 Returning cached job matches for session:", sessionId);
     return cached;
+  }
+
+  if (cached && !hasIds) {
+    console.warn("⚠️ Stale cache detected (missing IDs), bypassing cache for session:", sessionId);
   }
 
   // Fetch from backend
@@ -294,8 +307,13 @@ export const getRoadmapById = async (roadmapId: string) => {
 
 // ============= New Independent Flow Functions =============
 
-export const getActiveSession = async () => {
-  const response = await api.get("/active-session");
+export const getActiveSession = async (sessionType: string = 'interview') => {
+  const response = await api.get(`/active-session?session_type=${sessionType}`);
+  return response.data;
+};
+
+export const prepareForJob = async (jobId: string) => {
+  const response = await api.post(`/user/jobs/${jobId}/prepare`);
   return response.data;
 };
 
@@ -398,6 +416,10 @@ export const saveGeneratedSession = async (
   return response.data;
 };
 export const saveJob = async (jobDbId: string) => {
+  if (!jobDbId || jobDbId === 'undefined') {
+    console.error("❌ Cannot save job: jobDbId is undefined or invalid.");
+    throw new Error("Invalid Job ID");
+  }
   const response = await api.post(`/user/jobs/${jobDbId}/save`);
   return response.data;
 };

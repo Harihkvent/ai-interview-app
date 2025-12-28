@@ -180,13 +180,16 @@ async def analyze_saved_resume(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/active-session")
-async def get_active_session(current_user: User = Depends(get_current_user)):
-    """Retrieve the most recent active (unfinished) session for the user"""
+async def get_active_session(
+    session_type: str = "interview",
+    current_user: User = Depends(get_current_user)
+):
+    """Retrieve the most recent active (unfinished) session for the user by type"""
     try:
         session = await InterviewSession.find(
             InterviewSession.user_id == str(current_user.id),
             InterviewSession.status == "active",
-            InterviewSession.session_type == "interview"
+            InterviewSession.session_type == session_type
         ).sort("-created_at").first_or_none()
         
         if not session:
@@ -867,11 +870,31 @@ async def analyze_resume(session_id: str, current_user: User = Depends(get_curre
         
         if existing_matches:
             # Return cached results
-            print(f"✅ Returning cached job matches for session {session_id}")
+            print(f"✅ Returning {len(existing_matches)} cached job matches for session {session_id}")
+            formatted_matches = []
+            for m in existing_matches:
+                m_id = str(m.id) if hasattr(m, 'id') and m.id else str(getattr(m, '_id', 'UNKNOWN'))
+                formatted_matches.append({
+                    "rank": getattr(m, 'rank', 0),
+                    "job_title": m.job_title,
+                    "company_name": m.company_name,
+                    "location": m.location,
+                    "job_description": m.job_description,
+                    "match_percentage": m.match_percentage,
+                    "matched_skills": m.matched_skills,
+                    "missing_skills": m.missing_skills,
+                    "thumbnail": m.thumbnail,
+                    "via": m.via,
+                    "apply_link": m.apply_link,
+                    "is_live": m.is_live,
+                    "is_saved": m.is_saved,
+                    "id": m_id,
+                    "job_id": m.job_id
+                })
             return {
                 "session_id": session_id,
-                "total_matches": len(existing_matches),
-                "top_matches": existing_matches,
+                "total_matches": len(formatted_matches),
+                "top_matches": formatted_matches,
                 "message": "Resume analyzed successfully (cached)",
                 "method": "TF-IDF (40%) + Sentence Transformers (60%)",
                 "from_cache": True
@@ -884,7 +907,26 @@ async def analyze_resume(session_id: str, current_user: User = Depends(get_curre
         return {
             "session_id": session_id,
             "total_matches": len(matches),
-            "top_matches": matches,
+            "top_matches": [
+                {
+                    "rank": getattr(m, 'rank', 0),
+                    "job_title": m.job_title,
+                    "company_name": m.company_name,
+                    "location": m.location,
+                    "job_description": m.job_description,
+                    "match_percentage": m.match_percentage,
+                    "matched_skills": m.matched_skills,
+                    "missing_skills": m.missing_skills,
+                    "thumbnail": m.thumbnail,
+                    "via": m.via,
+                    "apply_link": m.apply_link,
+                    "is_live": m.is_live,
+                    "is_saved": m.is_saved,
+                    "id": str(m.id) if hasattr(m, 'id') and m.id else str(getattr(m, '_id', 'UNKNOWN')),
+                    "job_id": m.job_id
+                }
+                for m in matches
+            ],
             "message": "Resume analyzed successfully using hybrid ML approach",
             "method": "TF-IDF (40%) + Sentence Transformers (60%)",
             "from_cache": False
@@ -908,7 +950,26 @@ async def analyze_resume_live(session_id: str, location: str = "India", current_
         return {
             "session_id": session_id,
             "total_matches": len(matches),
-            "top_matches": matches,
+            "top_matches": [
+                {
+                    "rank": getattr(m, 'rank', 0),
+                    "job_title": m.job_title,
+                    "company_name": m.company_name,
+                    "location": m.location,
+                    "job_description": m.job_description,
+                    "match_percentage": m.match_percentage,
+                    "matched_skills": m.matched_skills,
+                    "missing_skills": m.missing_skills,
+                    "thumbnail": m.thumbnail,
+                    "via": m.via,
+                    "apply_link": m.apply_link,
+                    "is_live": m.is_live,
+                    "is_saved": m.is_saved,
+                    "id": str(m.id) if hasattr(m, 'id') and m.id else str(getattr(m, '_id', 'UNKNOWN')),
+                    "job_id": m.job_id
+                }
+                for m in matches
+            ],
             "message": "Resume analyzed successfully with LIVE jobs from SerpApi",
             "location": location
         }
@@ -946,7 +1007,9 @@ async def get_job_matches(session_id: str):
                     "via": m.via,
                     "apply_link": m.apply_link,
                     "is_live": m.is_live,
-                    "is_saved": m.is_saved
+                    "is_saved": m.is_saved,
+                    "id": str(m.id) if hasattr(m, 'id') and m.id else str(getattr(m, '_id', 'UNKNOWN')),
+                    "job_id": m.job_id
                 }
                 for m in matches
             ]

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { getJobMatches, uploadResume, analyzeResumeLive, saveJob } from '../api';
+import { getJobMatches, uploadResume, analyzeResumeLive, saveJob, getActiveSession } from '../api';
 
 interface JobMatch {
     id: string;
+    job_id?: string;
     rank: number;
     job_title: string;
     match_percentage: number;
@@ -22,6 +23,31 @@ export const LiveJobs: React.FC = () => {
     const [stage, setStage] = useState<'upload' | 'results'>('upload');
     const [error, setError] = useState<string | null>(null);
 
+    React.useEffect(() => {
+        const checkActiveSession = async () => {
+            try {
+                setLoading(true);
+                const active = await getActiveSession('live_trend');
+                if (active && active.session_id) {
+                    const data = await getJobMatches(active.session_id);
+                    const rawMatches = data.matches || data.top_matches || [];
+                    const formattedMatches = rawMatches.map((m: any) => {
+                        const id = m.id || m._id || m.job_id;
+                        if (!id) console.warn("⚠️ Job match missing ID:", m);
+                        return { ...m, id: id || `missing-${Math.random().toString(36).substr(2, 9)}` };
+                    }) as JobMatch[];
+                    setMatches(formattedMatches.filter((m: any) => m.is_live));
+                    setStage('results');
+                }
+            } catch (err) {
+                console.error("Failed to restore live session:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        checkActiveSession();
+    }, []);
+
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -31,13 +57,21 @@ export const LiveJobs: React.FC = () => {
             setError(null);
             
             const uploadData = await uploadResume(file, 'live_trend', 'Live Trend Search');
-            await analyzeResumeLive(uploadData.session_id, 'India');
+            const analysisData = await analyzeResumeLive(uploadData.session_id, 'India');
             
-            const data = await getJobMatches(uploadData.session_id);
-            const formattedMatches = (data.matches || []).map((m: any) => ({
-                ...m,
-                id: m.id || m.job_id // Fallback if id is missing
-            }));
+            // Use results from analysis if available, otherwise fallback to getJobMatches
+            let jobsList = analysisData.top_matches || analysisData.matches || [];
+            if (jobsList.length === 0) {
+                const data = await getJobMatches(uploadData.session_id);
+                jobsList = data.matches || data.top_matches || [];
+            }
+
+            const formattedMatches = jobsList.map((m: any) => {
+                const id = m.id || m._id || m.job_id;
+                if (!id) console.warn("⚠️ Job match missing ID during upload:", m);
+                return { ...m, id: id || `missing-${Math.random().toString(36).substr(2, 9)}` };
+            }) as JobMatch[];
+
             setMatches(formattedMatches.filter((m: any) => m.is_live));
             setStage('results');
         } catch (err: any) {

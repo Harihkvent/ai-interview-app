@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { getSavedJobs, saveJob } from '../api';
+import { useNavigate } from 'react-router-dom';
+import { getSavedJobs, saveJob, generateRoadmap, prepareForJob } from '../api';
 
 interface JobMatch {
     id: string;
+    job_id?: string;
     job_title: string;
+    job_description?: string;
     match_percentage: number;
     matched_skills: string[];
     missing_skills: string[];
@@ -18,6 +21,8 @@ export const SavedJobs: React.FC = () => {
     const [savedJobs, setSavedJobs] = useState<JobMatch[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchSavedJobs();
@@ -27,11 +32,12 @@ export const SavedJobs: React.FC = () => {
         try {
             setLoading(true);
             const data = await getSavedJobs();
-            // Map MongoDB _id to id if needed
-            const formatted = data.jobs.map((j: any) => ({
-                ...j,
-                id: j._id || j.id
-            }));
+            const rawJobs = data.jobs || data.matches || [];
+            const formatted = rawJobs.map((j: any) => {
+                const id = j.id || j._id || j.job_id;
+                if (!id) console.warn("⚠️ Saved job missing ID:", j);
+                return { ...j, id: id || `missing-${Math.random().toString(36).substr(2, 9)}` };
+            }) as JobMatch[];
             setSavedJobs(formatted);
         } catch (err) {
             setError('Failed to fetch saved jobs');
@@ -43,10 +49,46 @@ export const SavedJobs: React.FC = () => {
 
     const handleUnsave = async (jobId: string) => {
         try {
-            await saveJob(jobId); // Toggles it off
+            await saveJob(jobId);
             setSavedJobs(prev => prev.filter(j => j.id !== jobId));
         } catch (err) {
             console.error('Failed to unsave job:', err);
+        }
+    };
+
+    const handleCreateRoadmap = async (job: JobMatch) => {
+        try {
+            setActionLoading(job.id);
+            // We need a session_id to generate a roadmap. 
+            // If the job has a session_id, we use it. Otherwise, we might need a fallback.
+            // For now, let's assume jobs in SavedJobs have a session_id or we use a general one.
+            const sessionId = (job as any).session_id;
+            if (!sessionId) {
+                alert("Cannot generate roadmap: Original session not found.");
+                return;
+            }
+            await generateRoadmap(sessionId, job.job_title);
+            navigate('/roadmaps');
+        } catch (err) {
+            console.error('Failed to generate roadmap:', err);
+            alert('Failed to generate roadmap.');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handlePrepare = async (job: JobMatch) => {
+        try {
+            setActionLoading(job.id);
+            const data = await prepareForJob(job.id);
+            if (data.session_id) {
+                navigate(`/interview/${data.session_id}`);
+            }
+        } catch (err) {
+            console.error('Failed to start preparation:', err);
+            alert('Failed to start interview preparation.');
+        } finally {
+            setActionLoading(null);
         }
     };
 
@@ -63,7 +105,7 @@ export const SavedJobs: React.FC = () => {
             <div className="max-w-6xl mx-auto space-y-6">
                 <div className="glass-card p-8 bg-gradient-to-br from-red-900/10 to-transparent">
                     <h1 className="text-4xl font-bold text-white mb-2">Saved Opportunities</h1>
-                    <p className="text-gray-400">Manage the jobs you've tagged for later.</p>
+                    <p className="text-gray-400">Manage the jobs you've tagged for later and prepare for interviews.</p>
                 </div>
 
                 {savedJobs.length === 0 ? (
@@ -88,7 +130,29 @@ export const SavedJobs: React.FC = () => {
                                         ))}
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2 justify-center">
+                                    <button 
+                                        onClick={() => handleCreateRoadmap(job)}
+                                        disabled={!!actionLoading}
+                                        className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-all text-sm font-medium disabled:opacity-50"
+                                    >
+                                        {actionLoading === job.id ? 'Creating...' : '🗺️ Roadmap'}
+                                    </button>
+                                    <button 
+                                        onClick={() => handlePrepare(job)}
+                                        disabled={!!actionLoading}
+                                        className="px-4 py-2 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-600/30 transition-all text-sm font-medium disabled:opacity-50"
+                                    >
+                                        {actionLoading === job.id ? 'Starting...' : '🎓 Prepare'}
+                                    </button>
+                                    <a 
+                                        href={job.apply_link} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="px-4 py-2 bg-secondary-600 hover:bg-secondary-500 rounded-lg text-white font-bold transition-all text-sm flex items-center gap-2"
+                                    >
+                                        Apply Now
+                                    </a>
                                     <button 
                                         onClick={() => handleUnsave(job.id)}
                                         className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-all border border-red-500/20"
@@ -96,14 +160,6 @@ export const SavedJobs: React.FC = () => {
                                     >
                                         🗑️
                                     </button>
-                                    <a 
-                                        href={job.apply_link} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="px-6 py-2 bg-secondary-600 hover:bg-secondary-500 rounded-lg text-white font-bold transition-all text-sm"
-                                    >
-                                        Apply Now
-                                    </a>
                                 </div>
                             </div>
                         ))}

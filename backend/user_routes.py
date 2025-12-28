@@ -95,18 +95,22 @@ async def toggle_save_job(
     """Toggle the saved status of a job match"""
     try:
         from bson import ObjectId
-        job = await JobMatch.get(job_db_id)
+        job = None
+        
+        # Check if it's a valid ObjectId first
+        if ObjectId.is_valid(job_db_id):
+            job = await JobMatch.get(job_db_id)
+            
+        # If not found or not an ObjectId, try SerpApi job_id
         if not job:
-            # Try to find by SerpApi job_id if query fails
             job = await JobMatch.find_one(JobMatch.job_id == job_db_id)
             
         if not job:
             raise HTTPException(status_code=404, detail="Job match not found")
         
-        # Ensure user owns this match or it's a global live job they want to save
-        # For now, we allow saving any job they can see
+        # Ensure it's linked to this user and toggle status
         job.is_saved = not job.is_saved
-        job.user_id = str(current_user.id) # Ensure it's linked to this user
+        job.user_id = str(current_user.id)
         await job.save()
         
         return {
@@ -114,6 +118,65 @@ async def toggle_save_job(
             "is_saved": job.is_saved,
             "message": "Job saved successfully" if job.is_saved else "Job removed from saved"
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/jobs/{job_id}/prepare")
+async def prepare_for_job(
+    job_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Start an interview session tailored to a specific saved job"""
+    try:
+        from bson import ObjectId
+        # 1. Find the job
+        job = None
+        if ObjectId.is_valid(job_id):
+            job = await JobMatch.get(job_id)
+        if not job:
+            job = await JobMatch.find_one(JobMatch.job_id == job_id)
+            
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+            
+        # 2. Find user's most recent resume
+        recent_session = await InterviewSession.find(
+            InterviewSession.user_id == str(current_user.id),
+            InterviewSession.resume_id != None
+        ).sort("-created_at").first_or_none()
+        
+        if not recent_session:
+            raise HTTPException(status_code=400, detail="No resume found. Please upload a resume first.")
+            
+        # 3. Create new session
+        new_session = InterviewSession(
+            user_id=str(current_user.id),
+            status="active",
+            started_at=datetime.utcnow(),
+            resume_id=recent_session.resume_id,
+            session_type="interview",
+            job_title=job.job_title
+        )
+        await new_session.insert()
+        
+        # 4. Create rounds
+        round_types = ["aptitude", "technical", "hr"]
+        for round_type in round_types:
+            round_obj = InterviewRound(
+                session_id=str(new_session.id),
+                round_type=round_type,
+                status="pending"
+            )
+            await round_obj.insert()
+            
+        return {
+            "session_id": str(new_session.id),
+            "message": f"Interview started for {job.job_title} at {job.company_name or 'N/A'}"
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -126,9 +189,30 @@ async def get_saved_jobs(current_user: User = Depends(get_current_user)):
             JobMatch.is_saved == True
         ).to_list()
         
+        formatted_jobs = []
+        for m in saved_jobs:
+            formatted_jobs.append({
+                "rank": getattr(m, 'rank', 0),
+                "job_title": m.job_title,
+                "company_name": m.company_name,
+                "location": m.location,
+                "job_description": m.job_description,
+                "match_percentage": m.match_percentage,
+                "matched_skills": m.matched_skills,
+                "missing_skills": m.missing_skills,
+                "thumbnail": m.thumbnail,
+                "via": m.via,
+                "apply_link": m.apply_link,
+                "is_live": m.is_live,
+                "is_saved": m.is_saved,
+                "id": str(m.id) if hasattr(m, 'id') and m.id else str(getattr(m, '_id', 'UNKNOWN')),
+                "job_id": m.job_id,
+                "session_id": m.session_id
+            })
+            
         return {
-            "total": len(saved_jobs),
-            "jobs": saved_jobs
+            "total": len(formatted_jobs),
+            "jobs": formatted_jobs
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
