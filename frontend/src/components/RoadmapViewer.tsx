@@ -140,7 +140,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                                 <span>✓</span> Your Strengths ({roadmap.skills_gap.matched_skills.length})
                             </h4>
                             <div className="flex flex-wrap gap-2">
-                                {roadmap.skills_gap.matched_skills.map((skill) => (
+                                {(roadmap.skills_gap.matched_skills || []).map((skill) => (
                                     <span
                                         key={skill}
                                         className="px-3 py-1.5 bg-green-500/20 text-green-300 rounded-lg text-sm font-medium"
@@ -157,7 +157,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                                 <span>📚</span> Skills to Acquire ({roadmap.skills_gap.missing_skills.length})
                             </h4>
                             <div className="flex flex-wrap gap-2">
-                                {roadmap.skills_gap.missing_skills.map((skill) => (
+                                {(roadmap.skills_gap.missing_skills || []).map((skill) => (
                                     <span
                                         key={skill}
                                         className="px-3 py-1.5 bg-orange-500/20 text-orange-300 rounded-lg text-sm font-medium"
@@ -176,7 +176,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                         <span>🎓</span> Learning Milestones
                     </h3>
                     <div className="space-y-6">
-                        {roadmap.milestones.map((milestone, index) => (
+                        {(roadmap.milestones || []).map((milestone, index) => (
                             <div
                                 key={index}
                                 className="relative pl-8 pb-6 border-l-2 border-purple-500/30 last:border-l-0 last:pb-0"

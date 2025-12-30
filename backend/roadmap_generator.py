@@ -172,6 +172,12 @@ Provide ONLY the JSON object, no additional text."""
             # Try to parse JSON
             try:
                 roadmap_data = json.loads(content, strict=False)
+                
+                # Validation: Ensure it's a dictionary
+                if not isinstance(roadmap_data, dict):
+                    print(f"⚠️  AI response is not a JSON object (got {type(roadmap_data)}). Triggering fallback.")
+                    raise ValueError("AI response must be a JSON object")
+                    
                 print("✅ Successfully generated roadmap from AI")
                 return roadmap_data
             except json.JSONDecodeError as e:
@@ -324,21 +330,28 @@ async def create_career_roadmap(
     roadmap_data = await generate_roadmap_content(resume_text, target_role, skills_gap)
     
     # Store in database
-    print("💾 Saving roadmap to database...")
-    roadmap = CareerRoadmap(
-        session_id=session_id,
-        target_role=target_role,
-        roadmap_content=json.dumps(roadmap_data, indent=2),
-        milestones=roadmap_data.get('milestones', []),
-        skills_gap=skills_gap,
-        estimated_timeline=roadmap_data.get('estimated_timeline', 'Not specified')
-    )
-    await roadmap.insert()
-    
-    print(f"✅ Roadmap generated successfully! Timeline: {roadmap_data.get('estimated_timeline')}")
+    # Store in database
+    try:
+        print("💾 Saving roadmap to database...")
+        roadmap = CareerRoadmap(
+            session_id=session_id,
+            target_role=target_role,
+            roadmap_content=json.dumps(roadmap_data, indent=2),
+            milestones=roadmap_data.get('milestones') if isinstance(roadmap_data.get('milestones'), list) else [],
+            skills_gap=skills_gap,
+            estimated_timeline=str(roadmap_data.get('estimated_timeline', 'Not specified'))
+        )
+        await roadmap.insert()
+        print(f"✅ Roadmap generated successfully! Timeline: {roadmap_data.get('estimated_timeline')}")
+    except Exception as e:
+        import traceback
+        print(f"❌ Error saving roadmap to database: {e}")
+        traceback.print_exc()
+        # Even if saving fails, return the generated data so the user sees it
+        print("⚠️ Returning generated data despite save failure")
     
     return {
-        'roadmap_id': str(roadmap.id),
+        'roadmap_id': str(roadmap.id) if 'roadmap' in locals() and hasattr(roadmap, 'id') else 'unsaved_roadmap',
         'target_role': target_role,
         'skills_gap': skills_gap,
         'current_assessment': roadmap_data.get('current_assessment', {}),
