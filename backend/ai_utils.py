@@ -20,6 +20,21 @@ load_dotenv()
 KRUTRIM_API_KEY = os.getenv("KRUTRIM_API_KEY")
 KRUTRIM_API_URL = os.getenv("KRUTRIM_API_URL", "https://cloud.olakrutrim.com/v1/chat/completions")
 
+from ai_engine.krutrim_adapter import KrutrimLLM
+from pydantic import SecretStr
+
+def get_agent_llm(temperature: float = 0.7) -> KrutrimLLM:
+    """Get a configured LangChain LLM instance for Agents"""
+    if not KRUTRIM_API_KEY:
+        logger.error("KRUTRIM_API_KEY missing")
+        raise ValueError("KRUTRIM_API_KEY not set")
+        
+    return KrutrimLLM(
+        api_key=SecretStr(KRUTRIM_API_KEY),
+        api_url=KRUTRIM_API_URL,
+        temperature=temperature
+    )
+
 async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens: int = 1000, operation: str = "general") -> str:
     """Helper to call Krutrim API with consistent error handling and metrics"""
     if not KRUTRIM_API_KEY:

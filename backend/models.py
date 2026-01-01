@@ -23,19 +23,33 @@ class InterviewSession(Document):
     class Settings:
         name = "interview_sessions"
 
+class UserPreferences(Document):
+    user_id: str
+    target_role: Optional[str] = None
+    target_salary: Optional[str] = None
+    preferred_locations: List[str] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Settings:
+        name = "user_preferences"
+
 class Resume(Document):
     user_id: Optional[str] = None  # Link to User
-    session_id: Optional[str] = None # Link to session (optional if uploaded directly)
+    name: Optional[str] = "Default Resume" # User-friendly name (e.g., "Frontend Profile")
     filename: str
-    name: Optional[str] = None # User-friendly name
-    content: str  # Extracted text from resume
-    file_path: Optional[str] = None # Path to raw file on disk
+    content: str  # Extracted text
+    parsed_skills: List[str] = []
+    summary: Optional[str] = None # AI Generated Bio
+    improvements: List[str] = [] # AI Suggested Improvements
+    is_primary: bool = False
+    file_path: Optional[str] = None
     candidate_name: Optional[str] = None
     candidate_email: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:
         name = "resumes"
+
 
 class InterviewRound(Document):
     session_id: str

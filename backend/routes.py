@@ -102,7 +102,7 @@ async def upload_resume(
         # Save resume with extracted info, user_id, and file_path
         resume = Resume(
             user_id=str(current_user.id),
-            session_id=str(new_session.id),
+            # session_id=str(new_session.id), # Resume does not have session_id
             filename=file.filename,
             name=file.filename,
             content=resume_text,
@@ -157,8 +157,8 @@ async def analyze_saved_resume(
         await new_session.insert()
         
         # Update resume with new session_id (linking to most recent session)
-        resume.session_id = str(new_session.id)
-        await resume.save()
+        # resume.session_id = str(new_session.id) # Resume does not have session_id
+        # await resume.save()
         
         # Create all three rounds
         round_types = ["aptitude", "technical", "hr"]
@@ -857,8 +857,13 @@ async def extract_text_from_file(file: UploadFile = File(...)):
 async def analyze_resume(session_id: str, current_user: User = Depends(get_current_user)):
     """Analyze resume and generate job matches using hybrid ML approach - uses cache if available"""
     try:
-        # Get resume
-        resume = await Resume.find_one(Resume.session_id == session_id)
+        # Get session first
+        session = await InterviewSession.get(session_id)
+        if not session:
+             raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get resume via session
+        resume = await Resume.get(session.resume_id)
         if not resume:
             raise HTTPException(status_code=404, detail="Resume not found")
         
@@ -938,8 +943,13 @@ async def analyze_resume(session_id: str, current_user: User = Depends(get_curre
 async def analyze_resume_live(session_id: str, location: str = "India", current_user: User = Depends(get_current_user)):
     """Analyze resume and generate LIVE job matches using SerpApi"""
     try:
-        # Get resume
-        resume = await Resume.find_one(Resume.session_id == session_id)
+        # Get session first
+        session = await InterviewSession.get(session_id)
+        if not session:
+             raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get resume via session
+        resume = await Resume.get(session.resume_id)
         if not resume:
             raise HTTPException(status_code=404, detail="Resume not found")
         

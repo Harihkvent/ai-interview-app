@@ -115,9 +115,13 @@ async def track_requests(request, call_next):
 # Include API routes
 app.include_router(auth_router)  # Authentication routes
 app.include_router(user_router)  # User dashboard and management
+from profile_routes import router as profile_router
+app.include_router(profile_router) # New Profile & Resume Management
 app.include_router(router)  # Main application routes
 from interview_router import router as interview_router
 app.include_router(interview_router) # New modular interview routes
+from agent_routes import router as agent_router
+app.include_router(agent_router, prefix="/api/v1/agent", tags=["Agents"])
 
 # Mount Prometheus metrics endpoint
 metrics_app = make_asgi_app()

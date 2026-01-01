@@ -250,6 +250,18 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
     recent_roadmaps = await CareerRoadmap.find(
         CareerRoadmap.user_id == user_id
     ).sort("-created_at").limit(3).to_list()
+
+    # Get Active Resume Insights
+    active_resume_data = None
+    if current_user.active_resume_id:
+        resume = await Resume.get(current_user.active_resume_id)
+        if resume:
+            active_resume_data = {
+                "filename": resume.filename,
+                "summary": resume.summary,
+                "improvements": resume.improvements,
+                "parsed_skills": resume.parsed_skills
+            }
     
     return {
         "user": {
@@ -258,6 +270,7 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
             "email": current_user.email,
             "full_name": current_user.full_name
         },
+        "active_resume": active_resume_data,
         "stats": {
             "total_interviews": total_interviews,
             "completed_interviews": completed_interviews,
@@ -355,7 +368,8 @@ async def delete_interview(
     await CareerRoadmap.find(CareerRoadmap.session_id == session_id).delete()
     
     # Delete resume (optional: keep file, delete DB entry)
-    await Resume.find(Resume.session_id == session_id).delete()
+    # Resume does not have session_id content, so we skip deleting it here.
+    # await Resume.find(Resume.session_id == session_id).delete()
     
     # Finally delete the session
     await session.delete()

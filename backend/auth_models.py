@@ -17,6 +17,8 @@ class User(Document):
     profile_picture_url: Optional[str] = None  # For OAuth profile pictures
     oauth_provider: Optional[str] = None  # e.g., "google", "email"
     oauth_user_id: Optional[str] = None  # Provider's unique user ID
+    active_resume_id: Optional[str] = None # Currently selected resume context
+    preferences_id: Optional[str] = None # Link to UserPreferences
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
     is_active: bool = True

@@ -428,3 +428,18 @@ export const getSavedJobs = async () => {
   const response = await api.get("/user/jobs/saved");
   return response.data;
 };
+
+// ============= Agent / Hive API =============
+
+export const sendMessageToAgent = async (
+  message: string,
+  sessionId?: string,
+  resumeId?: string
+) => {
+  const response = await api.post("/api/v1/agent/chat", {
+    message: message,
+    session_id: sessionId,
+    resume_id: resumeId
+  });
+  return response.data;
+};

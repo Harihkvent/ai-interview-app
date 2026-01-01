@@ -13,6 +13,7 @@ import { SavedJobs } from './components/SavedJobs';
 import { QuestionGenerator } from './components/QuestionGenerator';
 import { InterviewSession } from './components/InterviewSession';
 import { useAuth } from './contexts/AuthContext';
+import { AgentOverlay } from './components/AgentOverlay';
 import './index.css';
 
 function App() {
@@ -216,6 +217,7 @@ function App() {
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
             </div>
+            {isAuthenticated && <AgentOverlay />}
         </div>
     );
 }

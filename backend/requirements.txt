@@ -29,3 +29,9 @@ redis
 aioredis
 pika
 aio-pika
+langchain
+langchain-core
+langgraph
+pydantic
+motor
+beanie
