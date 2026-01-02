@@ -102,7 +102,7 @@ Generate {count} MCQs now:"""
     ]
     
     try:
-        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=3000, operation=f"generate_mcq_{round_type}")
+        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=1500, operation=f"generate_mcq_{round_type}")
         if not response:
             raise ValueError("Empty response from AI")
             
@@ -141,7 +141,7 @@ Generate {count} questions now:"""
     ]
     
     try:
-        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=2500, operation=f"generate_desc_{round_type}")
+        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=1500, operation=f"generate_desc_{round_type}")
         if not response:
             raise ValueError("Empty response from AI")
             
@@ -183,7 +183,7 @@ Generate {count} coding challenges now:"""
     ]
     
     try:
-        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=3000, operation=f"generate_coding_{round_type}")
+        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=1500, operation=f"generate_coding_{round_type}")
         if not response:
             raise ValueError("Empty response from AI")
             

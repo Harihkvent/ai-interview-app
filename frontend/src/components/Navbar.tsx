@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
-  currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'saved_jobs' | 'interview' | 'roadmaps' | 'question_gen' | 'insights';
+  currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'saved_jobs' | 'interview' | 'roadmaps' | 'question_gen' | 'insights' | 'profile';
   onNavigate: (page: any) => void;
 }
 
@@ -77,7 +77,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
             </button>
 
             {/* User Profile */}
-            <div className="flex items-center gap-3 pl-3 border-l border-white/10">
+            <button 
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-3 pl-3 border-l border-white/10 cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all text-left"
+            >
               <div className="hidden sm:block text-right">
                 <p className="text-xs font-bold leading-tight">
                   {user?.full_name || user?.username}
@@ -87,7 +90,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-black shadow-lg shadow-primary-500/20">
                 {(user?.username?.[0] || 'U').toUpperCase()}
               </div>
-            </div>
+            </button>
 
             {/* Logout */}
             <button

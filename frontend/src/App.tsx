@@ -15,6 +15,7 @@ import { InterviewSession } from './components/InterviewSession';
 import { useAuth } from './contexts/AuthContext';
 import { AgentOverlay } from './components/AgentOverlay';
 import { AiInsightsPage } from './components/AiInsightsPage';
+import { ProfilePage } from './components/ProfilePage';
 import './index.css';
 
 function App() {
@@ -75,6 +76,7 @@ function App() {
         if (path.startsWith('/question-gen')) return 'question_gen';
         if (path.startsWith('/roadmaps')) return 'roadmaps';
         if (path.startsWith('/insights')) return 'insights';
+        if (path.startsWith('/profile')) return 'profile';
         return 'dashboard';
     };
 
@@ -178,6 +180,7 @@ function App() {
                             </div>
                         </div>
                     } />
+                    <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/jobs" element={
                         <JobMatcher 
                             sessionId={sessionId?.toString()}

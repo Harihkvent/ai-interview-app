@@ -443,6 +443,40 @@ export const uploadProfileResume = async (file: File) => {
     return response.data;
 };
 
+export const getProfileResumes = async () => {
+    const response = await api.get("/api/v1/profile/resumes");
+    return response.data;
+};
+
+export const deleteProfileResume = async (resumeId: string) => {
+    const response = await api.delete(`/api/v1/profile/resumes/${resumeId}`);
+    return response.data;
+};
+
+export const setActiveProfileResume = async (resumeId: string) => {
+    const response = await api.put("/api/v1/profile/resumes/active", {
+        resume_id: resumeId
+    });
+    return response.data;
+};
+
+// ============= Preferences & Profile Settings =============
+
+export const getUserPreferences = async () => {
+    const response = await api.get("/api/v1/profile/preferences");
+    return response.data;
+};
+
+export const updateUserPreferences = async (data: any) => {
+    const response = await api.put("/api/v1/profile/preferences", data);
+    return response.data;
+};
+
+export const updateUserProfile = async (data: { full_name?: string; username?: string }) => {
+    const response = await api.put("/auth/profile", data);
+    return response.data;
+};
+
 // ============= Agent / Hive API =============
 
 export const sendMessageToAgent = async (

@@ -45,7 +45,9 @@ async def generate_final_report_data(session_id: str) -> dict:
         raise ValueError("Session not found")
     
     # Get resume
-    resume = await Resume.find_one(Resume.session_id == session_id)
+    resume = None
+    if session.resume_id:
+        resume = await Resume.get(session.resume_id)
     
     # Get all rounds
     rounds = await InterviewRound.find(InterviewRound.session_id == session_id).to_list()

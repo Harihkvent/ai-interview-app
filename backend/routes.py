@@ -25,6 +25,7 @@ from metrics import (
 
 from auth_routes import get_current_user
 from auth_models import User
+from mq_service import publish_question_generation
 
 router = APIRouter()
 
@@ -116,7 +117,10 @@ async def upload_resume(
         new_session.resume_id = str(resume.id)
         await new_session.save()
 
-        # No background generation here anymore. Questions generated on start-round.
+        # Trigger background generation for all rounds via Worker to ensure immediate availability
+        round_types = ["aptitude", "technical", "hr"]
+        for r_type in round_types:
+            await publish_question_generation(str(new_session.id), r_type, resume_text)
         return {
             "session_id": str(new_session.id),
             "resume_id": str(resume.id),
@@ -169,6 +173,9 @@ async def analyze_saved_resume(
                 status="pending"
             )
             await round_obj.insert()
+            
+            # Trigger background generation for this round
+            await publish_question_generation(str(new_session.id), round_type, resume.content)
             
         return {
             "session_id": str(new_session.id),
@@ -243,6 +250,9 @@ async def start_interview_from_role(
             )
             await round_obj.insert()
             
+            # Trigger background generation for this round
+            await publish_question_generation(str(new_session.id), round_type, resume.content)
+            
         return {
             "session_id": str(new_session.id),
             "message": f"Interview started for {request.target_job_title}"
@@ -263,9 +273,11 @@ async def start_round(session_id: str, round_type: str):
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Get resume
-        resume = await Resume.find_one(Resume.session_id == session_id)
+        if not interview_session.resume_id:
+            raise HTTPException(status_code=404, detail="Resume not found for session")
+        resume = await Resume.get(interview_session.resume_id)
         if not resume:
-            raise HTTPException(status_code=404, detail="Resume not found")
+             raise HTTPException(status_code=404, detail="Resume not found")
         
         # Get the round
         round_obj = await InterviewRound.find_one(
@@ -311,7 +323,9 @@ async def submit_answer(request: SubmitAnswerRequest):
         
         # Get session and resume for context
         interview_session = await InterviewSession.get(round_obj.session_id)
-        resume = await Resume.find_one(Resume.session_id == round_obj.session_id)
+        resume = None
+        if interview_session and interview_session.resume_id:
+            resume = await Resume.get(interview_session.resume_id)
         
         # Evaluate answer
         if question.question_type == "mcq":
@@ -515,7 +529,10 @@ async def switch_round(session_id: str, round_type: str):
             
             if not existing_questions:
                 # Get resume for question generation
-                resume = await Resume.find_one(Resume.session_id == session_id)
+                # Get resume for question generation
+                resume = None
+                if interview_session.resume_id:
+                    resume = await Resume.get(interview_session.resume_id)
                 if resume:
                     questions_list = await generate_questions_from_resume(
                         resume.content,
@@ -643,7 +660,9 @@ async def get_session_info(session_id: str):
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Get resume
-        resume = await Resume.find_one(Resume.session_id == session_id)
+        resume = None
+        if interview_session.resume_id:
+            resume = await Resume.get(interview_session.resume_id)
         
         # Get rounds
         rounds = await InterviewRound.find(
