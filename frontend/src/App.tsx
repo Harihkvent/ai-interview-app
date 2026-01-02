@@ -14,6 +14,7 @@ import { QuestionGenerator } from './components/QuestionGenerator';
 import { InterviewSession } from './components/InterviewSession';
 import { useAuth } from './contexts/AuthContext';
 import { AgentOverlay } from './components/AgentOverlay';
+import { AiInsightsPage } from './components/AiInsightsPage';
 import './index.css';
 
 function App() {
@@ -73,6 +74,7 @@ function App() {
         if (path.startsWith('/live-jobs')) return 'live_jobs';
         if (path.startsWith('/question-gen')) return 'question_gen';
         if (path.startsWith('/roadmaps')) return 'roadmaps';
+        if (path.startsWith('/insights')) return 'insights';
         return 'dashboard';
     };
 
@@ -196,6 +198,7 @@ function App() {
                     <Route path="/roadmaps" element={
                         <SavedRoadmaps onViewRoadmap={(id) => navigate(`/roadmaps/${id}`)} />
                     } />
+                    <Route path="/insights" element={<AiInsightsPage />} />
                     <Route path="/roadmaps/:id" element={
                         <RoadmapViewer
                             onBack={() => navigate('/roadmaps')}

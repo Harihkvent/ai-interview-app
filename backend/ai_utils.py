@@ -157,9 +157,20 @@ def clean_ai_json(response: str) -> str:
             
         # Remove trailing commas which are common syntax errors in LLM JSON
         cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+
+        # Attempt to fix unescaped newlines in strings (common LLM error)
+        # This is a naive heuristic: replace newlines that are likely inside strings
+        # We can't perfectly know without a parser, but we can try removing newlines
+        # that are not followed by typical JSON structural characters
         
         # Verify it parses
-        json.loads(cleaned)
+        try:
+             json.loads(cleaned)
+        except json.JSONDecodeError:
+             # Try replacing separate newlines with space if they might be in text
+             cleaned = cleaned.replace('\n', ' ')
+             json.loads(cleaned) # Check again
+
         return cleaned
         
     except Exception as e:

@@ -173,47 +173,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
           ))}
         </div>
 
-        {/* AI Profile Insights */}
-        <div className="glass-card p-10 bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border-indigo-500/30 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-5 text-9xl rotate-12">🧠</div>
-            <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
-              <span className="text-3xl">✨</span> AI Profile Insights
-            </h2>
-            
-            {data.active_resume ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-                 <div className="space-y-4">
-                    <h3 className="font-bold text-indigo-300 uppercase tracking-widest text-xs">Professional Summary</h3>
-                    <p className="leading-relaxed opacity-90 text-lg">
-                      {data.active_resume.summary || "No summary generated yet. Try re-uploading your resume."}
-                    </p>
-                 </div>
-                 
-                 <div className="space-y-4">
-                    <h3 className="font-bold text-pink-300 uppercase tracking-widest text-xs">Suggested Improvements</h3>
-                    {data.active_resume.improvements && Object.keys(data.active_resume.improvements).length > 0 ? (
-                       <ul className="space-y-2">
-                         {Object.entries(data.active_resume.improvements).map(([area, tip], idx) => (
-                           <li key={idx} className="flex gap-3 items-start p-3 bg-white/5 rounded-lg">
-                              <span className="text-pink-400 mt-1">💡</span>
-                              <div>
-                                <span className="font-bold capitalize text-sm opacity-60 block">{area.replace('_', ' ')}</span>
-                                <span className="text-sm">{tip as string}</span>
-                              </div>
-                           </li>
-                         ))}
-                       </ul>
-                    ) : (
-                       <p className="opacity-50 italic">AI hasn't analyzed improvements yet.</p>
-                    )}
-                 </div>
+        {/* AI Profile Insights Promo */}
+        <div 
+          onClick={() => onNavigate('insights')}
+          className="glass-card p-8 bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500/30 relative overflow-hidden cursor-pointer group hover:border-indigo-500/60 transition-all"
+        >
+            <div className="absolute top-0 right-0 p-8 opacity-10 text-9xl rotate-12 group-hover:rotate-6 transition-transform">🧠</div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+               <div className="space-y-2">
+                 <h2 className="text-2xl font-black flex items-center gap-3">
+                   <span className="text-3xl">✨</span> AI Profile Insights
+                 </h2>
+                 <p className="opacity-70 text-lg">
+                   {data.active_resume 
+                     ? "View your professional summary, suggestions, and skill analysis." 
+                     : "Upload a resume to unlock detailed AI feedback and career tips."}
+                 </p>
                </div>
-            ) : (
-               <div className="text-center py-8 opacity-60">
-                 <p>Upload a resume to unlock AI insights!</p>
-                 <button onClick={onStartNewInterview} className="mt-4 text-indigo-400 hover:text-white underline font-bold">Upload Resume Now</button>
-               </div>
-            )}
+               <button className="btn-primary px-8 py-3 shrink-0">
+                 {data.active_resume ? "View Insights →" : "Get Insights →"}
+               </button>
+            </div>
         </div>
 
         {/* Main Content Grid */}

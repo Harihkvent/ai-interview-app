@@ -68,6 +68,8 @@ async def upload_resume(
             "message": "Resume uploaded and processed by AI",
             "summary": resume.summary # Return summary immediately
         }
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

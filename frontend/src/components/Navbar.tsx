@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
-  currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'saved_jobs' | 'interview' | 'roadmaps' | 'question_gen';
+  currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'saved_jobs' | 'interview' | 'roadmaps' | 'question_gen' | 'insights';
   onNavigate: (page: any) => void;
 }
 
@@ -26,6 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
     { id: 'jobs' as const, path: '/jobs', label: 'Job Matcher', icon: '🎯' },
     { id: 'roadmaps' as const, path: '/roadmaps', label: 'My Roadmaps', icon: '🗺️' },
     { id: 'interview' as const, path: '/upload', label: 'Interview', icon: '🎤' },
+    { id: 'insights' as const, path: '/insights', label: 'AI Review', icon: '🧠' },
     { id: 'live_jobs' as const, path: '/live-jobs', label: 'Live Jobs', icon: '🌐' },
     { id: 'saved_jobs' as const, path: '/saved-jobs', label: 'Saved Jobs', icon: '❤️' },
     { id: 'question_gen' as const, path: '/question-gen', label: 'Question Gen', icon: '⚡' },

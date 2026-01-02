@@ -429,6 +429,20 @@ export const getSavedJobs = async () => {
   return response.data;
 };
 
+// ============= Profile & Insights Functions =============
+
+export const uploadProfileResume = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    // Explicitly set is_primary=true if we want this to be the active resume for insights
+    const response = await api.post("/api/v1/profile/resumes?is_primary=true", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
 // ============= Agent / Hive API =============
 
 export const sendMessageToAgent = async (

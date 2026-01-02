@@ -12,6 +12,7 @@ from typing import List, Dict, Tuple
 import numpy as np
 from models import JobMatch
 import os
+import pickle
 
 # Global cache for performance
 _job_database = None
@@ -101,23 +102,56 @@ def initialize_semantic_matcher():
     global _semantic_model, _semantic_job_embeddings
     
     if _semantic_model is None:
-        print("🔄 Initializing Semantic matcher (this may take 2-3 minutes)...")
-        jobs_df = load_job_database()
+        print("🔄 Initializing Semantic matcher...")
         
-        # Load pre-trained model
+        # Load pre-trained model (fast)
         _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        # Paths
+        csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_title_des.csv')
+        cache_path = os.path.join(os.path.dirname(__file__), 'job_embeddings.pkl')
+        
+        # Check for valid cache
+        use_cache = False
+        if os.path.exists(cache_path) and os.path.exists(csv_path):
+            # Cache is valid if it's newer than the CSV
+            if os.path.getmtime(cache_path) > os.path.getmtime(csv_path):
+                use_cache = True
+        
+        if use_cache:
+            try:
+                print(f"📦 Found cached embeddings. Loading from disk...")
+                with open(cache_path, 'rb') as f:
+                    _semantic_job_embeddings = pickle.load(f)
+                print(f"✅ Semantic matcher initialized from cache ({_semantic_job_embeddings.shape})")
+                return _semantic_model, _semantic_job_embeddings
+            except Exception as e:
+                print(f"⚠️ Could not load cache ({e}). Re-computing...")
+        
+        # Fallback: Compute from scratch
+        print("⏳ Computing new embeddings (this takes 2-3 minutes)...")
+        jobs_df = load_job_database()
         
         # Combine title and description
         jobs_df['combined'] = jobs_df['Job Title'].fillna('') + '. ' + jobs_df['Job Description'].fillna('')
         job_texts = jobs_df['combined'].tolist()
         
-        # Encode all jobs (this takes time but only done once)
+        # Encode all jobs
         _semantic_job_embeddings = _semantic_model.encode(
             job_texts,
             show_progress_bar=True,
             convert_to_tensor=True,
             batch_size=32
         )
+        
+        # Save to cache
+        try:
+            with open(cache_path, 'wb') as f:
+                pickle.dump(_semantic_job_embeddings, f)
+            print(f"💾 Saved embeddings to {os.path.basename(cache_path)}")
+        except Exception as e:
+            print(f"⚠️ Failed to save cache: {e}")
+            
         print(f"✅ Semantic matcher initialized ({_semantic_job_embeddings.shape})")
     
     return _semantic_model, _semantic_job_embeddings

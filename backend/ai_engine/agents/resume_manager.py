@@ -32,6 +32,8 @@ def get_parse_prompt(text: str) -> str:
     - current_role (string)
     - education (list of objects with: degree, school, year)
 
+    IMPORTANT: Return ONLY the JSON object. Do not add markdown formatting. Do not use newlines inside string values.
+
     Resume Text:
     {text[:4000]} 
     """ # Truncate to avoid context limit if necessary
@@ -39,15 +41,17 @@ def get_parse_prompt(text: str) -> str:
 def get_analysis_prompt(text: str) -> str:
     return f"""
     You are a Career Coach. Analyze the resume text below.
-    Generate a JSON object with two keys:
-    1. "summary": A 2-sentence professional bio.
+    Generate a STRICT VALID JSON object with two keys:
+    1. "summary": A 2-sentence professional bio. (Do not use newlines in the string)
     2. "improvements": A list of 3 actionable tips.
 
     Example Output:
     {{
-        "summary": "Experienced engineer with...",
-        "improvements": ["Add more metrics", "Fix typos"]
+        "summary": "Experienced engineer with strong background in system design.",
+        "improvements": ["Add more quantifiable metrics", "Fix typos", "Highlight leadership experience"]
     }}
+
+    IMPORTANT: Return ONLY the JSON object. Do not add markdown formatting or explanations.
 
     Analyze this text:
     {text[:4000]}
