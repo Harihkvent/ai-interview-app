@@ -1,8 +1,15 @@
-# CareerPath AI - Intelligent Career Advisory Platform
+# CareerPath AI - Agentic Career Advisory Platform
 
-An AI-driven career advisory and interview platform built with **FastAPI** (backend), **React + Vite** (frontend), and **MongoDB**, powered by **Krutrim AI** and enhanced with **Redis Caching** and **Voice-to-Text** capabilities.
+An AI-driven career advisory ecosystem built with **FastAPI** (backend), **React + Vite** (frontend), and **MongoDB**. Powered by an **Agentic Architecture** ("The Hive") using **LangGraph** and **RabbitMQ** for autonomous task orchestration.
 
 ## 🌟 Key Features
+
+### 🤖 Agentic AI Ecosystem ("The Hive")
+
+- **Supervisor Agent** - Intelligent orchestrator that routes user queries to specialized agents.
+- **Job Scout Agent** - Autonomously researches and fetches live job opportunities.
+- **Resume Manager** - Maintains context of your active resume for tailored advice.
+- **Microservices Architecture** - Asynchronous task processing via RabbitMQ workers.
 
 ### 🔐 Authentication & User Management
 
@@ -13,22 +20,20 @@ An AI-driven career advisory and interview platform built with **FastAPI** (back
 
 ### 📄 Intelligent Resume Processing
 
-- **File System Storage** - Scalable resume storage on the local file system (migrated from DB).
+- **File System Storage** - Scalable resume storage.
 - **Multi-Format Support** - Parse and analyze PDF and DOCX resumes.
 - **Standalone Question Generator** - Quickly generate interview questions from any resume text.
 
 ### 🎯 Job Matching & Live Search
 
-- **Hybrid ML Job Matching** - Advanced matching using TF-IDF and Sentence Transformers.
+- **Hybrid Matching Engine** - Combines **Semantic Search** (Sentence Transformers) with **Agentic Live Search**.
 - **Real-Time Live Jobs** - Fetch global openings from Google Jobs via SerpApi.
 - **Quick Apply & Save** - Jump directly to job applications or save opportunities for later.
-- **Dedicated Saved Jobs View** - Manage and track your tagged opportunities.
 
 ### 🗺️ Career Roadmap Generation
 
 - **AI-Generated Roadmaps** - Tailored learning paths based on your target role and current skills.
 - **Milestone Tracking** - Phase-wise goals with resources and success criteria.
-- **Persistence** - Save roadmaps and view them anytime in the "My Roadmaps" section.
 
 ### 🎤 AI-Powered Mock Interviews
 
@@ -36,31 +41,29 @@ An AI-driven career advisory and interview platform built with **FastAPI** (back
 - **Resume-Based Questions** - Dynamically generated questions specific to your background.
 - **Multi-Round Flow** - Dedicated Aptitude, Technical, and HR rounds.
 - **Real-Time Evaluation** - Instant AI-driven feedback and persistent scoring.
-- **Multi-Turn Chat** - Interactive follow-up questions and conversational interface.
 
 ### 📊 Reports & Analytics
 
 - **Final Interview Reports** - Comprehensive PDF evaluations with AI insights.
-- **Score Persistence** - Historical performance tracking with total score synchronization.
+- **Score Persistence** - Historical performance tracking.
 
 ## 🛠️ Tech Stack
 
-### Backend
+### Backend & AI
 - **FastAPI** - High-performance Python web framework.
-- **MongoDB + Beanie ODM** - Async NoSQL database management.
-- **Redis & redis.asyncio** - Strategic caching for job matches and AI analysis.
-- **Krutrim AI (LLM)** - Core intelligence for roadmaps, questions, and evaluation.
+- **LangGraph & LangChain** - Agentic orchestration and state management.
+- **Krutrim AI (LLM)** - Core intelligence for agents and analysis.
 - **Sentence Transformers** - Semantic similarity for ML job matching.
-- **ReportLab** - Dynamic PDF report generation.
-- **PyPDF2 & python-docx** - Robust resume parsing.
+- **RabbitMQ (Pika)** - Distributed message queue for async workers.
+- **MongoDB + Beanie ODM** - Async NoSQL database management.
+- **Redis** - High-speed caching.
 
 ### Frontend
-- **React 18** - Component-based UI library.
+- **React 18 + Vite** - Lightning-fast UI.
 - **TypeScript** - Full-stack type safety.
-- **React Router v6** - Declarative navigation and URL-based state management.
-- **Vite** - Lightning-fast build tool.
 - **TailwindCSS** - Premium Glassmorphism design system.
-- **Web Speech API** - Real-time Voice-to-Text transcription.
+- **React Router v6** - Declarative navigation.
+- **Web Speech API** - Real-time Voice-to-Text.
 
 ## 📋 Setup Instructions
 
