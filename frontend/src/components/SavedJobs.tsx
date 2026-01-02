@@ -145,14 +145,24 @@ export const SavedJobs: React.FC = () => {
                                     >
                                         {actionLoading === job.id ? 'Starting...' : '🎓 Prepare'}
                                     </button>
-                                    <a 
-                                        href={job.apply_link} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="px-4 py-2 bg-secondary-600 hover:bg-secondary-500 rounded-lg text-white font-bold transition-all text-sm flex items-center gap-2"
-                                    >
-                                        Apply Now
-                                    </a>
+                                    {job.apply_link ? (
+                                        <a 
+                                            href={job.apply_link} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-secondary-600 hover:bg-secondary-500 rounded-lg text-white font-bold transition-all text-sm flex items-center gap-2"
+                                        >
+                                            Apply Now ↗
+                                        </a>
+                                    ) : (
+                                        <button 
+                                            disabled
+                                            className="px-4 py-2 bg-gray-600/50 text-gray-400 rounded-lg font-bold text-sm cursor-not-allowed border border-white/5"
+                                            title="No application link available"
+                                        >
+                                            No Link
+                                        </button>
+                                    )}
                                     <button 
                                         onClick={() => handleUnsave(job.id)}
                                         className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-all border border-red-500/20"
