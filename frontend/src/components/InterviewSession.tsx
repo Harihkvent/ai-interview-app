@@ -26,11 +26,12 @@ interface Question {
 interface InterviewSessionProps {
     sessionId?: string;
     onExit: () => void;
+    onComplete?: () => void;
 }
 
 export const InterviewSession: React.FC<InterviewSessionProps> = ({ 
     sessionId: propsSessionId, 
-    onExit 
+    onComplete
 }) => {
     const { id: paramSessionId } = useParams<{ id: string }>();
     const sessionId = (propsSessionId || paramSessionId)!;
@@ -110,7 +111,7 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
     const handleJump = async (qId: string) => {
         setLoading(true);
         try {
-            const result = await jumpQuestion(sessionId, qId);
+            await jumpQuestion(sessionId, qId);
             // Now refresh full state to get specific question details
             const state = await getSessionState(sessionId);
             setSessionState(state);
@@ -249,7 +250,13 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
                         a.href = url;
                         a.download = `interview-report-${sessionId}.pdf`;
                         a.click();
-                        navigate('/dashboard');
+
+                        
+                        if (onComplete) {
+                            onComplete();
+                        } else {
+                            navigate('/dashboard');
+                        }
                     }} className="btn-primary w-full py-4 text-xl font-bold">Generation & Download Final Report</button>
                     
                     <button onClick={() => setVerificationMode(false)} className="text-gray-400 hover:text-white underline">Go back to interview</button>

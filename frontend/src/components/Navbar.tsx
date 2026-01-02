@@ -8,6 +8,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
+  
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -21,20 +22,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const navItems = [
-    { id: 'dashboard' as const, path: '/dashboard', label: 'Dashboard', icon: '🏠' },
-    { id: 'jobs' as const, path: '/jobs', label: 'Job Matcher', icon: '🎯' },
-    { id: 'roadmaps' as const, path: '/roadmaps', label: 'My Roadmaps', icon: '🗺️' },
-    { id: 'interview' as const, path: '/upload', label: 'Interview', icon: '🎤' },
-    { id: 'insights' as const, path: '/insights', label: 'AI Review', icon: '🧠' },
-    { id: 'live_jobs' as const, path: '/live-jobs', label: 'Live Jobs', icon: '🌐' },
-    { id: 'saved_jobs' as const, path: '/saved-jobs', label: 'Saved Jobs', icon: '❤️' },
-    { id: 'question_gen' as const, path: '/question-gen', label: 'Question Gen', icon: '⚡' },
-  ];
-
   return (
-    <nav className="glass-card sticky top-0 z-50 rounded-none border-b shadow-md">
-      <div className="max-w-7xl mx-auto px-4 py-3">
+    <nav className="glass-card sticky top-0 z-50 rounded-none border-b shadow-md backdrop-blur-xl bg-white/70 dark:bg-slate-900/80">
+      <div className="w-full px-6 py-3">
         <div className="flex items-center justify-between">
           {/* Logo/Brand */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
@@ -47,23 +37,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
             </div>
           </div>
 
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => navigate(item.path)}
-                className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 font-semibold ${
-                  currentPage === item.id
-                    ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
-                    : 'hover:bg-white/10 opacity-70 hover:opacity-100'
-                }`}
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
 
           {/* Actions */}
           <div className="flex items-center gap-3">
