@@ -1055,7 +1055,16 @@ async def generate_roadmap(request: GenerateRoadmapRequest):
     """Generate AI-powered career roadmap for selected job - uses cache if available"""
     try:
         # Get resume
-        resume = await Resume.find_one(Resume.session_id == request.session_id)
+        # Get session first
+        session = await InterviewSession.get(request.session_id)
+        if not session:
+             raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get resume
+        if not session.resume_id:
+             raise HTTPException(status_code=404, detail="Resume not found for this session")
+             
+        resume = await Resume.get(session.resume_id)
         if not resume:
             raise HTTPException(status_code=404, detail="Resume not found")
         
@@ -1065,9 +1074,9 @@ async def generate_roadmap(request: GenerateRoadmapRequest):
             CareerRoadmap.target_role == request.target_job_title
         )
         
-        if existing_roadmap:
+        if existing_roadmap and existing_roadmap.milestones and len(existing_roadmap.milestones) > 0:
             # Return cached roadmap
-            print(f"✅ Returning cached roadmap for session {request.session_id}, role {request.target_job_title}")
+            print(f"✅ Returning cached roadmap for session {request.session_id}, role {request.target_role}")
             return {
                 "session_id": request.session_id,
                 "target_role": existing_roadmap.target_role,
@@ -1078,6 +1087,11 @@ async def generate_roadmap(request: GenerateRoadmapRequest):
                 "message": "Career roadmap retrieved (cached)",
                 "from_cache": True
             }
+        
+        # If cache exists but is invalid (empty milestones), delete it
+        if existing_roadmap:
+            print(f"⚠️ Found cached roadmap with empty milestones. Regenerating...")
+            await existing_roadmap.delete()
         
         # Get selected job match
         job_match = await JobMatch.find_one(
