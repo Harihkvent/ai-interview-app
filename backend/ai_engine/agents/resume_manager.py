@@ -39,23 +39,31 @@ def get_parse_prompt(text: str) -> str:
     """ # Truncate to avoid context limit if necessary
 
 def get_analysis_prompt(text: str) -> str:
-    return f"""
-    You are a Career Coach. Analyze the resume text below.
-    Generate a STRICT VALID JSON object with two keys:
-    1. "summary": A 2-sentence professional bio. (Do not use newlines in the string)
-    2. "improvements": A list of 3 actionable tips.
+    return f"""You are an expert Career Coach. Analyze this resume and provide personalized feedback.
 
-    Example Output:
-    {{
-        "summary": "Experienced engineer with strong background in system design.",
-        "improvements": ["Add more quantifiable metrics", "Fix typos", "Highlight leadership experience"]
-    }}
+CRITICAL INSTRUCTIONS:
+1. Read the resume carefully and identify the candidate's ACTUAL skills, experience, and achievements
+2. Write a professional summary that mentions their SPECIFIC expertise (e.g., "Java developer", "AI engineer", "DevOps specialist")
+3. Provide 3 SPECIFIC improvement suggestions based on what's MISSING or WEAK in THIS resume
 
-    IMPORTANT: Return ONLY the JSON object. Do not add markdown formatting or explanations.
+OUTPUT FORMAT:
+Return ONLY a valid JSON object with this exact structure:
+{{
+    "summary": "Write 2-3 sentences about this candidate's expertise and experience",
+    "improvements": ["First specific tip", "Second specific tip", "Third specific tip"]
+}}
 
-    Analyze this text:
-    {text[:4000]}
-    """
+RULES:
+- NO placeholders like "[Your text here]" - write actual content
+- NO markdown formatting or code blocks
+- NO explanations outside the JSON
+- Ensure valid JSON syntax (check commas!)
+- Base everything on the ACTUAL resume content below
+
+Resume Content:
+{text[:4000]}
+
+Generate the JSON now:"""
 
 # --- Nodes ---
 
@@ -66,7 +74,11 @@ async def parse_resume_node(state: ResumeState):
         llm = get_agent_llm(temperature=0.1) # Low temp for extraction
         response = await llm.ainvoke(get_parse_prompt(state["resume_text"]))
         
-        cleaned_json = clean_ai_json(response)
+        # Extract content properly
+        raw_text = response.content if hasattr(response, 'content') else str(response)
+        logger.debug(f"Parse raw response (first 200 chars): {raw_text[:200]}")
+        
+        cleaned_json = clean_ai_json(raw_text)
         data = json.loads(cleaned_json)
         
         return {"parsed_data": data}
@@ -81,10 +93,51 @@ async def analyze_resume_node(state: ResumeState):
         llm = get_agent_llm(temperature=0.7) # Higher temp for creative writing
         response = await llm.ainvoke(get_analysis_prompt(state["resume_text"]))
         
-        cleaned_json = clean_ai_json(response)
-        data = json.loads(cleaned_json)
+        # Extract content and log for debugging
+        raw_text = response.content if hasattr(response, 'content') else str(response)
+        logger.info(f"Analysis raw response (first 500 chars): {raw_text[:500]}")
         
-        return {"analysis": data}
+        try:
+            cleaned_json = clean_ai_json(raw_text)
+            data = json.loads(cleaned_json)
+            
+            # Validate that we got personalized content
+            if isinstance(data, dict):
+                summary = data.get("summary", "")
+                # Check for placeholder text
+                if "[Your personalized summary here]" in summary or "[" in summary:
+                    logger.warning("LLM included placeholder text! Cleaning...")
+                    # Try to extract the actual content after the placeholder
+                    if "," in summary:
+                        parts = summary.split(",", 1)
+                        if len(parts) > 1:
+                            summary = parts[1].strip()
+                            data["summary"] = summary
+                
+                # Check for the old example
+                if "Experienced engineer with strong background in system design" in summary:
+                    logger.warning("LLM returned the old example summary!")
+                    data = {
+                        "summary": "Professional with technical expertise and hands-on experience.",
+                        "improvements": ["Add quantifiable achievements", "Include relevant certifications", "Expand on project outcomes"]
+                    }
+            
+            return {"analysis": data}
+            
+        except json.JSONDecodeError as je:
+            logger.error(f"JSON parsing failed: {je}. Raw response: {raw_text[:200]}")
+            # Fallback: Try to extract any useful information
+            fallback_data = {
+                "summary": "Technical professional with diverse skill set and experience.",
+                "improvements": [
+                    "Add specific metrics and achievements to quantify impact",
+                    "Include relevant certifications or training",
+                    "Highlight leadership and collaboration experiences"
+                ]
+            }
+            logger.info("Using fallback analysis data")
+            return {"analysis": fallback_data}
+            
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
         return {"error": f"Analysis failed: {str(e)}"}
