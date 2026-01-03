@@ -1,9 +1,11 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger("database")
 
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 DATABASE_NAME = "ai_interview_db"
@@ -34,7 +36,7 @@ async def init_db():
         ]
     )
     
-    print("✅ Database initialized with all models (including User)")
+    logger.info("✅ Database initialized with all models (including User)")
     return database
 
 # For dependency injection (not used with Beanie, but kept for compatibility)

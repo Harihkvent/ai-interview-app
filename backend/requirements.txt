@@ -32,7 +32,6 @@ aio-pika
 langchain
 langchain-core
 langgraph
-pydantic
-motor
-beanie
 pdfplumber
+langchain-mcp-adapters
+mcp
