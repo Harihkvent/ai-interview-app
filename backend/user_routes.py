@@ -407,7 +407,7 @@ async def get_user_roadmaps(
                 "is_saved": roadmap.is_saved,
                 "created_at": roadmap.created_at.isoformat(),
                 "skills_gap": roadmap.skills_gap,
-                "milestones_count": len(roadmap.milestones)
+                "milestones_count": len(roadmap.milestones) if roadmap.milestones else 0
             }
             for roadmap in roadmaps
         ]

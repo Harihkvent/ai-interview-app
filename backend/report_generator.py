@@ -7,7 +7,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from io import BytesIO
 from datetime import datetime
 from models import InterviewSession, Resume, InterviewRound, Question, Answer
-from services import generate_report_content_with_krutrim
+from question_service import generate_report_content_with_krutrim
 import json
 
 def format_time_display(seconds: int) -> str:

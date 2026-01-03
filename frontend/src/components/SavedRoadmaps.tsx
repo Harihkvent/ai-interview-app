@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getSavedRoadmaps, deleteRoadmap } from '../api';
+import { getAllRoadmaps, deleteRoadmap } from '../api';
 
 interface Roadmap {
     id: string;
@@ -23,7 +23,7 @@ export const SavedRoadmaps: React.FC<SavedRoadmapsProps> = ({ onViewRoadmap }) =
 
     const loadRoadmaps = async () => {
         try {
-            const data = await getSavedRoadmaps();
+            const data = await getAllRoadmaps();
             // API returns { total: number, roadmaps: [] }
             setRoadmaps(data.roadmaps || data || []);
         } catch (error) {

@@ -2,12 +2,15 @@ import json
 import logging
 import time
 import random
+import re
 from models import QuestionBank
-from ai_utils import call_krutrim_api, clean_ai_json
+from ai_utils import call_krutrim_api, clean_ai_json, extract_questions_fallback
 from cache_service import get_cached_questions, cache_questions
 from metrics import (
     questions_generated, 
-    question_generation_duration
+    question_generation_duration,
+    answer_evaluations,
+    answer_evaluation_duration
 )
 
 logger = logging.getLogger("question_service")
@@ -211,7 +214,7 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
             elif isinstance(parsed, dict):
                 parsed = [parsed]
             else:
-                return []
+                return extract_questions_fallback(response)
                 
         results = []
         for item in parsed:
@@ -259,7 +262,8 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
         
         return results
     except Exception as e:
-        print(f"JSON Parse Error: {e}")
+        logger.error(f"JSON Parse Error: {e}")
+        return extract_questions_fallback(response)
         return []
 
 async def get_db_fallback_questions(round_type: str, count: int, q_type: str) -> list[dict]:
@@ -351,3 +355,139 @@ def get_hardcoded_fallback(round_type: str, question_num: int, q_type: str = "de
         "question": question_text,
         "type": "descriptive"
     }
+
+# ============= Answer Evaluation & Reporting =============
+
+async def evaluate_answer(question: str, answer: str, resume_context: str, round_type: str = "general") -> dict:
+    """
+    Evaluate user answer using Krutrim.
+    Returns: {evaluation: str, score: float}
+    """
+    start_time = time.time()
+    
+    prompt = f"""You are an expert interviewer evaluating a candidate's answer.
+
+Resume Context:
+{resume_context}
+
+Question: {question}
+
+Candidate's Answer: {answer}
+
+Evaluate this answer and provide:
+1. A score from 0 to 10 (where 10 is excellent)
+2. Constructive feedback on the answer
+
+Return your response in this EXACT JSON format:
+{{"score": <number>, "evaluation": "<your detailed feedback>"}}"""
+
+    messages = [
+        {"role": "system", "content": "You are an expert interviewer providing fair and constructive evaluations."},
+        {"role": "user", "content": prompt}
+    ]
+    
+    try:
+        response = await call_krutrim_api(messages, temperature=0.5, max_tokens=500, operation=f"evaluate_answer_{round_type}")
+        if not response:
+             raise ValueError("Empty response from AI")
+             
+        response = clean_ai_json(response)
+        result = json.loads(response, strict=False)
+        
+        # Record metrics
+        duration = time.time() - start_time
+        score = float(result.get("score", 5.0))
+        answer_evaluations.labels(round_type=round_type).inc()
+        answer_evaluation_duration.labels(round_type=round_type).observe(duration)
+        
+        return {
+            "evaluation": result.get("evaluation", "Good effort!"),
+            "score": score
+        }
+    except Exception as e:
+        logger.error(f"Error evaluating answer: {e}")
+        return {
+            "evaluation": "Thank you for your answer. Your response has been recorded.",
+            "score": 5.0
+        }
+
+async def generate_report_content_with_krutrim(session_data: dict) -> str:
+    """
+    Use Krutrim AI to analyze interview performance and generate comprehensive report content.
+    """
+    # Simplify the data to avoid token limits
+    rounds_summary = []
+    for round_data in session_data.get('rounds', []):
+        qas = round_data.get('questions_answers', [])
+        round_summary = {
+            'type': round_data.get('round_type', 'Unknown'),
+            'questions_count': len(qas),
+            'avg_score': sum(qa.get('score', 0) for qa in qas) / max(len(qas), 1)
+        }
+        rounds_summary.append(round_summary)
+    
+    prompt = f"""Generate a professional interview performance report based on this data:
+
+OVERALL STATISTICS:
+- Total Score: {session_data.get('total_score', 0):.1f}/10
+- Total Time: {session_data.get('total_time_formatted', 'N/A')}
+- Rounds Completed: {len(session_data.get('rounds', []))}
+
+ROUND PERFORMANCE:
+{json.dumps(rounds_summary, indent=2)}
+
+Generate a brief report with these sections:
+1. Executive Summary (2-3 sentences)
+2. Performance Highlights
+3. Areas for Improvement
+4. Overall Recommendation
+
+Keep it concise and professional."""
+
+    messages = [
+        {"role": "system", "content": "You are an expert HR analyst creating concise interview reports."},
+        {"role": "user", "content": prompt}
+    ]
+    
+    try:
+        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=800, operation="generate_report")
+        return response
+    except Exception as e:
+        logger.error(f"Error generating report: {e}")
+        return generate_fallback_report(session_data)
+
+def generate_fallback_report(session_data: dict) -> str:
+    """Generate a basic report when AI generation fails"""
+    total_score = session_data.get('total_score', 0)
+    performance_level = "Excellent" if total_score >= 8 else "Good" if total_score >= 6 else "Satisfactory" if total_score >= 4 else "Needs Improvement"
+    
+    report = f"""# Executive Summary
+
+The candidate completed the interview with an overall score of {total_score:.1f}/10, demonstrating {performance_level.lower()} performance.
+
+## Performance Highlights
+
+- **Overall Score**: {total_score:.1f}/10 ({performance_level})
+- **Interview Duration**: {session_data.get('total_time_formatted', 'N/A')}
+- **Rounds Completed**: {len(session_data.get('rounds', []))}
+
+### Round-by-Round Performance
+
+"""
+    for round_data in session_data.get('rounds', []):
+        qas = round_data.get('questions_answers', [])
+        if qas:
+            avg_score = sum(qa.get('score', 0) for qa in qas) / len(qas)
+            report += f"- **{round_data.get('round_type', 'Unknown')} Round**: {avg_score:.1f}/10\n"
+    
+    report += f"""
+## Overall Recommendation
+Based on the performance, the candidate shows {"strong potential" if total_score >= 7 else "potential for growth"}.
+"""
+    return report
+
+async def generate_ai_response(messages: list) -> str:
+    """Generate AI response using Krutrim API (legacy chat support)"""
+    system_prompt = "You are an AI interviewer conducting a professional job interview. Maintain a professional yet friendly tone."
+    api_messages = [{"role": "system", "content": system_prompt}] + messages
+    return await call_krutrim_api(api_messages, temperature=0.7, max_tokens=500, operation="chat")

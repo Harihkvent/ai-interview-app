@@ -84,142 +84,119 @@ async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens:
         return ""
 
 def clean_ai_json(response: str) -> str:
-    """Aggressively clean AI response to extract valid JSON"""
+    """
+    Aggressively clean AI response to extract valid JSON string.
+    Does not make assumptions about the data structure (list vs object).
+    """
+    if not response:
+        return "{}"
+
+    cleaned = response.strip()
+    
+    # 1. Handle Markdown Blocks
+    if "```json" in cleaned:
+        parts = cleaned.split("```json")
+        if len(parts) > 1:
+            cleaned = parts[1].split("```")[0].strip()
+    elif "```" in cleaned:
+         parts = cleaned.split("```")
+         if len(parts) > 1:
+             cleaned = parts[1].strip()
+        
+    # 2. Extract structural block
+    first_brace = cleaned.find('{')
+    first_bracket = cleaned.find('[')
+    
+    start_idx = -1
+    if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
+        start_idx = first_brace
+    elif first_bracket != -1:
+        start_idx = first_bracket
+
+    if start_idx != -1:
+        # Find the last matching closing character
+        last_brace = cleaned.rfind('}')
+        last_bracket = cleaned.rfind(']')
+        end_idx = max(last_brace, last_bracket)
+        if end_idx > start_idx:
+            cleaned = cleaned[start_idx:end_idx+1]
+
+    # 3. Basic cleanup of common LLM errors
+    # Remove trailing commas before closing braces/brackets
+    cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+    
+    # Handle unescaped control characters like newlines inside strings
+    # We'll replace problematic newlines that aren't part of JSON structure
+    # This is a best-effort approach
     try:
-        # If response is empty
-        if not response:
-            return "{}"
-
-        # Try to parse directly first
-        try:
-            json.loads(response)
-            return response
-        except json.JSONDecodeError:
-            pass
-
-        cleaned = response.strip()
-        
-        # Clean markdown wrappers (standard)
-        if "```json" in cleaned:
-            # Handle potential multiple blocks or weird formatting
-            parts = cleaned.split("```json")
-            if len(parts) > 1:
-                cleaned = parts[1].split("```")[0].strip()
-        elif "```" in cleaned:
-             parts = cleaned.split("```")
-             if len(parts) > 1:
-                 cleaned = parts[1].strip()
-            
-        # Aggressive extraction: find first [ or { and last ] or }
-        first_brace = cleaned.find('{')
-        first_bracket = cleaned.find('[')
-        
-        start_idx = -1
-        end_idx = -1
-        is_array = False
-        
-        # Determine if we are looking for an object or array based on what comes first
-        if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
-            start_idx = first_brace
-            # Find matching closing brace by counting stack
-            stack = 0
-            for i, char in enumerate(cleaned[start_idx:], start=start_idx):
-                if char == '{':
-                    stack += 1
-                elif char == '}':
-                    stack -= 1
-                    if stack == 0:
-                        end_idx = i + 1
-                        break
-        elif first_bracket != -1:
-            start_idx = first_bracket
-            is_array = True
-            # Find matching closing bracket
-            stack = 0
-            for i, char in enumerate(cleaned[start_idx:], start=start_idx):
-                if char == '[':
-                    stack += 1
-                elif char == ']':
-                    stack -= 1
-                    if stack == 0:
-                        end_idx = i + 1
-                        break
-                        
-        if start_idx != -1 and end_idx != -1:
-            cleaned = cleaned[start_idx:end_idx]
-        elif start_idx != -1:
-            # If we found a start but no valid end with stack counting, 
-            # try naively the last matching character
-            last_char = ']' if is_array else '}'
-            last_idx = cleaned.rfind(last_char)
-            if last_idx > start_idx:
-                cleaned = cleaned[start_idx:last_idx+1]
-            
-        # Remove trailing commas which are common syntax errors in LLM JSON
-        cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
-
-        # Attempt to fix unescaped newlines in strings (common LLM error)
-        # This is a naive heuristic: replace newlines that are likely inside strings
-        # We can't perfectly know without a parser, but we can try removing newlines
-        # that are not followed by typical JSON structural characters
-        
-        # Verify it parses
-        try:
-             json.loads(cleaned)
-        except json.JSONDecodeError:
-             # Try replacing separate newlines with space if they might be in text
-             cleaned = cleaned.replace('\n', ' ')
-             json.loads(cleaned) # Check again
-
+        json.loads(cleaned)
         return cleaned
+    except json.JSONDecodeError:
+        # Try to fix unescaped newlines and tabs
+        # Replace actual newlines with \n literal
+        fixed = cleaned.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
         
-    except Exception as e:
-        logger.error(f"❌ JSON Clean Error: {str(e)}")
+        # However, we might have just escaped the actual structure newlines. 
+        # Most JSON parsers handle \n outside strings fine, but not literal newlines inside strings.
+        # Let's try a safer approach: replace literal newlines with spaces if they aren't preceded by structural chars
+        # But for now, let's try to just use strict=False in the caller or here if we use a different loader
         
-        # Last Resort: Try to parse numbered list format using Regex
+        # Attempt to remove all real newlines that aren't preceded by a comma or colon or brace
+        # This is getting complex. Let's try simple replacement first.
         try:
-            logger.info("Attempting regex fallback for numbered list...")
-            questions = []
+            # Maybe the AI returned " ... " instead of \" ... \" inside strings
+            # We can't easily fix that without a full state machine parser.
+            return cleaned 
+        except:
+            return cleaned
+
+def extract_questions_fallback(response: str) -> list:
+    """
+    Specific fallback for when JSON cleaning fails for question generation.
+    Parses numbered lists using regex.
+    """
+    questions = []
+    try:
+        # Split items by "1. ", "2. " etc at start of lines
+        items = re.split(r'\n\s*\d+[.)]\s+', '\n' + response.strip())
+        
+        for item in items[1:]:
+            lines = item.strip().split('\n')
+            if not lines: continue
             
-            # Split items by "1. ", "2. " etc at start of lines
-            items = re.split(r'\n\s*\d+[.)]\s+', '\n' + response.strip())
+            raw_q = lines[0].strip()
+            q_text = re.sub(r'^Question:\s*', '', raw_q).strip()
             
-            for item in items[1:]:
-                lines = item.strip().split('\n')
-                if not lines: continue
-                
-                raw_q = lines[0].strip()
-                q_text = re.sub(r'^Question:\s*', '', raw_q).strip()
-                
-                options = []
-                starter_code = ""
-                test_cases = []
-                q_type = "descriptive"
-                
-                for line in lines[1:]:
-                    line = line.strip()
-                    # Check for MCQs
-                    if line.startswith('- ') or line.startswith('* '):
-                        options.append(line[2:].strip())
-                        q_type = "mcq"
-                    elif re.match(r'^[A-D][).]\s*', line):
-                        options.append(re.sub(r'^[A-D][).]\s*', '', line).strip())
-                        q_type = "mcq"
-                    elif line.startswith('Options:'):
-                        opts = line.replace('Options:', '').split(',')
-                        options.extend([o.strip() for o in opts if o.strip()])
-                        q_type = "mcq"
-                    # Check for Coding
-                    elif "Starter Code:" in line:
-                        starter_code = line.split("Starter Code:", 1)[1].strip()
+            options = []
+            starter_code = ""
+            test_cases = []
+            q_type = "descriptive"
+            
+            for line in lines[1:]:
+                line = line.strip()
+                if not line: continue
+                # Check for MCQs
+                if line.startswith('- ') or line.startswith('* '):
+                    options.append(line[2:].strip())
+                    q_type = "mcq"
+                elif re.match(r'^[A-D][).]\s*', line):
+                    options.append(re.sub(r'^[A-D][).]\s*', '', line).strip())
+                    q_type = "mcq"
+                elif line.startswith('Options:'):
+                    opts = line.replace('Options:', '').split(',')
+                    options.extend([o.strip() for o in opts if o.strip()])
+                    q_type = "mcq"
+                elif "Starter Code:" in line:
+                    starter_code = line.split("Starter Code:", 1)[1].strip()
+                    q_type = "coding"
+                elif "Test Cases:" in line:
+                    try:
+                        tc_str = line.split("Test Cases:", 1)[1].strip()
+                        test_cases = json.loads(tc_str)
                         q_type = "coding"
-                    elif "Test Cases:" in line:
-                        try:
-                            tc_str = line.split("Test Cases:", 1)[1].strip()
-                            test_cases = json.loads(tc_str)
-                            q_type = "coding"
-                        except: pass
-                
+                    except: pass
+            
+            if q_text:
                 questions.append({
                     "question": q_text,
                     "options": options if options else None,
@@ -228,11 +205,7 @@ def clean_ai_json(response: str) -> str:
                     "starter_code": starter_code if starter_code else None,
                     "test_cases": test_cases if test_cases else None
                 })
-            
-            if questions:
-                logger.info(f"Regex fallback successfully extracted {len(questions)} questions")
-                return json.dumps(questions)
-        except Exception as regex_err:
-             logger.error(f"Regex Fallback Failed: {regex_err}")
-
-        return "[]"
+        return questions
+    except Exception as e:
+        logger.error(f"Error in extract_questions_fallback: {e}")
+        return []

@@ -3,7 +3,7 @@ AI-Powered Career Roadmap Generator
 Uses Krutrim AI to generate personalized learning paths
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 import httpx
 import os
 import json
@@ -135,8 +135,8 @@ Create a comprehensive roadmap with:
   }}
 }}
 
-Provide ONLY the JSON object, no additional text."""
-
+Return ONLY the raw JSON object. Do not include markdown code blocks, preamble, or footer. Ensure all keys and string values use double quotes, and control characters like newlines are properly escaped. Check your commas carefully.
+"""
     headers = {
         "Authorization": f"Bearer {KRUTRIM_API_KEY}",
         "Content-Type": "application/json"
@@ -177,13 +177,51 @@ Provide ONLY the JSON object, no additional text."""
                 if not isinstance(roadmap_data, dict):
                     print(f"⚠️  AI response is not a JSON object (got {type(roadmap_data)}). Triggering fallback.")
                     raise ValueError("AI response must be a JSON object")
-                    
-                print("✅ Successfully generated roadmap from AI")
+                
+                # Normalize common key variations
+                key_mapping = {
+                    "learning_milestones": "milestones",
+                    "learning_path": "milestones",
+                    "phases": "milestones",
+                    "assessment": "current_assessment",
+                    "skills_analysis": "skills_gap",
+                    "gaps": "skills_gap",
+                    "timeline": "estimated_timeline",
+                    "certifications": "recommended_certifications",
+                    "action_steps": "next_steps"
+                }
+                
+                for legacy_key, modern_key in key_mapping.items():
+                    if legacy_key in roadmap_data and modern_key not in roadmap_data:
+                        roadmap_data[modern_key] = roadmap_data[legacy_key]
+
+                # Deep normalization for milestones
+                if "milestones" in roadmap_data and isinstance(roadmap_data["milestones"], list):
+                    for m in roadmap_data["milestones"]:
+                        if "title" in m and "phase" not in m: m["phase"] = m["title"]
+                        if "learning_goals" in m and "goals" not in m: m["goals"] = m["learning_goals"]
+                
+                print("✅ Successfully generated roadmap from AI with normalization")
                 return roadmap_data
             except json.JSONDecodeError as e:
                 print(f"⚠️  JSON parsing failed: {e}")
-                print(f"Raw content: {content[:200]}...")
-                # Return fallback structure
+                # Try regex extraction if standard parsing fails
+                import re
+                # Look specifically for the largest object block
+                json_match = re.search(r'(\{.*\})', content, re.DOTALL)
+                if json_match:
+                    try:
+                        # Attempt to fix some common errors in the matched string
+                        match_str = json_match.group(1)
+                        # Fix unescaped newlines again just in case
+                        match_str = match_str.replace('\n', ' ')
+                        roadmap_data = json.loads(match_str, strict=False)
+                        print("✅ Recovered JSON via specialized regex")
+                        return roadmap_data
+                    except:
+                        pass
+                
+                print(f"Raw content snippet: {content[:200]}...")
                 return create_fallback_roadmap(target_role, skills_gap)
                 
     except Exception as e:
@@ -298,6 +336,7 @@ def create_fallback_roadmap(target_role: str, skills_gap: Dict) -> Dict:
     }
 
 async def create_career_roadmap(
+    user_id: Optional[str],
     session_id: str,
     resume_text: str,
     target_role: str,
@@ -307,6 +346,7 @@ async def create_career_roadmap(
     Main function to create and store career roadmap
     
     Args:
+        user_id: User who owns this roadmap
         session_id: Interview session ID
         resume_text: Full resume content
         target_role: Target job title
@@ -330,19 +370,20 @@ async def create_career_roadmap(
     roadmap_data = await generate_roadmap_content(resume_text, target_role, skills_gap)
     
     # Store in database
-    # Store in database
     try:
         print("💾 Saving roadmap to database...")
         roadmap = CareerRoadmap(
+            user_id=str(user_id) if user_id else None,
             session_id=session_id,
             target_role=target_role,
             roadmap_content=json.dumps(roadmap_data, indent=2),
             milestones=roadmap_data.get('milestones') if isinstance(roadmap_data.get('milestones'), list) else [],
             skills_gap=skills_gap,
+            is_saved=True if user_id else False,
             estimated_timeline=str(roadmap_data.get('estimated_timeline', 'Not specified'))
         )
         await roadmap.insert()
-        print(f"✅ Roadmap generated successfully! Timeline: {roadmap_data.get('estimated_timeline')}")
+        print(f"✅ Roadmap generated successfully for user {user_id}! Timeline: {roadmap_data.get('estimated_timeline')}")
     except Exception as e:
         import traceback
         print(f"❌ Error saving roadmap to database: {e}")
@@ -351,7 +392,7 @@ async def create_career_roadmap(
         print("⚠️ Returning generated data despite save failure")
     
     return {
-        'roadmap_id': str(roadmap.id) if 'roadmap' in locals() and hasattr(roadmap, 'id') else 'unsaved_roadmap',
+        'roadmap_id': str(roadmap.id) if ('roadmap' in locals() and hasattr(roadmap, 'id') and roadmap.id) else None,
         'target_role': target_role,
         'skills_gap': skills_gap,
         'current_assessment': roadmap_data.get('current_assessment', {}),

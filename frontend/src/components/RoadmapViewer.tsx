@@ -115,7 +115,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                         </div>
                         <div className="bg-green-500/20 px-6 py-2 rounded-full">
                             <span className="text-green-300 font-semibold">
-                                ✓ {roadmap.skills_gap.match_percentage.toFixed(0)}% Skills Match
+                                ✓ {roadmap.skills_gap?.match_percentage?.toFixed(0) || 0}% Skills Match
                             </span>
                         </div>
                         {roadmap.is_saved && (
@@ -137,7 +137,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                         {/* Matched Skills */}
                         <div>
                             <h4 className="text-lg font-semibold text-green-400 mb-3 flex items-center gap-2">
-                                <span>✓</span> Your Strengths ({roadmap.skills_gap.matched_skills.length})
+                                <span>✓</span> Your Strengths ({roadmap.skills_gap?.matched_skills?.length || 0})
                             </h4>
                             <div className="flex flex-wrap gap-2">
                                 {(roadmap.skills_gap.matched_skills || []).map((skill) => (
@@ -154,7 +154,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                         {/* Missing Skills */}
                         <div>
                             <h4 className="text-lg font-semibold text-orange-400 mb-3 flex items-center gap-2">
-                                <span>📚</span> Skills to Acquire ({roadmap.skills_gap.missing_skills.length})
+                                <span>📚</span> Skills to Acquire ({roadmap.skills_gap?.missing_skills?.length || 0})
                             </h4>
                             <div className="flex flex-wrap gap-2">
                                 {(roadmap.skills_gap.missing_skills || []).map((skill) => (
@@ -204,7 +204,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                                     <div className="mb-4">
                                         <h5 className="text-sm font-semibold text-gray-300 mb-2">🎯 Goals:</h5>
                                         <ul className="space-y-1.5">
-                                            {milestone.goals.map((goal, i) => (
+                                            {(milestone.goals || []).map((goal, i) => (
                                                 <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
                                                     <span className="text-purple-400 mt-0.5">•</span>
                                                     <span>{goal}</span>
@@ -217,7 +217,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                                     <div className="mb-4">
                                         <h5 className="text-sm font-semibold text-gray-300 mb-2">📚 Resources:</h5>
                                         <ul className="space-y-1.5">
-                                            {milestone.resources.map((resource, i) => (
+                                            {(milestone.resources || []).map((resource, i) => (
                                                 <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
                                                     <span className="text-green-400 mt-0.5">•</span>
                                                     <span>{resource}</span>

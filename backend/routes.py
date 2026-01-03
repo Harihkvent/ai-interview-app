@@ -9,10 +9,11 @@ import logging
 logger = logging.getLogger("routes")
 
 from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap
-from services import generate_questions_from_resume, evaluate_answer, generate_ai_response
+from question_service import evaluate_answer, generate_ai_response
 from report_generator import generate_pdf_report, calculate_overall_score, generate_final_report_data
 from file_handler import extract_resume_text
 from session_service import create_new_session
+from roadmap_generator import create_career_roadmap
 from metrics import (
     interview_sessions_total,
     interview_sessions_active,
@@ -1051,7 +1052,10 @@ async def get_job_matches(session_id: str):
 # ============= Career Roadmap Endpoints =============
 
 @router.post("/generate-roadmap")
-async def generate_roadmap(request: GenerateRoadmapRequest):
+async def generate_roadmap(
+    request: GenerateRoadmapRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Generate AI-powered career roadmap for selected job - uses cache if available"""
     try:
         # Get resume
@@ -1076,7 +1080,7 @@ async def generate_roadmap(request: GenerateRoadmapRequest):
         
         if existing_roadmap and existing_roadmap.milestones and len(existing_roadmap.milestones) > 0:
             # Return cached roadmap
-            print(f"✅ Returning cached roadmap for session {request.session_id}, role {request.target_role}")
+            print(f"✅ Returning cached roadmap for session {request.session_id}, role {request.target_job_title}")
             return {
                 "session_id": request.session_id,
                 "target_role": existing_roadmap.target_role,
@@ -1105,9 +1109,8 @@ async def generate_roadmap(request: GenerateRoadmapRequest):
                 detail=f"Job match not found for '{request.target_job_title}'. Please select from analyzed jobs."
             )
         
-        # Generate roadmap using AI
-        from roadmap_generator import create_career_roadmap
         roadmap = await create_career_roadmap(
+            str(current_user.id) if current_user and hasattr(current_user, 'id') else None,
             request.session_id,
             resume.content,
             job_match.job_title,

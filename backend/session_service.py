@@ -127,13 +127,14 @@ async def process_answer(question_id: str, answer_text: str, time_taken: int) ->
         raise ValueError("Question not found")
         
     round_obj = await InterviewRound.get(question.round_id)
+    session = await InterviewSession.get(round_obj.session_id)
     
     # Evaluate
     # Note: We likely need an evaluation service or import here. 
     # For now, simplistic evaluation for MCQs to keep this service clean, 
     # but descriptive needs AI.
     # We will import the legacy evaluate_answer for now or refactor it.
-    from services import evaluate_answer as ai_evaluate # Temporary bridge
+    from question_service import evaluate_answer as ai_evaluate
     
     evaluation = {}
     if question.question_type == "mcq":
@@ -144,7 +145,7 @@ async def process_answer(question_id: str, answer_text: str, time_taken: int) ->
         }
     else:
         # Need resume context, fetching resume
-        resume = await Resume.find_one(Resume.session_id == round_obj.session_id)
+        resume = await Resume.get(session.resume_id) if session.resume_id else None
         evaluation = await ai_evaluate(
             question.question_text, 
             answer_text, 
