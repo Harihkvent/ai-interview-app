@@ -14,6 +14,10 @@ async def init_db():
     """Initialize MongoDB connection and Beanie ODM"""
     from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap, QuestionBank, QuestionCache, UserPreferences
     from auth_models import User
+    from analytics_models import PerformanceMetrics, AnalyticsSnapshot
+    from scheduling_models import ScheduledInterview, NotificationPreference
+    from skill_assessment_models import SkillTest, SkillTestAttempt, SkillTestQuestion
+    from certification_models import Certification, UserCertification
     
     client = AsyncIOMotorClient(MONGODB_URL)
     database = client[DATABASE_NAME]
@@ -32,7 +36,17 @@ async def init_db():
             CareerRoadmap,
             QuestionBank,
             QuestionCache,
-            UserPreferences
+            UserPreferences,
+            # New feature models
+            PerformanceMetrics,
+            AnalyticsSnapshot,
+            ScheduledInterview,
+            NotificationPreference,
+            SkillTest,
+            SkillTestAttempt,
+            SkillTestQuestion,
+            Certification,
+            UserCertification
         ]
     )
     

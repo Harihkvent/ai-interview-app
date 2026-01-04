@@ -47,15 +47,25 @@ export const getAuthHeaders = () => {
 
 // ============= New Interview Flow =============
 
-export const uploadResume = async (file: File, sessionType: string = 'interview', jobTitle: string = 'General Interview') => {
+export const uploadResume = async (
+  file: File,
+  sessionType: string = "interview",
+  jobTitle: string = "General Interview"
+) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await api.post(`/upload-resume?session_type=${sessionType}&job_title=${encodeURIComponent(jobTitle)}`, formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+  const response = await api.post(
+    `/upload-resume?session_type=${sessionType}&job_title=${encodeURIComponent(
+      jobTitle
+    )}`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
   return response.data;
 };
 
@@ -80,7 +90,7 @@ export const submitAnswer = async (
     question_id: questionId,
     answer_text: answerText,
     time_taken_seconds: timeTaken,
-    status: status
+    status: status,
   });
   return response.data;
 };
@@ -161,7 +171,7 @@ export const pauseSession = async (sessionId: string) => {
 export const jumpQuestion = async (sessionId: string, questionId: string) => {
   const response = await api.post("/session/jump", {
     session_id: sessionId,
-    question_id: questionId
+    question_id: questionId,
   });
   return response.data;
 };
@@ -183,8 +193,16 @@ export const getSavedResumes = async () => {
   return response.data;
 };
 
-export const analyzeSavedResume = async (resumeId: string, sessionType: string = 'interview', jobTitle: string = 'General Interview') => {
-  const response = await api.post(`/analyze-saved-resume/${resumeId}?session_type=${sessionType}&job_title=${encodeURIComponent(jobTitle)}`);
+export const analyzeSavedResume = async (
+  resumeId: string,
+  sessionType: string = "interview",
+  jobTitle: string = "General Interview"
+) => {
+  const response = await api.post(
+    `/analyze-saved-resume/${resumeId}?session_type=${sessionType}&job_title=${encodeURIComponent(
+      jobTitle
+    )}`
+  );
   return response.data;
 };
 
@@ -194,7 +212,7 @@ export const analyzeResumeLive = async (
 ) => {
   // Clear job matches cache for this session to ensure fresh results are shown later
   cacheService.clear("jobMatches", sessionId);
-  
+
   const response = await api.post(
     `/analyze-resume-live/${sessionId}?location=${location}`
   );
@@ -207,12 +225,15 @@ export const analyzeResumeLive = async (
  */
 export const getJobMatches = async (sessionId: string) => {
   // Check cache first
-  const cached = cacheService.get<{ matches?: any[], top_matches?: any[] }>("jobMatches", sessionId);
-  
+  const cached = cacheService.get<{ matches?: any[]; top_matches?: any[] }>(
+    "jobMatches",
+    sessionId
+  );
+
   // Robust check: Ensure cached matches have IDs. If not, bypass cache.
   // Stale cache from previous versions might lack 'id' or '_id'.
   const matches = cached?.matches || cached?.top_matches || [];
-  const hasIds = matches.length > 0 && matches.every(m => m.id || m._id);
+  const hasIds = matches.length > 0 && matches.every((m) => m.id || m._id);
 
   if (cached && hasIds) {
     console.log("📦 Returning cached job matches for session:", sessionId);
@@ -220,7 +241,10 @@ export const getJobMatches = async (sessionId: string) => {
   }
 
   if (cached && !hasIds) {
-    console.warn("⚠️ Stale cache detected (missing IDs), bypassing cache for session:", sessionId);
+    console.warn(
+      "⚠️ Stale cache detected (missing IDs), bypassing cache for session:",
+      sessionId
+    );
   }
 
   // Fetch from backend
@@ -307,7 +331,7 @@ export const getRoadmapById = async (roadmapId: string) => {
 
 // ============= New Independent Flow Functions =============
 
-export const getActiveSession = async (sessionType: string = 'interview') => {
+export const getActiveSession = async (sessionType: string = "interview") => {
   const response = await api.get(`/active-session?session_type=${sessionType}`);
   return response.data;
 };
@@ -336,19 +360,16 @@ export const generateQuestionsOnly = async (
 ): Promise<{ questions: any[] }> => {
   // Create a cache key based on resume text hash, round type, and job title
   // Simple hash function for client-side caching
-  const textHash = resumeText.split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0);
+  const textHash = resumeText.split("").reduce((a, b) => {
+    a = (a << 5) - a + b.charCodeAt(0);
     return a & a;
   }, 0);
-  
+
   // v3 prefix to invalidate old cache and include jobTitle in key
   const cacheKey = `v3_${roundType}_${jobTitle}_${textHash}`;
 
   // Check cache first
-  const cached = cacheService.get<{ questions: any[] }>(
-    "questions",
-    cacheKey
-  );
+  const cached = cacheService.get<{ questions: any[] }>("questions", cacheKey);
   if (cached && cached.questions) {
     console.log("📦 Returning cached questions for round:", roundType);
     return cached;
@@ -416,7 +437,7 @@ export const saveGeneratedSession = async (
   return response.data;
 };
 export const saveJob = async (jobDbId: string) => {
-  if (!jobDbId || jobDbId === 'undefined') {
+  if (!jobDbId || jobDbId === "undefined") {
     console.error("❌ Cannot save job: jobDbId is undefined or invalid.");
     throw new Error("Invalid Job ID");
   }
@@ -432,49 +453,56 @@ export const getSavedJobs = async () => {
 // ============= Profile & Insights Functions =============
 
 export const uploadProfileResume = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    // Explicitly set is_primary=true if we want this to be the active resume for insights
-    const response = await api.post("/api/v1/profile/resumes?is_primary=true", formData, {
-        headers: {
-            "Content-Type": "multipart/form-data",
-        },
-    });
-    return response.data;
+  const formData = new FormData();
+  formData.append("file", file);
+  // Explicitly set is_primary=true if we want this to be the active resume for insights
+  const response = await api.post(
+    "/api/v1/profile/resumes?is_primary=true",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+  return response.data;
 };
 
 export const getProfileResumes = async () => {
-    const response = await api.get("/api/v1/profile/resumes");
-    return response.data;
+  const response = await api.get("/api/v1/profile/resumes");
+  return response.data;
 };
 
 export const deleteProfileResume = async (resumeId: string) => {
-    const response = await api.delete(`/api/v1/profile/resumes/${resumeId}`);
-    return response.data;
+  const response = await api.delete(`/api/v1/profile/resumes/${resumeId}`);
+  return response.data;
 };
 
 export const setActiveProfileResume = async (resumeId: string) => {
-    const response = await api.put("/api/v1/profile/resumes/active", {
-        resume_id: resumeId
-    });
-    return response.data;
+  const response = await api.put("/api/v1/profile/resumes/active", {
+    resume_id: resumeId,
+  });
+  return response.data;
 };
 
 // ============= Preferences & Profile Settings =============
 
 export const getUserPreferences = async () => {
-    const response = await api.get("/api/v1/profile/preferences");
-    return response.data;
+  const response = await api.get("/api/v1/profile/preferences");
+  return response.data;
 };
 
 export const updateUserPreferences = async (data: any) => {
-    const response = await api.put("/api/v1/profile/preferences", data);
-    return response.data;
+  const response = await api.put("/api/v1/profile/preferences", data);
+  return response.data;
 };
 
-export const updateUserProfile = async (data: { full_name?: string; username?: string }) => {
-    const response = await api.put("/auth/profile", data);
-    return response.data;
+export const updateUserProfile = async (data: {
+  full_name?: string;
+  username?: string;
+}) => {
+  const response = await api.put("/auth/profile", data);
+  return response.data;
 };
 
 // ============= Agent / Hive API =============
@@ -487,7 +515,186 @@ export const sendMessageToAgent = async (
   const response = await api.post("/api/v1/agent/chat", {
     message: message,
     session_id: sessionId,
-    resume_id: resumeId
+    resume_id: resumeId,
   });
+  return response.data;
+};
+
+// ============= Analytics API =============
+
+export const getAnalyticsDashboard = async () => {
+  const response = await api.get("/api/analytics/dashboard");
+  return response.data;
+};
+
+export const getPerformanceTrends = async (days: number = 30) => {
+  const response = await api.get(
+    `/api/analytics/performance-trends?days=${days}`
+  );
+  return response.data;
+};
+
+export const getRoundBreakdown = async () => {
+  const response = await api.get("/api/analytics/round-breakdown");
+  return response.data;
+};
+
+// ============= Scheduling API =============
+
+export const createScheduledInterview = async (data: {
+  title: string;
+  scheduled_time: string;
+  duration_minutes?: number;
+  description?: string;
+}) => {
+  const response = await api.post("/api/schedule/create", data);
+  return response.data;
+};
+
+export const getUpcomingSchedules = async (limit: number = 10) => {
+  const response = await api.get(`/api/schedule/upcoming?limit=${limit}`);
+  return response.data;
+};
+
+export const updateSchedule = async (scheduleId: string, data: any) => {
+  const response = await api.put(`/api/schedule/${scheduleId}`, data);
+  return response.data;
+};
+
+export const cancelSchedule = async (scheduleId: string) => {
+  const response = await api.delete(`/api/schedule/${scheduleId}`);
+  return response.data;
+};
+
+export const getSchedulePreferences = async () => {
+  const response = await api.get("/api/schedule/preferences/get");
+  return response.data;
+};
+
+export const updateSchedulePreferences = async (data: any) => {
+  const response = await api.put("/api/schedule/preferences/update", data);
+  return response.data;
+};
+
+// ============= Skill Assessment API =============
+
+export const getAvailableSkillTests = async (
+  category?: string,
+  difficulty?: string
+) => {
+  let url = "/api/skill-tests";
+  const params = new URLSearchParams();
+  if (category) params.append("category", category);
+  if (difficulty) params.append("difficulty", difficulty);
+  if (params.toString()) url += `?${params.toString()}`;
+
+  const response = await api.get(url);
+  return response.data;
+};
+
+export const startSkillTest = async (testId: string) => {
+  const response = await api.post(`/api/skill-tests/${testId}/start`);
+  return response.data;
+};
+
+export const submitSkillTestAnswer = async (
+  attemptId: string,
+  questionId: string,
+  answer: string,
+  timeTaken: number
+) => {
+  const response = await api.post(
+    `/api/skill-tests/attempts/${attemptId}/answer`,
+    {
+      question_id: questionId,
+      answer: answer,
+      time_taken: timeTaken,
+    }
+  );
+  return response.data;
+};
+
+export const completeSkillTest = async (attemptId: string) => {
+  const response = await api.post(
+    `/api/skill-tests/attempts/${attemptId}/complete`
+  );
+  return response.data;
+};
+
+export const getSkillTestResults = async (attemptId: string) => {
+  const response = await api.get(
+    `/api/skill-tests/attempts/${attemptId}/results`
+  );
+  return response.data;
+};
+
+export const getSkillTestHistory = async () => {
+  const response = await api.get("/api/skill-tests/history/all");
+  return response.data;
+};
+
+// ============= Certification API =============
+
+export const searchCertifications = async (filters?: {
+  query?: string;
+  category?: string;
+  provider?: string;
+  difficulty?: string;
+}) => {
+  let url = "/api/certifications";
+  const params = new URLSearchParams();
+  if (filters?.query) params.append("query", filters.query);
+  if (filters?.category) params.append("category", filters.category);
+  if (filters?.provider) params.append("provider", filters.provider);
+  if (filters?.difficulty) params.append("difficulty", filters.difficulty);
+  if (params.toString()) url += `?${params.toString()}`;
+
+  const response = await api.get(url);
+  return response.data;
+};
+
+export const getRecommendedCertifications = async (limit: number = 10) => {
+  const response = await api.get(
+    `/api/certifications/recommendations?limit=${limit}`
+  );
+  return response.data;
+};
+
+export const getUserCertifications = async () => {
+  const response = await api.get("/api/certifications/user");
+  return response.data;
+};
+
+export const addUserCertification = async (data: {
+  certification_id: string;
+  status?: string;
+  obtained_date?: string;
+  credential_id?: string;
+  credential_url?: string;
+  notes?: string;
+}) => {
+  const response = await api.post("/api/certifications/user", data);
+  return response.data;
+};
+
+export const updateUserCertification = async (certId: string, data: any) => {
+  const response = await api.put(`/api/certifications/user/${certId}`, data);
+  return response.data;
+};
+
+export const deleteUserCertification = async (certId: string) => {
+  const response = await api.delete(`/api/certifications/user/${certId}`);
+  return response.data;
+};
+
+export const getCertificationRoadmap = async (targetRole: string) => {
+  const response = await api.get(
+    `/api/certifications/roadmap?target_role=${encodeURIComponent(targetRole)}`
+  );
+  return response.data;
+};
+
+export const getExpiringCertifications = async (days: number = 30) => {
+  const response = await api.get(`/api/certifications/expiring?days=${days}`);
   return response.data;
 };

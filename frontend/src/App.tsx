@@ -17,6 +17,10 @@ import { useAuth } from './contexts/AuthContext';
 import { AgentOverlay } from './components/AgentOverlay';
 import { AiInsightsPage } from './components/AiInsightsPage';
 import { ProfilePage } from './components/ProfilePage';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { ScheduleInterview } from './components/ScheduleInterview';
+import { SkillTests } from './components/SkillTests';
+import { SkillTestSession } from './components/SkillTestSession';
 import './index.css';
 
 function App() {
@@ -205,6 +209,18 @@ function App() {
                     <QuestionGenerator 
                         onSessionCreated={(sid) => navigate(`/interview/${sid}`)}
                     />
+                } />
+                <Route path="/analytics" element={
+                    <AnalyticsDashboard />
+                } />
+                <Route path="/schedule" element={
+                    <ScheduleInterview />
+                } />
+                <Route path="/skill-tests" element={
+                    <SkillTests />
+                } />
+                <Route path="/skill-tests/:attemptId" element={
+                    <SkillTestSession />
                 } />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
