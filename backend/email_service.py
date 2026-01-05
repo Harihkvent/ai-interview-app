@@ -17,6 +17,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@careerpath.ai")
+APP_URL = os.getenv("APP_URL", "https://your-app-domain.com")  # Update when deployed
 
 
 async def send_email(
@@ -74,6 +75,10 @@ async def send_interview_scheduled_email(user_email: str, schedule_details: dict
             
             <p>You will receive reminder notifications before your interview.</p>
             
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{APP_URL}/interview" style="background-color: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Attend Interview</a>
+            </div>
+            
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
                 <p style="color: #6B7280; font-size: 14px;">
                     Best of luck with your preparation!<br>
@@ -109,6 +114,10 @@ async def send_reminder_email(user_email: str, schedule_details: dict, minutes_b
             
             <p>Make sure you're ready and have everything you need for the interview.</p>
             
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{APP_URL}/interview" style="background-color: #EF4444; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Join Interview Now</a>
+            </div>
+            
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
                 <p style="color: #6B7280; font-size: 14px;">
                     Good luck!<br>
@@ -141,6 +150,10 @@ async def send_completion_email(user_email: str, session_details: dict) -> bool:
             </div>
             
             <p>Your detailed performance report is now available in your dashboard.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{APP_URL}/dashboard" style="background-color: #10B981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">View Results</a>
+            </div>
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
                 <p style="color: #6B7280; font-size: 14px;">
