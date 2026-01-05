@@ -21,6 +21,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ScheduleInterview } from './components/ScheduleInterview';
 import { SkillTests } from './components/SkillTests';
 import { SkillTestSession } from './components/SkillTestSession';
+import { SkillTestResults } from './components/SkillTestResults';
 import './index.css';
 
 function App() {
@@ -218,6 +219,9 @@ function App() {
                 } />
                 <Route path="/skill-tests" element={
                     <SkillTests />
+                } />
+                <Route path="/skill-tests/results/:attemptId" element={
+                    <SkillTestResults />
                 } />
                 <Route path="/skill-tests/:attemptId" element={
                     <SkillTestSession />

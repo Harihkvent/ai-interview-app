@@ -333,21 +333,17 @@ def parse_text_questions(text: str, skill_name: str, count: int) -> List[Dict]:
 async def generate_skill_questions(skill_name: str, category: str, count: int = 10) -> List[str]:
     """Generate skill test questions using AI"""
     try:
-        prompt = f"""Generate {count} multiple choice questions to test knowledge of {skill_name} in the {category} category.
+        prompt = f"""Create {count} multiple choice questions about {skill_name} ({category} category).
 
-CRITICAL: You MUST respond with ONLY a valid JSON array. Do not include any explanatory text before or after the JSON.
+IMPORTANT:
+- Create REAL {skill_name} questions, NOT generic examples
+- Return ONLY valid JSON array
+- No explanatory text before or after
 
-Return exactly this format:
-[
-  {{
-    "question": "What is the result of 2 + 2?",
-    "options": ["A. 3", "B. 4", "C. 5", "D. 6"],
-    "correct_answer": "B",
-    "explanation": "2 + 2 equals 4"
-  }}
-]
+JSON format:
+[{{"question": "your question", "options": ["A. opt1", "B. opt2", "C. opt3", "D. opt4"], "correct_answer": "A", "explanation": "why"}}]
 
-Generate {count} questions following this exact JSON structure. Start your response with [ and end with ]. No other text."""
+Generate {count} {skill_name} questions NOW as JSON array."""
         
         messages = [{"role": "user", "content": prompt}]
         response_text = await call_krutrim_api(messages, temperature=0.7, max_tokens=2000, operation="generate_skill_questions")
@@ -356,10 +352,12 @@ Generate {count} questions following this exact JSON structure. Start your respo
         import json
         from ai_utils import clean_ai_json
         
-        logger.info(f"Raw AI response: {response_text[:200]}...")  # Log first 200 chars
+        logger.info(f"Generating {count} questions for {skill_name}")
+        logger.info(f"Raw AI response length: {len(response_text)}")
+        logger.info(f"Raw AI response: {response_text[:300]}...")  # Log first 300 chars
         
         cleaned_response = clean_ai_json(response_text)
-        logger.info(f"Cleaned response: {cleaned_response[:200]}...")
+        logger.info(f"Cleaned response: {cleaned_response[:300]}...")
         
         questions_data = None
         

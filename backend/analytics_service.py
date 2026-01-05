@@ -263,16 +263,16 @@ async def get_analytics_dashboard(user_id: str) -> Dict:
         
         return {
             "overview": {
-                "total_interviews": metrics.total_interviews,
-                "total_completed": metrics.total_completed,
-                "avg_score": metrics.avg_score,
-                "total_time_spent_seconds": metrics.total_time_spent_seconds,
-                "best_round": metrics.best_round_type,
-                "worst_round": metrics.worst_round_type
+                "total_interviews": getattr(metrics, 'total_interviews', 0),
+                "total_completed": getattr(metrics, 'total_completed', getattr(metrics, 'total_interviews', 0)),
+                "avg_score": getattr(metrics, 'avg_score', 0.0),
+                "total_time_spent_seconds": getattr(metrics, 'total_time_spent_seconds', 0),
+                "best_round": getattr(metrics, 'best_round_type', None),
+                "worst_round": getattr(metrics, 'worst_round_type', None)
             },
             "trends": trends_30d,
             "round_performance": round_data["round_breakdown"],
-            "improvement_trend": metrics.improvement_trend
+            "improvement_trend": getattr(metrics, 'improvement_trend', [])
         }
     except Exception as e:
         logger.error(f"Error getting analytics dashboard: {str(e)}")

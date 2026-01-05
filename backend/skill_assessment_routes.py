@@ -191,7 +191,7 @@ async def submit_answer(
     """Submit an answer for a question"""
     try:
         # Verify ownership
-        from skill_assessment_models import SkillTestAttempt
+        from skill_assessment_models import SkillTestAttempt, SkillTest, SkillTestQuestion
         attempt = await SkillTestAttempt.get(attempt_id)
         
         if not attempt:
@@ -207,7 +207,31 @@ async def submit_answer(
             request.time_taken
         )
         
-        return result
+        # Get next question
+        # Reload attempt to get updated answers count
+        attempt = await SkillTestAttempt.get(attempt_id)
+        test = await SkillTest.get(attempt.skill_test_id)
+        
+        next_question = None
+        current_question_index = len(attempt.answers)
+        
+        if test and test.question_ids and current_question_index < len(test.question_ids):
+            question_id = test.question_ids[current_question_index]
+            question = await SkillTestQuestion.get(question_id)
+            
+            if question:
+                next_question = {
+                    "question_id": str(question.id),
+                    "question_text": question.question_text,
+                    "question_type": question.question_type,
+                    "options": question.options,
+                    "question_number": current_question_index + 1
+                }
+        
+        return {
+            **result,
+            "next_question": next_question
+        }
     except HTTPException:
         raise
     except Exception as e:
