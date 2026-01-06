@@ -23,28 +23,39 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
   };
 
   return (
-    <nav className="glass-card sticky top-0 z-50 rounded-none border-b shadow-md backdrop-blur-xl bg-white/70 dark:bg-slate-900/80">
+    <nav 
+      className="sticky top-0 z-50 border-b transition-colors duration-200"
+      style={{
+        backgroundColor: 'var(--navbar-bg)',
+        borderColor: 'var(--navbar-border)',
+      }}
+    >
       <div className="w-full px-6 py-3">
         <div className="flex items-center justify-between">
           {/* Logo/Brand */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
-            <div className="text-3xl animate-bounce">🚀</div>
+          <div 
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" 
+            onClick={() => navigate('/dashboard')}
+          >
+            <div className="text-2xl">🚀</div>
             <div>
-              <h1 className="text-xl font-black tracking-tight text-gradient">
+              <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                 CareerPath AI
               </h1>
-              <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">Your AI Career Companion</p>
+              <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                AI Career Companion
+              </p>
             </div>
           </div>
 
-
           {/* Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 transition-all active:scale-90"
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:bg-[var(--bg-hover)]"
               title="Toggle Theme"
+              style={{ color: 'var(--text-secondary)' }}
             >
               {theme === 'light' ? '🌙' : '☀️'}
             </button>
@@ -52,15 +63,21 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
             {/* User Profile */}
             <button 
               onClick={() => navigate('/profile')}
-              className="flex items-center gap-3 pl-3 border-l border-white/10 cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all text-left"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all hover:bg-[var(--bg-hover)]"
+              style={{ borderLeft: '1px solid var(--border-primary)' }}
             >
               <div className="hidden sm:block text-right">
-                <p className="text-xs font-bold leading-tight">
+                <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
                   {user?.full_name || user?.username}
                 </p>
-                <p className="text-[10px] opacity-50">{user?.email}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                  {user?.email}
+                </p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-black shadow-lg shadow-primary-500/20">
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                style={{ backgroundColor: 'var(--accent-primary)' }}
+              >
                 {(user?.username?.[0] || 'U').toUpperCase()}
               </div>
             </button>
@@ -68,10 +85,27 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
             {/* Logout */}
             <button
               onClick={logout}
-              className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-colors border border-red-500/10"
+              className="p-2 rounded-lg transition-all"
+              style={{ 
+                backgroundColor: 'var(--error-light)',
+                color: 'var(--error)',
+              }}
               title="Logout"
             >
-              🚪
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-4 w-4" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" 
+                />
+              </svg>
             </button>
           </div>
         </div>
