@@ -218,12 +218,12 @@ async def update_or_create_metrics(user_id: str) -> PerformanceMetrics:
         
         if existing:
             # Update existing
-            existing.total_interviews = metrics_data["total_interviews"]
-            existing.total_completed = metrics_data["total_completed"]
-            existing.avg_score = metrics_data["avg_score"]
-            existing.total_time_spent_seconds = metrics_data["total_time_spent_seconds"]
-            existing.round_performance = metrics_data["round_performance"]
-            existing.improvement_trend = metrics_data["improvement_trend"]
+            existing.total_interviews = metrics_data.get("total_interviews", 0)
+            existing.total_completed = metrics_data.get("total_completed", metrics_data.get("total_interviews", 0))
+            existing.avg_score = metrics_data.get("avg_score", 0.0)
+            existing.total_time_spent_seconds = metrics_data.get("total_time_spent_seconds", 0)
+            existing.round_performance = metrics_data.get("round_performance", {})
+            existing.improvement_trend = metrics_data.get("improvement_trend", [])
             existing.best_round_type = metrics_data.get("best_round_type")
             existing.worst_round_type = metrics_data.get("worst_round_type")
             existing.last_updated = datetime.utcnow()
@@ -233,12 +233,12 @@ async def update_or_create_metrics(user_id: str) -> PerformanceMetrics:
             # Create new
             new_metrics = PerformanceMetrics(
                 user_id=user_id,
-                total_interviews=metrics_data["total_interviews"],
-                total_completed=metrics_data["total_completed"],
-                avg_score=metrics_data["avg_score"],
-                total_time_spent_seconds=metrics_data["total_time_spent_seconds"],
-                round_performance=metrics_data["round_performance"],
-                improvement_trend=metrics_data["improvement_trend"],
+                total_interviews=metrics_data.get("total_interviews", 0),
+                total_completed=metrics_data.get("total_completed", metrics_data.get("total_interviews", 0)),
+                avg_score=metrics_data.get("avg_score", 0.0),
+                total_time_spent_seconds=metrics_data.get("total_time_spent_seconds", 0),
+                round_performance=metrics_data.get("round_performance", {}),
+                improvement_trend=metrics_data.get("improvement_trend", []),
                 best_round_type=metrics_data.get("best_round_type"),
                 worst_round_type=metrics_data.get("worst_round_type")
             )
