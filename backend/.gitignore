@@ -8,3 +8,7 @@ venv/
 uploads/
 
 credentials.json
+# Google OAuth tokens
+backend/token.pickle
+backend/credentials.json
+*.pickle
