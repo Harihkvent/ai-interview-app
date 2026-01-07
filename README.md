@@ -86,49 +86,122 @@ python start_all.py
 ---
 
 ### Manual Setup
-If you prefer running terminals separately:
+If you prefer running terminals separately, follow these steps:
 
-#### Infrastructure Setup
-The application uses Docker for database and caching services.
+#### 1. Infrastructure Setup
+The application uses Docker for database and caching services (MongoDB, Redis, RabbitMQ).
+
 ```bash
 docker-compose up -d
 ```
 
-### Backend Setup
+This will start:
+- **MongoDB** on port `27017`
+- **Redis** on port `6379`
+- **RabbitMQ** on ports `5672` (AMQP) and `15672` (Management UI)
+
+#### 2. Backend Setup
+
 1. Navigate to `backend/` and create a virtual environment:
    ```bash
    cd backend
    python -m venv venv
-   venv\Scripts\activate # Windows
+   venv\Scripts\activate  # Windows
+   source venv/bin/activate  # Linux/Mac
    ```
+
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-3. Configure `.env`:
+
+3. Configure `.env` file in the `backend/` directory:
    ```env
-   KRUTRIM_API_KEY=your_key
+   # AI Configuration
+   KRUTRIM_API_KEY=your_krutrim_api_key_here
    KRUTRIM_API_URL=https://cloud.olakrutrim.com/v1/chat/completions
-   SERP_API_KEY=your_serp_key
-   REDIS_URL=redis://localhost:6379
+   
+   # Database Configuration
    MONGODB_URL=mongodb://localhost:27017
-   JWT_SECRET_KEY=your_secret
+   
+   # Cache Configuration
+   REDIS_URL=redis://localhost:6379
+   
+   # Message Queue Configuration
+   RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+   
+   # Authentication
+   JWT_SECRET_KEY=your-secret-key-change-in-production
+   
+   # Google OAuth Configuration
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   
+   # Email Configuration (for interview scheduling)
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASSWORD=your-app-password
+   EMAIL_FROM=noreply@careerpath.ai
+   
+   # Google Calendar API (optional)
+   GOOGLE_CALENDAR_CREDENTIALS_FILE=credentials.json
+   GOOGLE_CALENDAR_TOKEN_FILE=token.json
+   
+   # Analytics Configuration
+   ANALYTICS_SNAPSHOT_INTERVAL_DAYS=7
    ```
-4. Run server:
+
+4. Run the backend server:
    ```bash
    uvicorn main:app --reload
    ```
+   
+   The API will be available at `http://localhost:8000`
 
-### Frontend Setup
+#### 3. Worker Setup (Background Task Processing)
+
+In a **separate terminal**, start the RabbitMQ worker for asynchronous question generation:
+
+```bash
+cd backend
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+python worker.py
+```
+
+The worker will process tasks from the `question_generation` queue.
+
+#### 4. Frontend Setup
+
 1. Navigate to `frontend/`:
    ```bash
    cd frontend
    npm install
    ```
-2. Start development server:
+
+2. Configure `.env` file in the `frontend/` directory (if needed):
+   ```env
+   VITE_API_URL=http://localhost:8000
+   VITE_GOOGLE_CLIENT_ID=your_google_client_id
+   ```
+
+3. Start the development server:
    ```bash
    npm run dev
    ```
+   
+   The frontend will be available at `http://localhost:5173`
+
+#### 5. Verify All Services
+
+Once all services are running, you should have:
+- ✅ **Frontend**: http://localhost:5173
+- ✅ **Backend API**: http://localhost:8000/docs (Swagger UI)
+- ✅ **Backend Health**: http://localhost:8000/health
+- ✅ **Prometheus Metrics**: http://localhost:8000/metrics
+- ✅ **RabbitMQ Management**: http://localhost:15672 (guest/guest)
+- ✅ **Worker**: Running in terminal, processing tasks
 
 ## 📡 Key API Endpoints
 
