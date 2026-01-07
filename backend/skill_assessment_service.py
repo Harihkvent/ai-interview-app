@@ -86,7 +86,21 @@ async def submit_test_answer(
         # Evaluate answer
         is_correct = False
         if question.question_type == "mcq":
-            is_correct = answer.strip().lower() == question.correct_answer.strip().lower()
+            # Extract just the letter (A, B, C, or D) from both answers
+            import re
+            
+            # Extract letter from user's answer (handles "A", "A.", "A. Option text", etc.)
+            user_answer_match = re.match(r'^([A-D])', answer.strip().upper())
+            user_answer_letter = user_answer_match.group(1) if user_answer_match else answer.strip().upper()
+            
+            # Extract letter from correct answer
+            correct_answer_match = re.match(r'^([A-D])', question.correct_answer.strip().upper())
+            correct_answer_letter = correct_answer_match.group(1) if correct_answer_match else question.correct_answer.strip().upper()
+            
+            # Compare just the letters
+            is_correct = user_answer_letter == correct_answer_letter
+            
+            logger.info(f"Answer comparison - User: '{user_answer_letter}', Correct: '{correct_answer_letter}', Match: {is_correct}")
         else:
             # For descriptive/coding, use AI evaluation
             is_correct = await _evaluate_descriptive_answer(question, answer)
@@ -392,7 +406,10 @@ EXACT JSON FORMAT (return array like this):
 Now generate {count} {skill_name} questions following this EXACT format. Return ONLY the JSON array:"""
         
         messages = [{"role": "user", "content": prompt}]
-        response_text = await call_krutrim_api(messages, temperature=0.7, max_tokens=2000, operation="generate_skill_questions")
+        # Increase max_tokens to ensure we can generate all requested questions
+        # Rough estimate: ~200 tokens per question, so count * 250 should be safe
+        max_tokens_needed = max(2000, count * 250)
+        response_text = await call_krutrim_api(messages, temperature=0.7, max_tokens=max_tokens_needed, operation="generate_skill_questions")
         
         # Parse and save questions
         import json
@@ -454,7 +471,11 @@ Now generate {count} {skill_name} questions following this EXACT format. Return 
         if len(question_ids) == 0:
             raise ValueError("Failed to create any valid questions from AI response")
         
-        logger.info(f"Successfully created {len(question_ids)} questions")
+        # Warn if we didn't get the requested number of questions
+        if len(question_ids) < count:
+            logger.warning(f"Only created {len(question_ids)} questions out of {count} requested. Some questions may have failed validation.")
+        
+        logger.info(f"Successfully created {len(question_ids)} out of {count} requested questions")
         return question_ids
     except Exception as e:
         logger.error(f"Error generating questions: {str(e)}")

@@ -55,7 +55,8 @@ async def list_skill_tests(
                     "total_questions": t.total_questions,
                     "duration_minutes": t.duration_minutes,
                     "passing_score": t.passing_score,
-                    "description": t.description
+                    "description": t.description,
+                    "created_by": t.created_by
                 }
                 for t in tests
             ]
@@ -334,5 +335,94 @@ async def generate_test(
             "total_questions": test.total_questions,
             "message": "Test generated successfully"
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{test_id}")
+async def delete_test(
+    test_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a skill test (only if created by the user)"""
+    try:
+        from skill_assessment_models import SkillTest, SkillTestAttempt, SkillTestQuestion
+        
+        # Get the test
+        test = await SkillTest.get(test_id)
+        
+        if not test:
+            raise HTTPException(status_code=404, detail="Test not found")
+        
+        # Check if user created this test
+        if test.created_by != str(current_user.id):
+            raise HTTPException(
+                status_code=403, 
+                detail="You can only delete tests you created"
+            )
+        
+        # Delete all associated attempts
+        attempts = await SkillTestAttempt.find(
+            SkillTestAttempt.skill_test_id == test_id
+        ).to_list()
+        
+        for attempt in attempts:
+            await attempt.delete()
+        
+        # Delete all associated questions
+        if test.question_ids:
+            for question_id in test.question_ids:
+                try:
+                    question = await SkillTestQuestion.get(question_id)
+                    if question:
+                        await question.delete()
+                except:
+                    pass  # Question might already be deleted
+        
+        # Delete the test itself
+        await test.delete()
+        
+        return {
+            "message": f"Test '{test.skill_name}' deleted successfully",
+            "deleted_attempts": len(attempts),
+            "deleted_questions": len(test.question_ids) if test.question_ids else 0
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/attempts/{attempt_id}")
+async def delete_attempt(
+    attempt_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a test attempt"""
+    try:
+        from skill_assessment_models import SkillTestAttempt
+        
+        # Get the attempt
+        attempt = await SkillTestAttempt.get(attempt_id)
+        
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        
+        # Check if user owns this attempt
+        if attempt.user_id != str(current_user.id):
+            raise HTTPException(
+                status_code=403, 
+                detail="You can only delete your own test attempts"
+            )
+        
+        # Delete the attempt
+        await attempt.delete()
+        
+        return {
+            "message": "Test attempt deleted successfully",
+            "attempt_id": attempt_id
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

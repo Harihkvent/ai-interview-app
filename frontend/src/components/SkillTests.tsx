@@ -14,6 +14,7 @@ interface SkillTest {
     duration_minutes: number;
     passing_score: number;
     description: string;
+    created_by?: string;
 }
 
 interface TestHistory {
@@ -87,6 +88,40 @@ export const SkillTests: React.FC = () => {
             alert('Test generated successfully!');
         } catch (err: any) {
             alert(err.response?.data?.detail || 'Failed to generate test');
+        }
+    };
+
+    const handleDeleteTest = async (testId: string, skillName: string) => {
+        if (!confirm(`Are you sure you want to delete "${skillName}"? This will delete all associated attempts and questions.`)) {
+            return;
+        }
+        try {
+            const token = localStorage.getItem('auth_token');
+            await axios.delete(
+                `${API_BASE_URL}/api/skill-tests/${testId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            loadData();
+            alert('Test deleted successfully!');
+        } catch (err: any) {
+            alert(err.response?.data?.detail || 'Failed to delete test');
+        }
+    };
+
+    const handleDeleteAttempt = async (attemptId: string) => {
+        if (!confirm('Are you sure you want to delete this test attempt?')) {
+            return;
+        }
+        try {
+            const token = localStorage.getItem('auth_token');
+            await axios.delete(
+                `${API_BASE_URL}/api/skill-tests/attempts/${attemptId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            loadData();
+            alert('Attempt deleted successfully!');
+        } catch (err: any) {
+            alert(err.response?.data?.detail || 'Failed to delete attempt');
         }
     };
 
@@ -250,9 +285,23 @@ export const SkillTests: React.FC = () => {
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <h4 className="font-bold text-lg">{test.skill_name}</h4>
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDifficultyColor(test.difficulty)}`}>
-                                            {test.difficulty}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDifficultyColor(test.difficulty)}`}>
+                                                {test.difficulty}
+                                            </span>
+                                            {test.created_by && test.created_by !== 'system' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteTest(test.test_id, test.skill_name);
+                                                    }}
+                                                    className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                                                    title="Delete test"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                     <p className="text-sm text-gray-400 mb-4">{test.description}</p>
                                     <div className="space-y-2 text-sm text-gray-300 mb-4">
@@ -311,6 +360,16 @@ export const SkillTests: React.FC = () => {
                                             className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-sm"
                                         >
                                             View Details
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteAttempt(attempt.attempt_id);
+                                            }}
+                                            className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                                            title="Delete attempt"
+                                        >
+                                            🗑️
                                         </button>
                                     </div>
                                 </div>
