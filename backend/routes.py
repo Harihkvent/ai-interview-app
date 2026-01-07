@@ -831,15 +831,36 @@ async def jump_question(request: JumpQuestionRequest):
 
 @router.post("/session/end/{session_id}")
 async def end_session_for_verification(session_id: str):
-    """Move session to verification state before final report"""
+    """End interview session - marks as completed"""
     try:
         session = await InterviewSession.get(session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
-        session.status = "verification"
+        # Mark all rounds as completed
+        rounds = await InterviewRound.find(
+            InterviewRound.session_id == session_id
+        ).to_list()
+        
+        for round_obj in rounds:
+            if round_obj.status != "completed":
+                round_obj.status = "completed"
+                round_obj.completed_at = datetime.utcnow()
+                await round_obj.save()
+        
+        # Mark session as completed
+        session.status = "completed"
+        session.completed_at = datetime.utcnow()
         await session.save()
-        return {"status": "verification", "message": "Interview moves to verification stage."}
+        
+        # Update metrics
+        interview_sessions_completed.inc()
+        interview_sessions_active.dec()
+        
+        return {
+            "status": "completed", 
+            "message": "Interview ended successfully."
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

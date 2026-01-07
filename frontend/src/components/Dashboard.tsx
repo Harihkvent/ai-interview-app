@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getActiveSession, deleteInterview } from '../api';
 import { useConfirmDialog } from './ConfirmDialog';
+import { useLocation } from 'react-router-dom';
 
 interface DashboardData {
   user: {
@@ -45,14 +46,23 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onViewRoadmaps, onNavigate }) => {
   const { token } = useAuth();
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+  const location = useLocation();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSession, setActiveSession] = useState<string | null>(null);
+  const [pausedMessage, setPausedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboard();
     checkActiveSession();
-  }, []);
+    
+    // Check for paused interview message from navigation state
+    if (location.state?.message) {
+      setPausedMessage(location.state.message);
+      // Clear the message after 10 seconds
+      setTimeout(() => setPausedMessage(null), 10000);
+    }
+  }, [location]);
 
   const loadDashboard = async () => {
     try {
@@ -133,6 +143,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{data.user.email}</p>
       </section>
+
+      {/* Paused Interview Message */}
+      {pausedMessage && (
+        <div 
+          className="card p-6 flex items-center gap-4 animate-fade-in"
+          style={{ 
+            backgroundColor: 'var(--warning-light)', 
+            borderColor: 'var(--warning)',
+            borderWidth: '1px'
+          }}
+        >
+          <div className="text-4xl">⏸️</div>
+          <div className="flex-1">
+            <h3 className="font-bold mb-1" style={{ color: 'var(--warning)' }}>Interview Paused</h3>
+            <p style={{ color: 'var(--text-secondary)' }}>{pausedMessage}</p>
+          </div>
+          <button 
+            onClick={() => setPausedMessage(null)}
+            className="p-2 rounded-lg hover:bg-black/10 transition-colors"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Active Session Notification */}
       {activeSession && (

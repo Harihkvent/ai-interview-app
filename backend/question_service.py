@@ -15,11 +15,11 @@ from metrics import (
 
 logger = logging.getLogger("question_service")
 
-# Question counts per round
+# Question counts per round - STRICT CONFIGURATION
 ROUND_CONFIG = {
-    "aptitude": {"mcq": 10, "descriptive": 0, "coding": 0},
-    "technical": {"mcq": 10, "descriptive": 5, "coding": 2},
-    "hr": {"mcq": 0, "descriptive": 5, "coding": 0}
+    "aptitude": {"mcq": 10, "descriptive": 0, "coding": 0},  # Only MCQs for aptitude
+    "technical": {"mcq": 7, "descriptive": 5, "coding": 3},  # Mixed with mandatory coding
+    "hr": {"mcq": 0, "descriptive": 8, "coding": 0}  # Only descriptive for HR
 }
 
 async def generate_questions(resume_text: str, round_type: str, job_title: str = "General") -> list[dict]:
@@ -46,12 +46,12 @@ async def generate_questions(resume_text: str, round_type: str, job_title: str =
     
     # Generate MCQs
     if num_mcq > 0:
-        mcqs = await _generate_mcqs(resume_text, round_type, num_mcq)
+        mcqs = await _generate_mcqs(resume_text, round_type, num_mcq, job_title)
         questions.extend(mcqs)
 
     # Generate Descriptive
     if num_desc > 0:
-        descs = await _generate_descriptive(resume_text, round_type, num_desc)
+        descs = await _generate_descriptive(resume_text, round_type, num_desc, job_title)
         questions.extend(descs)
         
     # Generate Coding
@@ -71,26 +71,96 @@ async def generate_questions(resume_text: str, round_type: str, job_title: str =
     
     return questions
 
-async def _generate_mcqs(resume_text: str, round_type: str, count: int) -> list[dict]:
-    """Helper to generate MCQs"""
-    resume_context = resume_text[:3000] # Use more context for better relevance
-    content_focus = "aptitude, mathematics, and logical reasoning" if round_type == "aptitude" else f"technical topics STRICTLY related to this candidate's resume content: {resume_context}"
+async def _generate_mcqs(resume_text: str, round_type: str, count: int, job_title: str = "General") -> list[dict]:
+    """Helper to generate MCQs with Chain-of-Thought prompting"""
+    resume_context = resume_text[:3000]
     
-    prompt = f"""Generate exactly {count} multiple-choice questions (MCQs) for {content_focus}.
-    
-CRITICAL RULES:
-1. Each question MUST be highly relevant to the provided resume context.
-2. Each question must be challenging and professional.
-2. Each MCQ MUST have exactly 4 distinct, meaningful options in a flat array of strings.
-3. The "options" field MUST be a list of 4 simple strings. Do NOT put all options in one string or use labels like "A)".
-4. Provide exactly one correct answer which MUST BE IDENTICAL to one of the strings in the options list.
-5. Return ONLY a JSON array of objects.
-6. NO markdown formatting (NO ```json), NO commentary.
+    # Round-specific prompting with CoT
+    if round_type == "aptitude":
+        focus_area = "aptitude, logical reasoning, quantitative ability, and problem-solving"
+        system_role = "You are an expert aptitude test creator. Think step-by-step to create challenging questions."
+        
+        # Chain-of-Thought example
+        cot_example = """
+Let me think through creating a good aptitude MCQ:
+1. Choose a topic: Speed, Distance, Time
+2. Create a realistic scenario
+3. Design 4 plausible options with different calculation approaches
+4. Place the correct answer in position 3 (not always first!)
 
-Format:
+Result:
+{
+  "question": "A train travels 240 km in 4 hours. If it increases its speed by 20 km/h, how long will it take to cover the same distance?",
+  "options": ["2 hours", "2.5 hours", "3 hours", "3.5 hours"],
+  "answer": "3 hours",
+  "type": "mcq"
+}"""
+        
+        instructions = f"""You are creating aptitude questions. Use Chain-of-Thought reasoning:
+
+STEP 1: Choose a topic (logical reasoning, math, patterns, data interpretation)
+STEP 2: Create a clear, challenging question
+STEP 3: Design 4 distinct options where:
+   - All options are plausible
+   - Correct answer is in DIFFERENT positions (not always first!)
+   - Options represent different approaches/mistakes
+STEP 4: Verify the question is clear and unambiguous
+
+Example of thinking process:
+{cot_example}
+
+DO NOT reference the resume for aptitude questions."""
+
+    else:  # technical
+        focus_area = f"technical knowledge directly related to the candidate's skills"
+        system_role = "You are a senior technical interviewer. Use step-by-step reasoning to create targeted questions."
+        
+        cot_example = f"""
+Let me analyze the resume and create a technical MCQ:
+1. Resume shows: Python, React, REST APIs
+2. Choose: REST API concepts
+3. Frame in second person: "In YOUR experience..."
+4. Create 4 options, place correct answer in position 2
+
+Result:
+{{
+  "question": "In YOUR REST API development, which HTTP method would YOU use for updating a partial resource?",
+  "options": ["PUT", "PATCH", "POST", "UPDATE"],
+  "answer": "PATCH",
+  "type": "mcq"
+}}"""
+        
+        instructions = f"""Analyze this resume and use Chain-of-Thought:
+
+RESUME CONTEXT:
+{resume_context}
+
+STEP 1: Identify 2-3 key technologies from the resume
+STEP 2: For each technology, think of a practical scenario
+STEP 3: Frame question in SECOND PERSON (YOU/YOUR)
+STEP 4: Create 4 options with correct answer in VARYING positions
+STEP 5: Ensure question tests practical knowledge, not just theory
+
+Example thinking:
+{cot_example}
+
+CRITICAL: ALL questions MUST use "YOU/YOUR" - speak directly to the candidate!"""
+
+    prompt = f"""{instructions}
+
+Now generate {count} MCQs following this process.
+
+ABSOLUTE REQUIREMENTS:
+1. SECOND PERSON ONLY: Use "YOU/YOUR/HAVE YOU" - NEVER "the candidate/they/their"
+2. Each MCQ has EXACTLY 4 options as a JSON array
+3. Correct answer MUST match one option EXACTLY
+4. ⚠️ CRITICAL: Vary which position (1-4) has the correct answer - DO NOT put all correct answers first!
+5. Think through each question step-by-step before writing
+
+Return ONLY valid JSON array:
 [
   {{
-    "question": "Question text here?",
+    "question": "Question using YOU/YOUR?",
     "options": ["Opt1", "Opt2", "Opt3", "Opt4"],
     "answer": "Opt2",
     "type": "mcq"
@@ -100,38 +170,122 @@ Format:
 Generate {count} MCQs now:"""
 
     messages = [
-        {"role": "system", "content": "You are an expert technical recruiter. Return valid JSON arrays only."},
+        {"role": "system", "content": system_role},
         {"role": "user", "content": prompt}
     ]
     
     try:
-        response = await call_krutrim_api(messages, temperature=0.7, max_tokens=1500, operation=f"generate_mcq_{round_type}")
+        response = await call_krutrim_api(messages, temperature=0.8, max_tokens=2000, operation=f"generate_mcq_{round_type}")
         if not response:
             raise ValueError("Empty response from AI")
             
         questions = parse_json_questions(response, count, "mcq")
-        return questions[:count]
+        
+        # Validate and fix MCQs
+        validated_questions = []
+        for q in questions:
+            if validate_and_fix_mcq(q):
+                # CRITICAL: Randomize the position of the correct answer
+                randomize_mcq_options(q)
+                validated_questions.append(q)
+        
+        return validated_questions[:count]
     except Exception as e:
         logger.error(f"Error generating MCQs: {e}")
         return await get_db_fallback_questions(round_type, count, "mcq")
 
-async def _generate_descriptive(resume_text: str, round_type: str, count: int) -> list[dict]:
-    """Helper to generate Descriptive questions"""
+def randomize_mcq_options(question: dict) -> None:
+    """
+    Randomize the order of MCQ options to prevent answer bias.
+    This ensures the correct answer is not always in the first position.
+    """
+    if question.get("type") != "mcq" or not question.get("options"):
+        return
+    
+    options = question["options"]
+    correct_answer = question["answer"]
+    
+    # Shuffle the options
+    random.shuffle(options)
+    
+    # Update the question with shuffled options
+    question["options"] = options
+    
+    # The answer remains the same text, just in a different position now
+    logger.debug(f"Randomized options. Correct answer '{correct_answer}' now at position {options.index(correct_answer) + 1}")
+
+
+async def _generate_descriptive(resume_text: str, round_type: str, count: int, job_title: str = "General") -> list[dict]:
+    """Helper to generate Descriptive questions with improved prompting"""
     resume_context = resume_text[:3000]
-    content_focus = f"technical interview questions based STRICTLY on the skills and experience in this resume: {resume_context}" if round_type == "technical" else f"professional HR and behavioral questions tailored to this candidate's background: {resume_context}"
     
-    prompt = f"""Generate exactly {count} high-quality descriptive interview questions for {content_focus}.
-    
+    if round_type == "technical":
+        system_role = "You are a senior technical interviewer conducting in-depth technical assessments."
+        focus_instructions = f"""Analyze this candidate's resume for a {job_title} position:
+
+{resume_context}
+
+Generate {count} technical interview questions that:
+1. Test deep understanding of technologies they claim to know
+2. Ask about specific projects or experiences mentioned
+3. Probe problem-solving and system design skills
+4. Assess best practices and code quality awareness
+5. Are open-ended to allow detailed responses
+
+CRITICAL: Frame ALL questions in SECOND PERSON (YOU/YOUR) as if directly asking the candidate:
+- CORRECT: "Describe YOUR approach to..."
+- CORRECT: "How did YOU handle..."
+- CORRECT: "Tell me about YOUR experience with..."
+- WRONG: "Describe the candidate's approach..."
+- WRONG: "Did the candidate work on..."
+
+Example questions:
+- "Describe the architecture of [specific project from YOUR resume]. What were the key technical challenges YOU faced?"
+- "How would YOU optimize [technology from YOUR resume] for high-traffic scenarios?"
+- "Explain YOUR approach to [specific skill from YOUR resume] in production environments."
+- "Tell me about a time when YOU had to debug a complex issue in [technology from resume]."
+"""
+    else:  # hr
+        system_role = "You are an experienced HR professional conducting behavioral interviews."
+        focus_instructions = f"""Analyze this candidate's background:
+
+{resume_context}
+
+Generate {count} behavioral/HR questions that:
+1. Assess cultural fit and soft skills
+2. Explore leadership and teamwork experiences
+3. Understand career motivations and goals
+4. Evaluate problem-solving in workplace scenarios
+5. Are based on their actual experience level and background
+
+CRITICAL: Frame ALL questions in SECOND PERSON (YOU/YOUR) as if directly asking the candidate:
+- CORRECT: "Tell me about a time when YOU..."
+- CORRECT: "How do YOU handle..."
+- CORRECT: "What are YOUR strengths..."
+- WRONG: "Tell me about a time when the candidate..."
+- WRONG: "What are the candidate's strengths..."
+
+Example questions:
+- "Tell me about a time when YOU had to handle a difficult team member."
+- "Describe a situation where YOU had to learn a new technology quickly."
+- "How do YOU prioritize tasks when working on multiple projects?"
+- "What motivates YOU in YOUR work?"
+"""
+
+    prompt = f"""{focus_instructions}
+
 RULES:
-1. Questions MUST be strictly relevant to the resume provided.
-2. Questions should be open-ended.
-3. Focus on specific projects and skills mentioned in the resume.
-3. Return ONLY a JSON array of objects.
+1. Questions MUST be relevant to the candidate's actual experience
+2. Use the STAR method framework (Situation, Task, Action, Result)
+3. Questions should be open-ended and encourage detailed responses
+4. Avoid generic questions - tailor to this specific candidate
+5. ALL questions MUST be in SECOND PERSON (YOU/YOUR) - speak directly to the candidate
+6. Return ONLY a JSON array of objects
 
 Format:
 [
   {{
-    "question": "Tell me about a time...?",
+    "question": "Your tailored question here using YOU/YOUR?",
     "type": "descriptive"
   }}
 ]
@@ -139,7 +293,7 @@ Format:
 Generate {count} questions now:"""
 
     messages = [
-        {"role": "system", "content": "You are an expert interviewer. Return valid JSON arrays only."},
+        {"role": "system", "content": system_role},
         {"role": "user", "content": prompt}
     ]
     
@@ -196,6 +350,34 @@ Generate {count} coding challenges now:"""
         logger.error(f"Error generating coding questions: {e}")
         return await get_db_fallback_questions(round_type, count, "coding")
 
+def validate_and_fix_mcq(question: dict) -> bool:
+    """Validate and fix MCQ structure"""
+    if not question.get("question") or not question.get("options") or not question.get("answer"):
+        return False
+    
+    options = question["options"]
+    answer = question["answer"]
+    
+    # Ensure exactly 4 options
+    if len(options) != 4:
+        logger.warning(f"MCQ has {len(options)} options, expected 4")
+        return False
+    
+    # Ensure answer matches one of the options
+    if answer not in options:
+        logger.warning(f"Answer '{answer}' not in options: {options}")
+        # Try to find closest match
+        for opt in options:
+            if answer.lower() in opt.lower() or opt.lower() in answer.lower():
+                question["answer"] = opt
+                logger.info(f"Fixed answer to: {opt}")
+                return True
+        # If no match, set to first option as fallback
+        question["answer"] = options[0]
+        logger.warning(f"Defaulting answer to first option: {options[0]}")
+    
+    return True
+
 def parse_json_questions(response: str, expected_count: int, q_type: str) -> list[dict]:
     """Helper to parse JSON questions from API response with aggressive cleaning"""
     response = clean_ai_json(response)
@@ -249,7 +431,7 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                         sanitized_options.append(str(opt))
                         continue
                     # Remove common prefixes
-                    cleaned_opt = re.sub(r'^[A-D][).]\s*|^[1-4][).]\s*|^Option [A-D]:\s*|^Opt\d+:\s*|^Answer:\s*|^Options:\s*', '', opt).strip()
+                    cleaned_opt = re.sub(r'^[A-D][).]\\s*|^[1-4][).]\\s*|^Option [A-D]:\\s*|^Opt\\d+:\\s*|^Answer:\\s*|^Options:\\s*', '', opt).strip()
                     if cleaned_opt:
                         sanitized_options.append(cleaned_opt)
                 
@@ -267,7 +449,7 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                 final_answer = str(raw_answer) if raw_answer else None
                 if final_answer:
                     # Clean the answer string too
-                    final_answer = re.sub(r'^[A-D][).]\s*|^[1-4][).]\s*|^Option [A-D]:\s*|^Answer:\s*', '', final_answer).strip()
+                    final_answer = re.sub(r'^[A-D][).]\\s*|^[1-4][).]\\s*|^Option [A-D]:\\s*|^Answer:\\s*', '', final_answer).strip()
                 
                 q_obj = {
                     "question": item["question"],

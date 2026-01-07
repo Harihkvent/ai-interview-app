@@ -10,6 +10,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { QuestionSidebar } from './QuestionSidebar';
 import { CodeEditor } from './CodeEditor';
+import { useConfirmDialog } from './ConfirmDialog';
 
 // type RoundType = 'aptitude' | 'technical' | 'hr';
 
@@ -37,6 +38,7 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
     const sessionId = (propsSessionId || paramSessionId)!;
     const navigate = useNavigate();
 
+    const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [sessionState, setSessionState] = useState<any>(null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
     const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
     const [isPaused, setIsPaused] = useState(false);
     const [verificationMode, setVerificationMode] = useState(false);
     const [evaluation, setEvaluation] = useState<any | null>(null);
+    const [showEndModal, setShowEndModal] = useState(false);
     
     // Voice-to-Text state
     const [isRecording, setIsRecording] = useState(false);
@@ -157,7 +160,13 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
     const handlePause = async () => {
         try {
             await pauseSession(sessionId);
-            loadSession(); // Refresh state
+            // Navigate to dashboard with a message
+            navigate('/dashboard', { 
+                state: { 
+                    message: 'Interview paused. You can resume it later from your dashboard.',
+                    pausedSessionId: sessionId 
+                } 
+            });
         } catch (e) {
             console.error(e);
         }
@@ -181,12 +190,40 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
         }
     };
 
-    const handleEnd = async () => {
+    const handleEnd = () => {
+        setShowEndModal(true);
+    };
+
+    const handleEndWithReport = async () => {
+        setShowEndModal(false);
         try {
             await finalizeInterview(sessionId);
             setVerificationMode(true);
         } catch (e) {
             console.error(e);
+        }
+    };
+
+    const handleEndWithoutReport = async () => {
+        setShowEndModal(false);
+        try {
+            // Finalize the interview on backend (marks it as completed)
+            await finalizeInterview(sessionId);
+            
+            // Navigate directly to dashboard without showing report screen
+            navigate('/dashboard', {
+                state: {
+                    message: 'Interview ended successfully. You can view your history from the dashboard.'
+                }
+            });
+        } catch (e) {
+            console.error('Error finalizing interview:', e);
+            // Still navigate even if there's an error
+            navigate('/dashboard', {
+                state: {
+                    message: 'Interview ended. You can view your history from the dashboard.'
+                }
+            });
         }
     };
 
@@ -413,7 +450,44 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
                         </button>
                     </div>
                 )}
+
+                {/* End Interview Modal */}
+                {showEndModal && (
+                    <div className="absolute inset-0 z-50 bg-black/95 flex items-center justify-center p-8 backdrop-blur-xl animate-fadeIn">
+                        <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+                            <div className="text-6xl text-center mb-6">🏁</div>
+                            <h2 className="text-3xl font-bold mb-4 text-center">End Interview?</h2>
+                            <p className="text-gray-400 mb-8 text-center">
+                                Choose how you'd like to proceed:
+                            </p>
+                            
+                            <div className="space-y-4">
+                                <button 
+                                    onClick={handleEndWithReport}
+                                    className="w-full py-4 px-6 bg-gradient-to-r from-primary-500 to-purple-500 text-white rounded-xl font-bold text-lg hover:scale-105 transition-transform shadow-lg"
+                                >
+                                    📊 Generate Report & End
+                                </button>
+                                
+                                <button 
+                                    onClick={handleEndWithoutReport}
+                                    className="w-full py-4 px-6 bg-white/5 border border-white/10 text-white rounded-xl font-bold hover:bg-white/10 transition-colors"
+                                >
+                                    🚪 End Without Report
+                                </button>
+                                
+                                <button 
+                                    onClick={() => setShowEndModal(false)}
+                                    className="w-full py-3 px-6 text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
+            <ConfirmDialogComponent />
         </div>
     );
 };
