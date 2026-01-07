@@ -40,7 +40,8 @@ def get_calendar_service():
             
             flow = InstalledAppFlow.from_client_secrets_file(
                 CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
+            # Use fixed port 8080 for predictable redirect URI
+            creds = flow.run_local_server(port=8080)
         
         # Save the credentials for the next run
         with open(TOKEN_FILE, 'wb') as token:

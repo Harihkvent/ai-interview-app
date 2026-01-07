@@ -55,20 +55,25 @@ async def create_scheduled_interview(
             )
             schedule.notification_sent = True
         
-        # Create calendar event if enabled
+        # Create calendar event if enabled (non-blocking)
         if CALENDAR_AVAILABLE:
-            prefs = await get_notification_preferences(user_id)
-            if prefs.calendar_sync_enabled:
-                calendar_result = await create_calendar_event(
-                    title=title,
-                    description=description or "CareerPath AI Interview",
-                    start_time=scheduled_time,
-                    duration_minutes=duration_minutes,
-                    attendee_email=user.email if user else None
-                )
-                if calendar_result:
-                    schedule.calendar_event_id = calendar_result['event_id']
-                    schedule.calendar_link = calendar_result['html_link']
+            try:
+                prefs = await get_notification_preferences(user_id)
+                if prefs.calendar_sync_enabled:
+                    calendar_result = await create_calendar_event(
+                        title=title,
+                        description=description or "CareerPath AI Interview",
+                        start_time=scheduled_time,
+                        duration_minutes=duration_minutes,
+                        attendee_email=user.email if user else None
+                    )
+                    if calendar_result:
+                        schedule.calendar_event_id = calendar_result['event_id']
+                        schedule.calendar_link = calendar_result['html_link']
+            except Exception as cal_error:
+                # Log calendar error but don't fail the entire scheduling
+                logger.warning(f"Calendar event creation failed (non-critical): {str(cal_error)}")
+                # Continue without calendar integration
         
         await schedule.save()
         
@@ -120,15 +125,18 @@ async def update_schedule(
         schedule.updated_at = datetime.utcnow()
         await schedule.save()
         
-        # Update calendar event if exists
+        # Update calendar event if exists (non-blocking)
         if CALENDAR_AVAILABLE and schedule.calendar_event_id:
-            await update_calendar_event(
-                event_id=schedule.calendar_event_id,
-                title=schedule.title,
-                description=schedule.description,
-                start_time=schedule.scheduled_time,
-                duration_minutes=schedule.duration_minutes
-            )
+            try:
+                await update_calendar_event(
+                    event_id=schedule.calendar_event_id,
+                    title=schedule.title,
+                    description=schedule.description,
+                    start_time=schedule.scheduled_time,
+                    duration_minutes=schedule.duration_minutes
+                )
+            except Exception as cal_error:
+                logger.warning(f"Calendar event update failed (non-critical): {str(cal_error)}")
         
         logger.info(f"Updated schedule {schedule_id}")
         return schedule
@@ -148,9 +156,12 @@ async def cancel_schedule(schedule_id: str) -> bool:
         schedule.updated_at = datetime.utcnow()
         await schedule.save()
         
-        # Delete calendar event if exists
+        # Delete calendar event if exists (non-blocking)
         if CALENDAR_AVAILABLE and schedule.calendar_event_id:
-            await delete_calendar_event(schedule.calendar_event_id)
+            try:
+                await delete_calendar_event(schedule.calendar_event_id)
+            except Exception as cal_error:
+                logger.warning(f"Calendar event deletion failed (non-critical): {str(cal_error)}")
         
         logger.info(f"Cancelled schedule {schedule_id}")
         return True
