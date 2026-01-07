@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useConfirmDialog } from './ConfirmDialog';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -15,6 +16,7 @@ interface Question {
 export const SkillTestSession: React.FC = () => {
     const { attemptId } = useParams<{ attemptId: string }>();
     const navigate = useNavigate();
+    const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
     const [answer, setAnswer] = useState('');
     const [questionNumber, setQuestionNumber] = useState(1);
@@ -195,8 +197,13 @@ export const SkillTestSession: React.FC = () => {
                             {loading ? 'Submitting...' : 'Submit Answer'}
                         </button>
                         <button
-                            onClick={() => {
-                                if (confirm('Are you sure you want to exit? Your progress will be lost.')) {
+                            onClick={async () => {
+                                const confirmed = await confirm(
+                                    'Exit Test',
+                                    'Are you sure you want to exit? Your progress will be lost.',
+                                    { confirmLabel: 'Exit', variant: 'warning' }
+                                );
+                                if (confirmed) {
                                     navigate('/skill-tests');
                                 }
                             }}
@@ -207,6 +214,7 @@ export const SkillTestSession: React.FC = () => {
                     </div>
                 </div>
             </div>
+            <ConfirmDialogComponent />
         </div>
     );
 };

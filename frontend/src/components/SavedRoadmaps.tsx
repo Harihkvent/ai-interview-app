@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllRoadmaps, deleteRoadmap } from '../api';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface Roadmap {
     id: string;
@@ -14,6 +15,7 @@ interface SavedRoadmapsProps {
 }
 
 export const SavedRoadmaps: React.FC<SavedRoadmapsProps> = ({ onViewRoadmap }) => {
+    const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -34,7 +36,12 @@ export const SavedRoadmaps: React.FC<SavedRoadmapsProps> = ({ onViewRoadmap }) =
     };
 
     const handleDelete = async (roadmapId: string) => {
-        if (!confirm('Are you sure you want to delete this roadmap?')) return;
+        const confirmed = await confirm(
+            'Delete Roadmap',
+            'Are you sure you want to delete this roadmap? This action cannot be undone.',
+            { confirmLabel: 'Delete', variant: 'danger' }
+        );
+        if (!confirmed) return;
         
         try {
             await deleteRoadmap(roadmapId);
@@ -129,6 +136,7 @@ export const SavedRoadmaps: React.FC<SavedRoadmapsProps> = ({ onViewRoadmap }) =
                     </div>
                 )}
             </div>
+            <ConfirmDialogComponent />
         </div>
     );
 };

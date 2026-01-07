@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAvailableSkillTests, startSkillTest, getSkillTestHistory } from '../api';
 import axios from 'axios';
+import { useConfirmDialog } from './ConfirmDialog';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -27,6 +28,7 @@ interface TestHistory {
 
 export const SkillTests: React.FC = () => {
     const navigate = useNavigate();
+    const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [tests, setTests] = useState<SkillTest[]>([]);
     const [history, setHistory] = useState<TestHistory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -92,9 +94,12 @@ export const SkillTests: React.FC = () => {
     };
 
     const handleDeleteTest = async (testId: string, skillName: string) => {
-        if (!confirm(`Are you sure you want to delete "${skillName}"? This will delete all associated attempts and questions.`)) {
-            return;
-        }
+        const confirmed = await confirm(
+            'Delete Skill Test',
+            `Are you sure you want to delete "${skillName}"? This will delete all associated attempts and questions.`,
+            { confirmLabel: 'Delete', variant: 'danger' }
+        );
+        if (!confirmed) return;
         try {
             const token = localStorage.getItem('auth_token');
             await axios.delete(
@@ -109,9 +114,12 @@ export const SkillTests: React.FC = () => {
     };
 
     const handleDeleteAttempt = async (attemptId: string) => {
-        if (!confirm('Are you sure you want to delete this test attempt?')) {
-            return;
-        }
+        const confirmed = await confirm(
+            'Delete Test Attempt',
+            'Are you sure you want to delete this test attempt? This action cannot be undone.',
+            { confirmLabel: 'Delete', variant: 'danger' }
+        );
+        if (!confirmed) return;
         try {
             const token = localStorage.getItem('auth_token');
             await axios.delete(
@@ -378,6 +386,7 @@ export const SkillTests: React.FC = () => {
                     </div>
                 )}
             </div>
+            <ConfirmDialogComponent />
         </div>
     );
 };

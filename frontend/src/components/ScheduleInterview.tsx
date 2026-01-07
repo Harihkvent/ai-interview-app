@@ -7,6 +7,7 @@ import {
     getSchedulePreferences,
     updateSchedulePreferences 
 } from '../api';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface Schedule {
     schedule_id: string;
@@ -27,6 +28,7 @@ interface Preferences {
 
 export const ScheduleInterview: React.FC = () => {
     const navigate = useNavigate();
+    const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [preferences, setPreferences] = useState<Preferences | null>(null);
     const [loading, setLoading] = useState(true);
@@ -74,7 +76,12 @@ export const ScheduleInterview: React.FC = () => {
     };
 
     const handleCancelSchedule = async (scheduleId: string) => {
-        if (!confirm('Are you sure you want to cancel this interview?')) return;
+        const confirmed = await confirm(
+            'Cancel Interview',
+            'Are you sure you want to cancel this interview? This action cannot be undone.',
+            { confirmLabel: 'Cancel Interview', variant: 'warning' }
+        );
+        if (!confirmed) return;
         try {
             await cancelSchedule(scheduleId);
             loadData();
@@ -321,6 +328,7 @@ export const ScheduleInterview: React.FC = () => {
                     )}
                 </div>
             </div>
+            <ConfirmDialogComponent />
         </div>
     );
 };

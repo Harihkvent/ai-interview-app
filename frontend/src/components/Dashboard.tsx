@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getActiveSession, deleteInterview } from '../api';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface DashboardData {
   user: {
@@ -43,6 +44,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onViewRoadmaps, onNavigate }) => {
   const { token } = useAuth();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSession, setActiveSession] = useState<string | null>(null);
@@ -81,7 +83,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
 
   const handleDeleteInterview = async (e: React.MouseEvent, sid: string) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this interview from your history?')) return;
+    const confirmed = await confirm(
+      'Delete Interview History',
+      'Are you sure you want to delete this interview from your history? This action cannot be undone.',
+      { confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!confirmed) return;
     
     try {
       await deleteInterview(sid);
@@ -355,6 +362,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
           )}
         </div>
       </section>
+      <ConfirmDialogComponent />
     </div>
   );
 };

@@ -9,6 +9,7 @@ import {
     updateUserPreferences,
     updateUserProfile
 } from '../api';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface Resume {
     id: string;
@@ -26,6 +27,7 @@ interface UserPreferences {
 
 export const ProfilePage: React.FC = () => {
     const { user, logout } = useAuth();
+    const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [activeTab, setActiveTab] = useState<'overview' | 'resumes' | 'settings'>('overview');
     
     // Resume State
@@ -88,7 +90,12 @@ export const ProfilePage: React.FC = () => {
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!window.confirm('Delete this resume?')) return;
+        const confirmed = await confirm(
+            'Delete Resume',
+            'Are you sure you want to delete this resume? This action cannot be undone.',
+            { confirmLabel: 'Delete', variant: 'danger' }
+        );
+        if (!confirmed) return;
         try {
             await deleteProfileResume(id);
             setResumes(resumes.filter(r => r.id !== id));
@@ -408,6 +415,7 @@ export const ProfilePage: React.FC = () => {
 
                 </div>
             </div>
+            <ConfirmDialogComponent />
         </div>
     );
 };
