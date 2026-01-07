@@ -283,49 +283,80 @@ def parse_text_questions(text: str, skill_name: str, count: int) -> List[Dict]:
     B. Option 2
     C. Option 3
     D. Option 4
+    Correct Answer: B
+    Explanation: Why B is correct
     """
+    import re
     questions = []
     lines = text.strip().split('\n')
     
     current_question = None
     current_options = []
+    current_correct_answer = None
+    current_explanation = None
     
     for line in lines:
         line = line.strip()
         if not line:
+            continue
+        
+        # Check for correct answer patterns
+        answer_match = re.match(r'^(?:correct\s+)?answer\s*:?\s*([A-D])', line, re.IGNORECASE)
+        if answer_match:
+            current_correct_answer = answer_match.group(1).upper()
+            continue
+        
+        # Check for explanation patterns
+        explanation_match = re.match(r'^(?:explanation|why|reason)\s*:?\s*(.+)', line, re.IGNORECASE)
+        if explanation_match:
+            current_explanation = explanation_match.group(1).strip()
             continue
             
         # Check if it's a question (starts with number or "Question")
         if line[0].isdigit() or line.lower().startswith('question'):
             # Save previous question if exists
             if current_question and len(current_options) >= 4:
-                questions.append({
-                    "question": current_question,
-                    "options": current_options[:4],
-                    "correct_answer": "A",  # Default, we can't determine from text
-                    "explanation": f"This is a {skill_name} question."
-                })
+                # Only add question if we have a valid correct answer
+                if current_correct_answer and current_correct_answer in 'ABCD':
+                    questions.append({
+                        "question": current_question,
+                        "options": current_options[:4],
+                        "correct_answer": current_correct_answer,
+                        "explanation": current_explanation or f"This is a {skill_name} question."
+                    })
+                else:
+                    logger.warning(f"Skipping question without valid correct answer: {current_question[:50]}...")
             
             # Start new question
-            # Remove leading number and period
             current_question = line.lstrip('0123456789. ').strip()
             current_options = []
+            current_correct_answer = None
+            current_explanation = None
             
-        # Check if it's an option (A., B., C., D.)
+        # Check if it's an option (A., B., C., D.) - also check for asterisk marking correct answer
         elif len(line) >= 2 and line[0].upper() in 'ABCD' and line[1] in '.):':
             option_text = line.strip()
             if not option_text.startswith(line[0].upper() + '.'):
                 option_text = line[0].upper() + '. ' + line[2:].strip()
+            
+            # Check if this option is marked with asterisk as correct
+            if '*' in option_text or option_text.startswith('* '):
+                current_correct_answer = line[0].upper()
+                option_text = option_text.replace('*', '').strip()
+            
             current_options.append(option_text)
     
     # Don't forget the last question
     if current_question and len(current_options) >= 4:
-        questions.append({
-            "question": current_question,
-            "options": current_options[:4],
-            "correct_answer": "A",
-            "explanation": f"This is a {skill_name} question."
-        })
+        if current_correct_answer and current_correct_answer in 'ABCD':
+            questions.append({
+                "question": current_question,
+                "options": current_options[:4],
+                "correct_answer": current_correct_answer,
+                "explanation": current_explanation or f"This is a {skill_name} question."
+            })
+        else:
+            logger.warning(f"Skipping last question without valid correct answer: {current_question[:50]}...")
     
     return questions[:count]  # Return only requested count
 
@@ -333,17 +364,32 @@ def parse_text_questions(text: str, skill_name: str, count: int) -> List[Dict]:
 async def generate_skill_questions(skill_name: str, category: str, count: int = 10) -> List[str]:
     """Generate skill test questions using AI"""
     try:
-        prompt = f"""Create {count} multiple choice questions about {skill_name} ({category} category).
+        prompt = f"""You are a technical interviewer creating {count} multiple-choice questions about {skill_name} ({category} category).
 
-IMPORTANT:
-- Create REAL {skill_name} questions, NOT generic examples
-- Return ONLY valid JSON array
-- No explanatory text before or after
+CRITICAL REQUIREMENTS:
+1. Return ONLY a valid JSON array - NO explanatory text before or after
+2. Each question must have exactly 4 options labeled A, B, C, D
+3. Specify the correct answer as a single letter (A, B, C, or D)
+4. Provide a detailed explanation for why the answer is correct
+5. Create REAL {skill_name} questions with varying difficulty
+6. Ensure correct answers are distributed across all options (not all A)
 
-JSON format:
-[{{"question": "your question", "options": ["A. opt1", "B. opt2", "C. opt3", "D. opt4"], "correct_answer": "A", "explanation": "why"}}]
+EXACT JSON FORMAT (return array like this):
+[
+  {{
+    "question": "What is the purpose of the SELECT statement in SQL?",
+    "options": [
+      "A. To retrieve data from a database",
+      "B. To delete data from a database",
+      "C. To update existing records",
+      "D. To create a new table"
+    ],
+    "correct_answer": "A",
+    "explanation": "The SELECT statement is used to query and retrieve data from one or more tables in a database. It's the most commonly used SQL command for data retrieval."
+  }}
+]
 
-Generate {count} {skill_name} questions NOW as JSON array."""
+Now generate {count} {skill_name} questions following this EXACT format. Return ONLY the JSON array:"""
         
         messages = [{"role": "user", "content": prompt}]
         response_text = await call_krutrim_api(messages, temperature=0.7, max_tokens=2000, operation="generate_skill_questions")

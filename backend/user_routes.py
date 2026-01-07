@@ -216,6 +216,70 @@ async def get_saved_jobs(current_user: User = Depends(get_current_user)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/jobs/search/fresher")
+async def search_fresher_jobs(
+    query: str = "fresher jobs",
+    location: str = "India",
+    limit: int = 10,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Search for fresher jobs using SerpAPI.
+    
+    Parameters:
+    - query: Job search query (default: "fresher jobs")
+    - location: Job location (default: "India")
+    - limit: Maximum number of results (default: 10)
+    """
+    try:
+        from serp_api_service import SerpJobService
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"Searching for fresher jobs: query='{query}', location='{location}', limit={limit}")
+        
+        # Fetch jobs from SerpAPI
+        jobs = await SerpJobService.fetch_live_jobs(query=query, location=location)
+        
+        if not jobs:
+            return {
+                "total": 0,
+                "jobs": [],
+                "message": "No fresher jobs found. Try a different query or location."
+            }
+        
+        # Limit results
+        limited_jobs = jobs[:limit]
+        
+        # Format response
+        formatted_jobs = []
+        for job in limited_jobs:
+            formatted_jobs.append({
+                "job_title": job.get("job_title", "N/A"),
+                "company_name": job.get("company_name", "N/A"),
+                "location": job.get("location", "N/A"),
+                "job_description": job.get("job_description", "N/A"),
+                "thumbnail": job.get("thumbnail"),
+                "via": job.get("via"),
+                "extensions": job.get("extensions", []),
+                "job_id": job.get("job_id"),
+                "apply_link": job.get("apply_link"),
+                "is_live": True  # SerpAPI jobs are always live
+            })
+        
+        logger.info(f"Successfully found {len(formatted_jobs)} fresher jobs")
+        
+        return {
+            "total": len(formatted_jobs),
+            "jobs": formatted_jobs,
+            "query": query,
+            "location": location
+        }
+    except Exception as e:
+        logger.error(f"Error searching fresher jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to search jobs: {str(e)}")
+
 @router.get("/dashboard")
 async def get_user_dashboard(current_user: User = Depends(get_current_user)):
     """Get user dashboard with stats and recent activity"""
