@@ -41,9 +41,9 @@ async def list_skill_tests(
     difficulty: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
-    """List available skill tests"""
+    """List available skill tests (user's own tests + system tests)"""
     try:
-        tests = await get_available_tests(category, difficulty)
+        tests = await get_available_tests(str(current_user.id), category, difficulty)
         
         return {
             "tests": [

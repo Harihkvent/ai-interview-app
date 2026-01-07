@@ -11,10 +11,19 @@ from ai_utils import call_krutrim_api
 logger = logging.getLogger("skill_assessment_service")
 
 
-async def get_available_tests(category: Optional[str] = None, difficulty: Optional[str] = None) -> List[SkillTest]:
-    """Get list of available skill tests"""
+async def get_available_tests(user_id: str, category: Optional[str] = None, difficulty: Optional[str] = None) -> List[SkillTest]:
+    """Get list of available skill tests (user's own tests + system tests)"""
     try:
-        query = SkillTest.find(SkillTest.is_active == True)
+        from beanie.operators import Or
+        
+        # Filter to show only tests created by the user OR system tests
+        query = SkillTest.find(
+            SkillTest.is_active == True,
+            Or(
+                SkillTest.created_by == user_id,
+                SkillTest.created_by == "system"
+            )
+        )
         
         if category:
             query = query.find(SkillTest.category == category)
