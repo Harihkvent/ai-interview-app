@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
     getProfileResumes, 
@@ -26,6 +27,7 @@ interface UserPreferences {
 }
 
 export const ProfilePage: React.FC = () => {
+    const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [activeTab, setActiveTab] = useState<'overview' | 'resumes' | 'settings'>('overview');
@@ -49,6 +51,11 @@ export const ProfilePage: React.FC = () => {
     const [prefSaving, setPrefSaving] = useState(false);
     const [prefSuccess, setPrefSuccess] = useState('');
 
+    // Profile Photo State
+    const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+    const [photoHover, setPhotoHover] = useState(false);
+    const photoInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         if (activeTab === 'resumes') loadResumes();
         if (activeTab === 'settings') loadPreferences();
@@ -57,6 +64,11 @@ export const ProfilePage: React.FC = () => {
                 full_name: user.full_name || '',
                 username: user.username || ''
             });
+        }
+        // Load profile photo from localStorage
+        const savedPhoto = localStorage.getItem(`profile_photo_${user?.email}`);
+        if (savedPhoto) {
+            setProfilePhoto(savedPhoto);
         }
     }, [activeTab, user]);
 
@@ -134,12 +146,55 @@ export const ProfilePage: React.FC = () => {
         try {
             await updateUserProfile(profileForm);
             setIsEditingProfile(false);
-            // Ideally force a reload of user context, but simple reload works too
             window.location.reload(); 
         } catch (error) {
             console.error('Failed to update profile');
         } finally {
             setProfileLoading(false);
+        }
+    };
+
+    // ============ Profile Photo Logic ============
+    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file (JPG, PNG)');
+            return;
+        }
+
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Image size should be less than 2MB');
+            return;
+        }
+
+        // Read and store as base64
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64String = reader.result as string;
+            setProfilePhoto(base64String);
+            // Store in localStorage
+            if (user?.email) {
+                localStorage.setItem(`profile_photo_${user.email}`, base64String);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleRemovePhoto = async () => {
+        const confirmed = await confirm(
+            'Remove Profile Photo',
+            'Are you sure you want to remove your profile photo?',
+            { confirmLabel: 'Remove', variant: 'warning' }
+        );
+        if (!confirmed) return;
+
+        setProfilePhoto(null);
+        if (user?.email) {
+            localStorage.removeItem(`profile_photo_${user.email}`);
         }
     };
 
@@ -171,125 +226,246 @@ export const ProfilePage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white p-6 pb-24">
-            <div className="max-w-5xl mx-auto space-y-6">
+        <div className="min-h-screen p-6 pb-24" style={{ backgroundColor: 'var(--bg-primary)' }}>
+            <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
                 
-                {/* Header */}
-                <div className="glass-card p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-6 w-full">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-4xl font-bold shadow-xl shadow-primary-500/20">
-                            {user?.username?.charAt(0).toUpperCase() || 'U'}
+                {/* Enhanced Header */}
+                <div className="card p-8">
+                    <div className="flex flex-col lg:flex-row items-center gap-8">
+                        {/* Avatar with photo upload */}
+                        <div className="relative group">
+                            <div className="absolute inset-0 bg-gradient-to-r from-primary-400 via-purple-500 to-pink-500 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity animate-pulse-subtle"></div>
+                            <div 
+                                className="relative w-32 h-32 rounded-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-5xl font-bold shadow-xl overflow-hidden cursor-pointer"
+                                onMouseEnter={() => setPhotoHover(true)}
+                                onMouseLeave={() => setPhotoHover(false)}
+                                onClick={() => photoInputRef.current?.click()}
+                            >
+                                {profilePhoto ? (
+                                    <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <span style={{ color: 'white' }}>
+                                        {user?.username?.charAt(0).toUpperCase() || 'U'}
+                                    </span>
+                                )}
+                                
+                                {/* Hover Overlay */}
+                                {photoHover && (
+                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 transition-opacity">
+                                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        <span className="text-xs text-white font-medium">
+                                            {profilePhoto ? 'Change Photo' : 'Upload Photo'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Hidden file input */}
+                            <input
+                                ref={photoInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhotoUpload}
+                                className="hidden"
+                            />
+                            
+                            {/* Remove photo button */}
+                            {profilePhoto && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemovePhoto();
+                                    }}
+                                    className="absolute -bottom-2 -right-2 p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg"
+                                    title="Remove photo"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
                         </div>
-                        <div className="flex-1">
+
+                        {/* Profile Info */}
+                        <div className="flex-1 text-center lg:text-left">
                             {isEditingProfile ? (
-                                <form onSubmit={handleUpdateProfile} className="space-y-3 max-w-md">
+                                <form onSubmit={handleUpdateProfile} className="space-y-4 max-w-md mx-auto lg:mx-0">
                                     <input 
                                         type="text" 
                                         value={profileForm.full_name} 
                                         onChange={e => setProfileForm({...profileForm, full_name: e.target.value})}
                                         placeholder="Full Name"
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white"
+                                        className="input-field w-full"
                                     />
                                     <input 
                                         type="text" 
                                         value={profileForm.username} 
                                         onChange={e => setProfileForm({...profileForm, username: e.target.value})}
                                         placeholder="Username"
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white"
+                                        className="input-field w-full"
                                     />
-                                    <div className="flex gap-2">
-                                        <button type="submit" disabled={profileLoading} className="px-3 py-1 bg-primary-500 rounded text-sm font-semibold">
-                                            {profileLoading ? 'Saving...' : 'Save'}
+                                    <div className="flex gap-3">
+                                        <button type="submit" disabled={profileLoading} className="btn-primary flex-1">
+                                            {profileLoading ? 'Saving...' : 'Save Changes'}
                                         </button>
-                                        <button type="button" onClick={() => setIsEditingProfile(false)} className="px-3 py-1 bg-slate-700 rounded text-sm">Cancel</button>
+                                        <button type="button" onClick={() => setIsEditingProfile(false)} className="btn-secondary">Cancel</button>
                                     </div>
                                 </form>
                             ) : (
                                 <>
-                                    <div className="flex items-center gap-3">
-                                        <h1 className="text-3xl font-bold">{user?.full_name || user?.username}</h1>
-                                        <button onClick={() => setIsEditingProfile(true)} className="text-slate-400 hover:text-white transition-colors">
-                                            ✎
+                                    <div className="flex items-center gap-3 justify-center lg:justify-start mb-2">
+                                        <h1 className="text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                                            {user?.full_name || user?.username}
+                                        </h1>
+                                        <button 
+                                            onClick={() => setIsEditingProfile(true)} 
+                                            className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+                                            style={{ color: 'var(--text-tertiary)' }}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
                                         </button>
                                     </div>
-                                    <p className="text-slate-400">{user?.email}</p>
-                                    <div className="mt-2 flex gap-2">
-                                        <span className="px-3 py-1 rounded-full bg-primary-500/20 text-primary-300 text-xs border border-primary-500/30 font-mono">
+                                    <p className="text-lg mb-4" style={{ color: 'var(--text-secondary)' }}>{user?.email}</p>
+                                    <div className="flex gap-3 flex-wrap justify-center lg:justify-start">
+                                        <span className="badge badge-primary flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                            </svg>
                                             PRO MEMBER
+                                        </span>
+                                        <span className="badge" style={{ backgroundColor: 'var(--success-light)', color: 'var(--success)', borderColor: 'var(--success)' }}>
+                                            ✓ Verified
                                         </span>
                                     </div>
                                 </>
                             )}
                         </div>
+
+                        {/* Sign Out Button */}
+                        <button 
+                            onClick={logout}
+                            className="px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
+                            style={{ 
+                                backgroundColor: 'var(--error-light)', 
+                                color: 'var(--error)',
+                                border: '1px solid var(--error)'
+                            }}
+                        >
+                            <span className="flex items-center gap-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                                Sign Out
+                            </span>
+                        </button>
                     </div>
-                    <button 
-                        onClick={logout}
-                        className="px-6 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/30 font-semibold whitespace-nowrap"
-                    >
-                        Sign Out
-                    </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-1 bg-slate-800/50 p-1 rounded-xl w-fit">
-                    {[
-                        { id: 'overview', label: 'Overview', icon: '📊' },
-                        { id: 'resumes', label: 'Resumes', icon: '📄' },
-                        { id: 'settings', label: 'Settings', icon: '⚙️' },
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`
-                                px-4 py-2 rounded-lg flex items-center gap-2 transition-all
-                                ${activeTab === tab.id ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25' : 'text-slate-400 hover:text-white hover:bg-white/5'}
-                            `}
-                        >
-                            <span>{tab.icon}</span>
-                            <span className="font-medium">{tab.label}</span>
-                        </button>
-                    ))}
+                {/* Enhanced Tabs */}
+                <div className="card p-2">
+                    <div className="grid grid-cols-3 gap-2">
+                        {[
+                            { id: 'overview', label: 'Overview', icon: '📊' },
+                            { id: 'resumes', label: 'Resumes', icon: '📄' },
+                            { id: 'settings', label: 'Settings', icon: '⚙️' },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`
+                                    px-6 py-4 rounded-lg flex items-center justify-center gap-3 transition-all font-semibold
+                                    ${activeTab === tab.id 
+                                        ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg transform scale-105' 
+                                        : 'hover:bg-[var(--bg-hover)]'
+                                    }
+                                `}
+                                style={activeTab !== tab.id ? { color: 'var(--text-secondary)' } : {}}
+                            >
+                                <span className="text-2xl">{tab.icon}</span>
+                                <span className="hidden sm:inline">{tab.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Content Area */}
-                <div className="min-h-[400px]">
+                <div className="min-h-[500px]">
                     
                     {/* OVERVIEW TAB */}
                     {activeTab === 'overview' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="glass-card p-6 rounded-xl hover:border-primary-500/30 transition-colors">
-                                <h3 className="text-xl font-bold mb-4">🎯 Quick Stats</h3>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
-                                        <span className="text-slate-300">Resumes Uploaded</span>
-                                        <span className="text-2xl font-bold text-white">-</span>
+                        <div className="space-y-6">
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="stat-card group cursor-pointer">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="stat-card-title">Total Resumes</div>
+                                        <div className="text-3xl group-hover:scale-110 transition-transform">📄</div>
                                     </div>
-                                    <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
-                                        <span className="text-slate-300">Last Login</span>
-                                        <span className="text-sm font-mono text-primary-300">
-                                            {/* @ts-ignore user might not have last_login typed yet */}
-                                            {user?.last_login ? new Date(user.last_login).toLocaleDateString() : 'Today'}
-                                        </span>
+                                    <div className="stat-card-value">{resumes.length || 0}</div>
+                                    <div className="stat-card-change" style={{ color: 'var(--success)' }}>
+                                        {resumes.filter(r => r.is_primary).length > 0 ? '✓ Active resume set' : 'Upload your first resume'}
+                                    </div>
+                                </div>
+
+                                <div className="stat-card group cursor-pointer">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="stat-card-title">Member Since</div>
+                                        <div className="text-3xl group-hover:scale-110 transition-transform">🎯</div>
+                                    </div>
+                                    <div className="stat-card-value text-2xl">
+                                        {(user as any)?.created_at ? new Date((user as any).created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently'}
+                                    </div>
+                                    <div className="stat-card-change" style={{ color: 'var(--text-tertiary)' }}>
+                                        Welcome aboard! 🚀
+                                    </div>
+                                </div>
+
+                                <div className="stat-card group cursor-pointer">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="stat-card-title">Last Active</div>
+                                        <div className="text-3xl group-hover:scale-110 transition-transform">⚡</div>
+                                    </div>
+                                    <div className="stat-card-value text-2xl">
+                                        {(user as any)?.last_login ? new Date((user as any).last_login).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Today'}
+                                    </div>
+                                    <div className="stat-card-change" style={{ color: 'var(--success)' }}>
+                                        Keep up the momentum!
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div className="glass-card p-6 rounded-xl border-dashed border-2 border-slate-700 flex flex-col items-center justify-center text-center space-y-3">
-                                <span className="text-4xl opacity-50">🚀</span>
-                                <h3 className="text-xl font-bold">Start New Interview</h3>
-                                <p className="text-slate-400 text-sm">Ready to practice? Launch a new session now.</p>
-                                <button className="btn-primary mt-2">Go to Dashboard</button>
+
+                            {/* Quick Actions */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="card card-hover p-8 text-center cursor-pointer group" onClick={() => navigate('/dashboard')}>
+                                    <div className="text-6xl mb-4 group-hover:scale-110 transition-transform">🚀</div>
+                                    <h3 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Start Interview</h3>
+                                    <p className="mb-6" style={{ color: 'var(--text-tertiary)' }}>Ready to practice? Launch a new session now.</p>
+                                    <button className="btn-primary w-full">Go to Dashboard</button>
+                                </div>
+
+                                <div className="card card-hover p-8 text-center cursor-pointer group" onClick={() => navigate('/analytics')}>
+                                    <div className="text-6xl mb-4 group-hover:scale-110 transition-transform">📊</div>
+                                    <h3 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>View Analytics</h3>
+                                    <p className="mb-6" style={{ color: 'var(--text-tertiary)' }}>Track your progress and performance metrics.</p>
+                                    <button className="btn-primary w-full">View Analytics</button>
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {/* RESUMES TAB */}
                     {activeTab === 'resumes' && (
-                        <div className="space-y-6 animate-fadeIn">
-                             <div 
+                        <div className="space-y-6">
+                            {/* Enhanced Upload Area */}
+                            <div 
                                 className={`
-                                    border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
-                                    ${dragActive ? 'border-primary-400 bg-primary-400/10' : 'border-slate-700 hover:border-primary-400 hover:bg-slate-800/50'}
+                                    card p-12 text-center transition-all cursor-pointer group
+                                    ${dragActive ? 'border-primary-400 bg-[var(--accent-primary-light)] scale-105' : 'border-dashed hover:border-[var(--accent-primary)]'}
                                     ${uploading ? 'opacity-50 pointer-events-none' : ''}
                                 `}
                                 onDragEnter={handleDrag}
@@ -305,44 +481,78 @@ export const ProfilePage: React.FC = () => {
                                     accept=".pdf,.docx,.doc"
                                     onChange={(e) => e.target.files && handleUpload(e.target.files[0])}
                                 />
-                                <div className="space-y-2">
-                                    <div className="text-4xl mb-2">☁️</div>
-                                    <p className="text-lg font-medium">
-                                        {uploading ? 'Uploading...' : 'Click or Drag to Upload Resume'}
-                                    </p>
-                                    <p className="text-sm text-slate-400">Supported formats: PDF, DOCX</p>
+                                <div className="space-y-4">
+                                    <div className="text-7xl mb-4 group-hover:scale-110 transition-transform">
+                                        {uploading ? '⏳' : dragActive ? '📥' : '☁️'}
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+                                            {uploading ? 'Uploading...' : dragActive ? 'Drop your resume here' : 'Upload Resume'}
+                                        </p>
+                                        <p style={{ color: 'var(--text-tertiary)' }}>
+                                            Drag & drop or click to browse • PDF, DOCX supported
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
-                            {resumeError && <div className="text-red-400 bg-red-500/10 p-4 rounded-lg">{resumeError}</div>}
+                            {resumeError && (
+                                <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--error-light)', color: 'var(--error)' }}>
+                                    {resumeError}
+                                </div>
+                            )}
 
+                            {/* Resume Cards */}
                             <div className="grid gap-4">
                                 {loadingResumes ? (
-                                    <div className="text-center text-slate-400 py-10">Loading resumes...</div>
+                                    <div className="card p-8 text-center">
+                                        <div className="animate-pulse-subtle" style={{ color: 'var(--text-tertiary)' }}>Loading resumes...</div>
+                                    </div>
                                 ) : resumes.length === 0 ? (
-                                    <div className="text-center text-slate-400 py-10">No resumes yet.</div>
+                                    <div className="card p-12 text-center">
+                                        <div className="text-6xl mb-4 opacity-50">📭</div>
+                                        <p className="text-xl" style={{ color: 'var(--text-tertiary)' }}>No resumes uploaded yet</p>
+                                    </div>
                                 ) : (
                                     resumes.map(resume => (
                                         <div 
                                             key={resume.id}
                                             onClick={() => handleSetActive(resume.id)}
                                             className={`
-                                                group relative p-4 rounded-xl border transition-all cursor-pointer
-                                                ${resume.is_primary ? 'bg-primary-500/10 border-primary-500/50' : 'bg-slate-800/40 border-slate-700 hover:border-primary-500/30'}
+                                                card card-hover p-6 cursor-pointer transition-all
+                                                ${resume.is_primary ? 'border-primary-500 bg-[var(--accent-primary-light)]' : ''}
                                             `}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`p-3 rounded-lg ${resume.is_primary ? 'bg-primary-500/20 text-primary-300' : 'bg-slate-700/50 text-slate-400'}`}>📄</div>
-                                                    <div>
-                                                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                                                            {resume.filename}
-                                                            {resume.is_primary && <span className="text-xs px-2 py-0.5 rounded-full bg-primary-500 text-white">Active</span>}
-                                                        </h3>
-                                                        <p className="text-sm text-slate-400">{new Date(resume.uploaded_at).toLocaleDateString()}</p>
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    <div className={`p-4 rounded-xl ${resume.is_primary ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-secondary)]'}`}>
+                                                        <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-1">
+                                                            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                                                {resume.filename}
+                                                            </h3>
+                                                            {resume.is_primary && (
+                                                                <span className="badge badge-success text-xs">Active</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                                                            Uploaded {new Date(resume.uploaded_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                                        </p>
                                                     </div>
                                                 </div>
-                                                <button onClick={(e) => handleDelete(resume.id, e)} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg">🗑️</button>
+                                                <button 
+                                                    onClick={(e) => handleDelete(resume.id, e)} 
+                                                    className="p-3 rounded-lg transition-colors hover:bg-[var(--error-light)]"
+                                                    style={{ color: 'var(--error)' }}
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
                                             </div>
                                         </div>
                                     ))
@@ -353,57 +563,70 @@ export const ProfilePage: React.FC = () => {
 
                     {/* SETTINGS TAB */}
                     {activeTab === 'settings' && (
-                        <div className="glass-card p-8 rounded-xl space-y-8 animate-fadeIn">
-                            <div className="border-b border-slate-700 pb-4">
-                                <h3 className="text-xl font-bold">Career Preferences</h3>
-                                <p className="text-slate-400 text-sm">Customize your career goals to get better job matches.</p>
+                        <div className="card p-8">
+                            <div className="mb-8">
+                                <h3 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Career Preferences</h3>
+                                <p style={{ color: 'var(--text-tertiary)' }}>Customize your career goals to get better job matches.</p>
                             </div>
 
                             {prefLoading ? (
-                                <div>Loading settings...</div>
+                                <div className="text-center py-12 animate-pulse-subtle" style={{ color: 'var(--text-tertiary)' }}>
+                                    Loading settings...
+                                </div>
                             ) : (
                                 <div className="space-y-6">
-                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-300">Target Role</label>
+                                            <label className="block text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                                                Target Role
+                                            </label>
                                             <input 
                                                 type="text" 
                                                 value={preferences.target_role || ''}
                                                 onChange={e => setPreferences({...preferences, target_role: e.target.value})}
                                                 placeholder="e.g. Senior Frontend Engineer"
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:border-primary-500 transition-colors"
+                                                className="input-field w-full"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-300">Target Salary Range</label>
+                                            <label className="block text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                                                Target Salary Range
+                                            </label>
                                             <input 
                                                 type="text" 
                                                 value={preferences.target_salary || ''}
                                                 onChange={e => setPreferences({...preferences, target_salary: e.target.value})}
                                                 placeholder="e.g. $120k - $160k"
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:border-primary-500 transition-colors"
+                                                className="input-field w-full"
                                             />
                                         </div>
                                     </div>
                                     
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-300">Preferred Locations (comma separated)</label>
+                                        <label className="block text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                                            Preferred Locations
+                                        </label>
                                         <input 
                                             type="text" 
                                             value={preferences.preferred_locations?.join(', ') || ''}
                                             onChange={e => setPreferences({...preferences, preferred_locations: e.target.value.split(',').map(s => s.trim())})}
                                             placeholder="e.g. New York, Remote, London"
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 focus:border-primary-500 transition-colors"
+                                            className="input-field w-full"
                                         />
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Separate multiple locations with commas</p>
                                     </div>
 
-                                    {prefSuccess && <div className="p-3 bg-green-500/20 text-green-300 rounded-lg text-sm text-center font-medium">{prefSuccess}</div>}
+                                    {prefSuccess && (
+                                        <div className="p-4 rounded-lg text-center font-semibold animate-fade-in" style={{ backgroundColor: 'var(--success-light)', color: 'var(--success)' }}>
+                                            {prefSuccess}
+                                        </div>
+                                    )}
 
-                                    <div className="pt-4 flex justify-end">
+                                    <div className="pt-6 flex justify-end">
                                         <button 
                                             onClick={savePreferences}
                                             disabled={prefSaving}
-                                            className="btn-primary min-w-[120px]"
+                                            className="btn-primary min-w-[160px]"
                                         >
                                             {prefSaving ? 'Saving...' : 'Save Changes'}
                                         </button>
