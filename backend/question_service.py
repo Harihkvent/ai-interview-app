@@ -228,8 +228,18 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                     options_list = list(raw_options.values())
                 elif isinstance(raw_options, str):
                     # AI might have stuffed all options into one string
-                    if "," in raw_options:
+                    # Try splitting by newlines first (most common)
+                    if "\n" in raw_options:
+                        options_list = [opt.strip() for opt in raw_options.split("\n") if opt.strip()]
+                    # Try splitting by common separators
+                    elif "," in raw_options:
                         options_list = [opt.strip() for opt in raw_options.replace("Options:", "").split(",")]
+                    # Try splitting by semicolons
+                    elif ";" in raw_options:
+                        options_list = [opt.strip() for opt in raw_options.split(";")]
+                    # If no separators, treat as single option (fallback)
+                    else:
+                        options_list = [raw_options.strip()]
                 
                 # Further sanitize options
                 import re
@@ -242,6 +252,16 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                     cleaned_opt = re.sub(r'^[A-D][).]\s*|^[1-4][).]\s*|^Option [A-D]:\s*|^Opt\d+:\s*|^Answer:\s*|^Options:\s*', '', opt).strip()
                     if cleaned_opt:
                         sanitized_options.append(cleaned_opt)
+                
+                # Log and fix if we have issues with options count for MCQs
+                if q_type == "mcq" and len(sanitized_options) != 4:
+                    logger.warning(f"MCQ has {len(sanitized_options)} options instead of 4. Raw options type: {type(raw_options)}, value: {str(raw_options)[:200]}")
+                    # Ensure we have at least 4 options for MCQs
+                    while len(sanitized_options) < 4:
+                        sanitized_options.append(f"Option {len(sanitized_options) + 1}")
+                    # Trim to 4 if more
+                    sanitized_options = sanitized_options[:4]
+
                 
                 raw_answer = item.get("answer") or item.get("correct_answer")
                 final_answer = str(raw_answer) if raw_answer else None
