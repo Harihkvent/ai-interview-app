@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSavedJobs, saveJob, generateRoadmap, prepareForJob } from '../api';
+import { getSavedJobs, saveJob, generateRoadmap, prepareForJob, uploadResume } from '../api';
 
 interface JobMatch {
     id: string;
@@ -22,6 +22,10 @@ export const SavedJobs: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [showUploadDialog, setShowUploadDialog] = useState(false);
+    const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
+    const [uploadingResume, setUploadingResume] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -59,21 +63,49 @@ export const SavedJobs: React.FC = () => {
     const handleCreateRoadmap = async (job: JobMatch) => {
         try {
             setActionLoading(job.id);
-            // We need a session_id to generate a roadmap. 
-            // If the job has a session_id, we use it. Otherwise, we might need a fallback.
-            // For now, let's assume jobs in SavedJobs have a session_id or we use a general one.
-            const sessionId = (job as any).session_id;
-            if (!sessionId) {
-                alert("Cannot generate roadmap: Original session not found.");
-                return;
-            }
+            const sessionId = (job as any).session_id || 'placeholder-session';
+            
             await generateRoadmap(sessionId, job.job_title);
             navigate('/roadmaps');
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to generate roadmap:', err);
-            alert('Failed to generate roadmap.');
+            
+            // Check if error is due to missing resume
+            if (err.response?.status === 404 || err.response?.status === 500) {
+                // Show upload dialog
+                setSelectedJob(job);
+                setShowUploadDialog(true);
+            } else {
+                alert('Failed to generate roadmap. Please try again.');
+            }
         } finally {
             setActionLoading(null);
+        }
+    };
+
+    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !selectedJob) return;
+
+        try {
+            setUploadingResume(true);
+            
+            // Upload resume
+            await uploadResume(file, 'job_match', 'Job Matching');
+            
+            // Now generate roadmap
+            const sessionId = (selectedJob as any).session_id || 'placeholder-session';
+            await generateRoadmap(sessionId, selectedJob.job_title);
+            
+            // Close dialog and navigate
+            setShowUploadDialog(false);
+            setSelectedJob(null);
+            navigate('/roadmaps');
+        } catch (err) {
+            console.error('Failed to upload resume or generate roadmap:', err);
+            alert('Failed to process. Please try again.');
+        } finally {
+            setUploadingResume(false);
         }
     };
 
@@ -176,6 +208,58 @@ export const SavedJobs: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Resume Upload Dialog */}
+            {showUploadDialog && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="glass-card p-8 max-w-md w-full border border-white/20">
+                        <h2 className="text-2xl font-bold text-white mb-4">📄 Upload Resume</h2>
+                        <p className="text-gray-300 mb-6">
+                            To generate a personalized roadmap for <span className="text-blue-400 font-semibold">{selectedJob?.job_title}</span>, 
+                            please upload your resume first.
+                        </p>
+                        
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                        />
+                        
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploadingResume}
+                                className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {uploadingResume ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <div className="animate-spin">⏳</div>
+                                        Processing...
+                                    </span>
+                                ) : (
+                                    '📁 Choose File'
+                                )}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowUploadDialog(false);
+                                    setSelectedJob(null);
+                                }}
+                                disabled={uploadingResume}
+                                className="px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition-all disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        
+                        <p className="text-xs text-gray-400 mt-4">
+                            Supported formats: PDF, DOC, DOCX
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

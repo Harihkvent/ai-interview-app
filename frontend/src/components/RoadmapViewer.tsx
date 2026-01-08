@@ -50,6 +50,11 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
         try {
             setLoading(true);
             const data = await getRoadmapById(roadmapId);
+            console.log('📊 Roadmap data:', data);
+            console.log('🎯 Milestones:', data.milestones);
+            if (data.milestones && data.milestones.length > 0) {
+                console.log('First milestone:', data.milestones[0]);
+            }
             setRoadmap(data);
             setError(null);
         } catch (err: any) {

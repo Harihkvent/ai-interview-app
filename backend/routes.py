@@ -1078,20 +1078,43 @@ async def generate_roadmap(
     current_user: User = Depends(get_current_user)
 ):
     """Generate AI-powered career roadmap for selected job - uses cache if available"""
+    logger.info(f"🗺️  Roadmap generation requested for session {request.session_id}, role: {request.target_job_title}")
     try:
-        # Get resume
-        # Get session first
+        # Get session and resume
+        # For saved jobs, the session might not exist anymore, so we'll use the user's most recent resume as fallback
         session = await InterviewSession.get(request.session_id)
-        if not session:
-             raise HTTPException(status_code=404, detail="Session not found")
-
-        # Get resume
-        if not session.resume_id:
-             raise HTTPException(status_code=404, detail="Resume not found for this session")
-             
-        resume = await Resume.get(session.resume_id)
+        resume = None
+        
+        if session and session.resume_id:
+            resume = await Resume.get(session.resume_id)
+            if resume:
+                print(f"✅ Found resume from session {request.session_id}")
+        
+        # If session doesn't exist or has no resume, try to get user's most recent resume
         if not resume:
-            raise HTTPException(status_code=404, detail="Resume not found")
+            print(f"⚠️ Session {request.session_id} not found or has no resume. Looking for user's most recent resume...")
+            print(f"🔍 Searching for resumes with user_id: {str(current_user.id)}")
+            
+            # Get all resumes for debugging
+            all_user_resumes = await Resume.find(
+                Resume.user_id == str(current_user.id)
+            ).to_list()
+            print(f"📊 Found {len(all_user_resumes)} total resumes for user")
+            
+            # Use find() with sort() instead of find_one() with sort()
+            resume = await Resume.find(
+                Resume.user_id == str(current_user.id)
+            ).sort("-created_at").first_or_none()
+            
+            if resume:
+                print(f"✅ Found user's most recent resume: {resume.filename}")
+        
+        if not resume:
+            print(f"❌ No resume found for user {str(current_user.id)}")
+            raise HTTPException(
+                status_code=404, 
+                detail="No resume found. Please upload a resume first."
+            )
         
         # Check if roadmap already exists (cached)
         existing_roadmap = await CareerRoadmap.find_one(
@@ -1119,15 +1142,27 @@ async def generate_roadmap(
             await existing_roadmap.delete()
         
         # Get selected job match
+        # First try to find in current session
         job_match = await JobMatch.find_one(
             JobMatch.session_id == request.session_id,
             JobMatch.job_title == request.target_job_title
         )
         
+        # If not found in current session, try to find in any session for this user
+        # This handles saved jobs from different sessions
+        if not job_match:
+            print(f"⚠️ Job match not found in session {request.session_id}, searching across all user sessions...")
+            job_match = await JobMatch.find_one(
+                JobMatch.user_id == str(current_user.id),
+                JobMatch.job_title == request.target_job_title
+            )
+            if job_match:
+                print(f"✅ Found job match in session {job_match.session_id}")
+        
         if not job_match:
             raise HTTPException(
                 status_code=404, 
-                detail=f"Job match not found for '{request.target_job_title}'. Please select from analyzed jobs."
+                detail=f"Job match not found for '{request.target_job_title}'. Please analyze your resume first to generate job matches."
             )
         
         roadmap = await create_career_roadmap(
@@ -1146,6 +1181,9 @@ async def generate_roadmap(
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        print(f"❌ Error generating roadmap: {str(e)}")
+        print(f"📋 Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/roadmap/{session_id}")
