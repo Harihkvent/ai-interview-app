@@ -70,6 +70,77 @@ def extract_skills(text: str) -> List[str]:
     
     return list(set(found_skills))
 
+def deduplicate_jobs(matches: List[Dict], similarity_threshold: float = 0.85) -> List[Dict]:
+    """
+    Remove duplicate jobs based on title and description similarity
+    
+    Args:
+        matches: List of job matches with 'job_title' and 'job_description'
+        similarity_threshold: Threshold for considering jobs as duplicates (0-1)
+    
+    Returns:
+        Deduplicated list of job matches
+    """
+    if not matches:
+        return matches
+    
+    # Track which jobs to keep
+    keep_indices = []
+    seen_titles = {}  # title -> index mapping
+    
+    for i, match in enumerate(matches):
+        title = match['job_title'].lower().strip()
+        description = match['job_description'].lower().strip()
+        
+        # Check for exact title match
+        is_duplicate = False
+        for seen_title, seen_idx in seen_titles.items():
+            # Exact title match
+            if title == seen_title:
+                is_duplicate = True
+                break
+            
+            # Check title similarity (simple substring check)
+            if title in seen_title or seen_title in title:
+                # Also check description similarity
+                seen_desc = matches[seen_idx]['job_description'].lower().strip()
+                
+                # Simple similarity: check if descriptions are very similar
+                # Using Jaccard similarity on words
+                title_words = set(title.split())
+                seen_title_words = set(seen_title.split())
+                desc_words = set(description.split())
+                seen_desc_words = set(seen_desc.split())
+                
+                # Calculate Jaccard similarity for descriptions
+                if desc_words and seen_desc_words:
+                    intersection = len(desc_words & seen_desc_words)
+                    union = len(desc_words | seen_desc_words)
+                    jaccard_sim = intersection / union if union > 0 else 0
+                    
+                    if jaccard_sim > similarity_threshold:
+                        is_duplicate = True
+                        # Keep the one with higher match percentage
+                        if match['match_percentage'] > matches[seen_idx]['match_percentage']:
+                            # Replace the old one with this one
+                            keep_indices.remove(seen_idx)
+                            keep_indices.append(i)
+                            seen_titles[title] = i
+                            del seen_titles[seen_title]
+                        break
+        
+        if not is_duplicate:
+            keep_indices.append(i)
+            seen_titles[title] = i
+    
+    # Return deduplicated matches
+    deduplicated = [matches[i] for i in sorted(keep_indices)]
+    
+    if len(deduplicated) < len(matches):
+        print(f"🔍 Deduplication: Removed {len(matches) - len(deduplicated)} duplicate jobs")
+    
+    return deduplicated
+
 def initialize_tfidf_matcher():
     """Initialize and cache TF-IDF vectorizer"""
     global _tfidf_vectorizer, _tfidf_job_vectors
@@ -304,6 +375,9 @@ def calculate_hybrid_scores(resume_text: str, top_n: int = 10, external_jobs: Li
             
         matches.append(match_data)
     
+    # Deduplicate jobs before sorting
+    matches = deduplicate_jobs(matches, similarity_threshold=0.85)
+    
     # Sort by hybrid score
     matches.sort(key=lambda x: x['match_percentage'], reverse=True)
     
@@ -314,6 +388,19 @@ async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int
     Main function to analyze resume and find job matches
     """
     print(f"\n🎯 Analyzing resume for session {session_id}...")
+    
+    # Delete existing job matches for this session to prevent duplicates
+    existing_matches = await JobMatch.find(
+        JobMatch.session_id == session_id,
+        JobMatch.is_live == False
+    ).to_list()
+    
+    if existing_matches:
+        print(f"Deleting {len(existing_matches)} existing job matches for session {session_id}")
+        await JobMatch.find(
+            JobMatch.session_id == session_id,
+            JobMatch.is_live == False
+        ).delete()
     
     # Calculate hybrid matches
     matches = calculate_hybrid_scores(resume_text, top_n=top_n)

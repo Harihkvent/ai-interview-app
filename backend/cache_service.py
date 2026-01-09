@@ -86,6 +86,11 @@ def generate_resume_hash(resume_text: str) -> str:
 async def get_cached_questions(resume_text: str, job_title: str, round_type: str) -> Optional[List[dict]]:
     """Retrieve cached questions if they exist in MongoDB"""
     try:
+        # For aptitude questions, don't use cache to ensure variety
+        if round_type == "aptitude":
+            logger.info(f"DB Cache Skip: Aptitude questions are not cached to ensure variety")
+            return None
+        
         resume_hash = generate_resume_hash(resume_text)
         cache_entry = await QuestionCache.find_one(
             QuestionCache.resume_hash == resume_hash,
@@ -106,6 +111,11 @@ async def get_cached_questions(resume_text: str, job_title: str, round_type: str
 async def cache_questions(resume_text: str, job_title: str, round_type: str, questions: List[dict]):
     """Store questions in MongoDB cache"""
     try:
+        # Don't cache aptitude questions to ensure variety
+        if round_type == "aptitude":
+            logger.info(f"DB Cache Skip: Not caching aptitude questions to ensure variety")
+            return
+        
         resume_hash = generate_resume_hash(resume_text)
         
         # Upsert: Update if exists, otherwise insert
