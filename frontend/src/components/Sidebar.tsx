@@ -15,6 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     { id: 'jobs', path: '/jobs', label: 'Job Matcher', icon: '🎯' },
     { id: 'roadmaps', path: '/roadmaps', label: 'My Roadmaps', icon: '🗺️' },
     { id: 'interview', path: '/upload', label: 'Interview', icon: '💼' },
+    { id: 'avatar_interview', path: '/avatar-interview/start', label: 'AI Avatar', icon: '🤖' },
     { id: 'analytics', path: '/analytics', label: 'Analytics', icon: '📈' },
     { id: 'schedule', path: '/schedule', label: 'Schedule', icon: '📅' },
     { id: 'skill_tests', path: '/skill-tests', label: 'Skill Tests', icon: '✍️' },

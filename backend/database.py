@@ -18,6 +18,7 @@ async def init_db():
     from scheduling_models import ScheduledInterview, NotificationPreference
     from skill_assessment_models import SkillTest, SkillTestAttempt, SkillTestQuestion
     from certification_models import Certification, UserCertification
+    from avatar_interview_models import AvatarInterviewSession, AvatarQuestion, AvatarResponse
     
     client = AsyncIOMotorClient(MONGODB_URL)
     database = client[DATABASE_NAME]
@@ -46,7 +47,11 @@ async def init_db():
             SkillTestAttempt,
             SkillTestQuestion,
             Certification,
-            UserCertification
+            UserCertification,
+            # Avatar Interview models
+            AvatarInterviewSession,
+            AvatarQuestion,
+            AvatarResponse
         ]
     )
     

@@ -22,6 +22,8 @@ import { ScheduleInterview } from './components/ScheduleInterview';
 import { SkillTests } from './components/SkillTests';
 import { SkillTestSession } from './components/SkillTestSession';
 import { SkillTestResults } from './components/SkillTestResults';
+import { AvatarInterviewStart } from './components/AvatarInterviewStart';
+import { AvatarInterviewSession } from './components/AvatarInterviewSession';
 import './index.css';
 
 function App() {
@@ -225,6 +227,12 @@ function App() {
                 } />
                 <Route path="/skill-tests/:attemptId" element={
                     <SkillTestSession />
+                } />
+                <Route path="/avatar-interview/start" element={
+                    <AvatarInterviewStart />
+                } />
+                <Route path="/avatar-interview/:id" element={
+                    <AvatarInterviewSession />
                 } />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

@@ -128,11 +128,13 @@ from analytics_routes import router as analytics_router
 from scheduling_routes import router as scheduling_router
 from skill_assessment_routes import router as skill_assessment_router
 from certification_routes import router as certification_router
+from avatar_interview_routes import router as avatar_interview_router
 
 app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(scheduling_router, prefix="/api/schedule", tags=["Scheduling"])
 app.include_router(skill_assessment_router, prefix="/api/skill-tests", tags=["Skill Assessments"])
 app.include_router(certification_router, prefix="/api/certifications", tags=["Certifications"])
+app.include_router(avatar_interview_router)  # Avatar Interview (prefix already in router)
 
 # Mount Prometheus metrics endpoint
 metrics_app = make_asgi_app()
