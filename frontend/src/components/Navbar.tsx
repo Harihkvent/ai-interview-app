@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -11,25 +11,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
 
   return (
-    <nav 
-      className="sticky top-0 z-50 border-b transition-colors duration-200"
-      style={{
-        backgroundColor: 'var(--navbar-bg)',
-        borderColor: 'var(--navbar-border)',
-      }}
-    >
+    <nav className="sticky top-0 z-50 border-b border-zinc-800 backdrop-blur-xl bg-zinc-900/80">
       <div className="w-full px-6 py-3">
         <div className="flex items-center justify-between">
           {/* Logo/Brand */}
@@ -37,12 +21,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
             className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" 
             onClick={() => navigate('/dashboard')}
           >
-            <div className="text-2xl">🚀</div>
+            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center">
+              <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
             <div>
-              <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              <h1 className="text-lg font-bold text-white">
                 CareerPath AI
               </h1>
-              <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-[10px] uppercase tracking-wider font-medium text-gray-400">
                 AI Career Companion
               </p>
             </div>
@@ -50,34 +38,20 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:bg-[var(--bg-hover)]"
-              title="Toggle Theme"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {theme === 'light' ? '🌙' : '☀️'}
-            </button>
-
             {/* User Profile */}
             <button 
               onClick={() => navigate('/profile')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all hover:bg-[var(--bg-hover)]"
-              style={{ borderLeft: '1px solid var(--border-primary)' }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all hover:bg-zinc-800 border-l border-zinc-800"
             >
               <div className="hidden sm:block text-right">
-                <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-xs font-semibold leading-tight text-white">
                   {user?.full_name || user?.username}
                 </p>
-                <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                <p className="text-[10px] text-gray-400">
                   {user?.email}
                 </p>
               </div>
-              <div 
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                style={{ backgroundColor: 'var(--accent-primary)' }}
-              >
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-black font-bold text-sm bg-white">
                 {(user?.username?.[0] || 'U').toUpperCase()}
               </div>
             </button>
@@ -85,11 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
             {/* Logout */}
             <button
               onClick={logout}
-              className="p-2 rounded-lg transition-all"
-              style={{ 
-                backgroundColor: 'var(--error-light)',
-                color: 'var(--error)',
-              }}
+              className="p-2 rounded-lg transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
               title="Logout"
             >
               <svg 

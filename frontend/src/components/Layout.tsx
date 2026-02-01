@@ -17,24 +17,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [isSidebarOpen]);
 
   return (
-    <div 
-      className="min-h-screen transition-colors duration-200"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
-    >
-      <Navbar onNavigate={() => {}} />
+    <div className="min-h-screen bg-black">
       <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
       
-      <main 
-        className={`
-          transition-all duration-300 ease-in-out
-          ${isSidebarOpen ? 'pl-64' : 'pl-16'}
-          pt-16 pb-10 min-h-screen
-        `}
-      >
-        <div className="container mx-auto px-6 max-w-7xl py-6">
-          {children}
-        </div>
-      </main>
+      <div className={`transition-all duration-300 ${isSidebarOpen ? 'ml-72' : 'ml-20'}`}>
+        <Navbar onNavigate={() => {}} />
+        
+        <main className="min-h-screen">
+          <div className="container mx-auto px-6 max-w-7xl py-6">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

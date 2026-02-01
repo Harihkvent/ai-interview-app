@@ -226,17 +226,23 @@ export const ProfilePage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen p-6 pb-24" style={{ backgroundColor: 'var(--bg-primary)' }}>
-            <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
+        <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-black relative overflow-hidden">
+            {/* Animated background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-0 left-1/3 w-96 h-96 bg-white/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '7s' }} />
+                <div className="absolute bottom-0 right-1/3 w-80 h-80 bg-white/3 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '9s', animationDelay: '2s' }} />
+            </div>
+
+            <div className="relative max-w-7xl mx-auto p-6 pb-24 space-y-6 animate-fade-in">
                 
                 {/* Enhanced Header */}
-                <div className="card p-8">
+                <div className="backdrop-blur-xl bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 border border-zinc-800 rounded-3xl p-8">
                     <div className="flex flex-col lg:flex-row items-center gap-8">
                         {/* Avatar with photo upload */}
                         <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-primary-400 via-purple-500 to-pink-500 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity animate-pulse-subtle"></div>
+                            <div className="absolute inset-0 bg-gradient-to-r from-white via-gray-300 to-gray-400 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity"></div>
                             <div 
-                                className="relative w-32 h-32 rounded-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-5xl font-bold shadow-xl overflow-hidden cursor-pointer"
+                                className="relative w-32 h-32 rounded-full bg-gradient-to-br from-white to-gray-300 flex items-center justify-center text-5xl font-bold shadow-xl overflow-hidden cursor-pointer"
                                 onMouseEnter={() => setPhotoHover(true)}
                                 onMouseLeave={() => setPhotoHover(false)}
                                 onClick={() => photoInputRef.current?.click()}
@@ -244,7 +250,7 @@ export const ProfilePage: React.FC = () => {
                                 {profilePhoto ? (
                                     <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
-                                    <span style={{ color: 'white' }}>
+                                    <span className="text-black">
                                         {user?.username?.charAt(0).toUpperCase() || 'U'}
                                     </span>
                                 )}
@@ -298,47 +304,46 @@ export const ProfilePage: React.FC = () => {
                                         value={profileForm.full_name} 
                                         onChange={e => setProfileForm({...profileForm, full_name: e.target.value})}
                                         placeholder="Full Name"
-                                        className="input-field w-full"
+                                        className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-white transition-colors"
                                     />
                                     <input 
                                         type="text" 
                                         value={profileForm.username} 
                                         onChange={e => setProfileForm({...profileForm, username: e.target.value})}
                                         placeholder="Username"
-                                        className="input-field w-full"
+                                        className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-white transition-colors"
                                     />
                                     <div className="flex gap-3">
-                                        <button type="submit" disabled={profileLoading} className="btn-primary flex-1">
+                                        <button type="submit" disabled={profileLoading} className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all disabled:opacity-50">
                                             {profileLoading ? 'Saving...' : 'Save Changes'}
                                         </button>
-                                        <button type="button" onClick={() => setIsEditingProfile(false)} className="btn-secondary">Cancel</button>
+                                        <button type="button" onClick={() => setIsEditingProfile(false)} className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-white rounded-xl font-semibold hover:bg-zinc-700 transition-all">Cancel</button>
                                     </div>
                                 </form>
                             ) : (
                                 <>
                                     <div className="flex items-center gap-3 justify-center lg:justify-start mb-2">
-                                        <h1 className="text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                                        <h1 className="text-4xl font-bold text-white">
                                             {user?.full_name || user?.username}
                                         </h1>
                                         <button 
                                             onClick={() => setIsEditingProfile(true)} 
-                                            className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-                                            style={{ color: 'var(--text-tertiary)' }}
+                                            className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-gray-400 hover:text-white"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                             </svg>
                                         </button>
                                     </div>
-                                    <p className="text-lg mb-4" style={{ color: 'var(--text-secondary)' }}>{user?.email}</p>
+                                    <p className="text-lg mb-4 text-gray-400">{user?.email}</p>
                                     <div className="flex gap-3 flex-wrap justify-center lg:justify-start">
-                                        <span className="badge badge-primary flex items-center gap-2">
+                                        <span className="px-4 py-1.5 bg-gradient-to-r from-white to-gray-300 text-black rounded-full text-sm font-bold flex items-center gap-2">
                                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                             </svg>
                                             PRO MEMBER
                                         </span>
-                                        <span className="badge" style={{ backgroundColor: 'var(--success-light)', color: 'var(--success)', borderColor: 'var(--success)' }}>
+                                        <span className="px-4 py-1.5 bg-green-500/20 border border-green-500/30 text-green-400 rounded-full text-sm font-bold">
                                             ✓ Verified
                                         </span>
                                     </div>
@@ -349,12 +354,7 @@ export const ProfilePage: React.FC = () => {
                         {/* Sign Out Button */}
                         <button 
                             onClick={logout}
-                            className="px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
-                            style={{ 
-                                backgroundColor: 'var(--error-light)', 
-                                color: 'var(--error)',
-                                border: '1px solid var(--error)'
-                            }}
+                            className="px-6 py-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-semibold hover:bg-red-500/30 transition-all whitespace-nowrap"
                         >
                             <span className="flex items-center gap-2">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -367,7 +367,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
 
                 {/* Enhanced Tabs */}
-                <div className="card p-2">
+                <div className="backdrop-blur-xl bg-zinc-900/40 border border-zinc-800 rounded-3xl p-2">
                     <div className="grid grid-cols-3 gap-2">
                         {[
                             { id: 'overview', label: 'Overview', icon: '📊' },
@@ -377,17 +377,16 @@ export const ProfilePage: React.FC = () => {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`
-                                    px-6 py-4 rounded-lg flex items-center justify-center gap-3 transition-all font-semibold
-                                    ${activeTab === tab.id 
-                                        ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg transform scale-105' 
-                                        : 'hover:bg-[var(--bg-hover)]'
-                                    }
-                                `}
-                                style={activeTab !== tab.id ? { color: 'var(--text-secondary)' } : {}}
+                                className={`px-6 py-4 rounded-3xl font-semibold transition-all ${
+                                    activeTab === tab.id
+                                        ? 'bg-white text-black'
+                                        : 'text-gray-400 hover:bg-zinc-800 hover:text-white'
+                                }`}
                             >
-                                <span className="text-2xl">{tab.icon}</span>
-                                <span className="hidden sm:inline">{tab.label}</span>
+                                <span className="flex items-center justify-center gap-2">
+                                    <span className="text-xl">{tab.icon}</span>
+                                    <span className="hidden sm:inline">{tab.label}</span>
+                                </span>
                             </button>
                         ))}
                     </div>
@@ -401,26 +400,26 @@ export const ProfilePage: React.FC = () => {
                         <div className="space-y-6">
                             {/* Stats Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="stat-card group cursor-pointer">
+                                <div className="backdrop-blur-xl bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 border border-zinc-800 rounded-3xl p-6 group cursor-pointer hover:border-zinc-700 transition-all">
                                     <div className="flex items-center justify-between mb-4">
-                                        <div className="stat-card-title">Total Resumes</div>
+                                        <div className="text-sm font-bold text-gray-400 uppercase tracking-wider">Total Resumes</div>
                                         <div className="text-3xl group-hover:scale-110 transition-transform">📄</div>
                                     </div>
-                                    <div className="stat-card-value">{resumes.length || 0}</div>
-                                    <div className="stat-card-change" style={{ color: 'var(--success)' }}>
+                                    <div className="text-5xl font-bold text-white mb-2">{resumes.length || 0}</div>
+                                    <div className="text-sm text-green-400">
                                         {resumes.filter(r => r.is_primary).length > 0 ? '✓ Active resume set' : 'Upload your first resume'}
                                     </div>
                                 </div>
 
-                                <div className="stat-card group cursor-pointer">
+                                <div className="backdrop-blur-xl bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 border border-zinc-800 rounded-3xl p-6 group cursor-pointer hover:border-zinc-700 transition-all">
                                     <div className="flex items-center justify-between mb-4">
-                                        <div className="stat-card-title">Member Since</div>
+                                        <div className="text-sm font-bold text-gray-400 uppercase tracking-wider">Member Since</div>
                                         <div className="text-3xl group-hover:scale-110 transition-transform">🎯</div>
                                     </div>
-                                    <div className="stat-card-value text-2xl">
+                                    <div className="text-4xl font-bold text-white mb-2">
                                         {(user as any)?.created_at ? new Date((user as any).created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently'}
                                     </div>
-                                    <div className="stat-card-change" style={{ color: 'var(--text-tertiary)' }}>
+                                    <div className="text-sm text-gray-400">
                                         Welcome aboard! 🚀
                                     </div>
                                 </div>
