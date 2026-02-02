@@ -298,6 +298,9 @@ async def get_test_results(attempt_id: str) -> Dict:
                     "time_taken": answer_data["time_taken"]
                 })
         
+        # Calculate answered questions (excluding skipped)
+        answered_questions = attempt.total_questions - attempt.skipped_count
+        
         return {
             "test_name": test.skill_name if test else "Unknown",
             "score": attempt.score,
@@ -305,6 +308,8 @@ async def get_test_results(attempt_id: str) -> Dict:
             "proficiency_level": attempt.proficiency_level,
             "correct_answers": attempt.correct_answers,
             "total_questions": attempt.total_questions,
+            "answered_questions": answered_questions,
+            "skipped_count": attempt.skipped_count,
             "time_taken": attempt.time_taken_seconds,
             "recommendations": attempt.recommendations,
             "detailed_answers": detailed_answers

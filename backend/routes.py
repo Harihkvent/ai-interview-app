@@ -318,8 +318,14 @@ async def submit_answer(request: SubmitAnswerRequest):
         if interview_session and interview_session.resume_id:
             resume = await Resume.get(interview_session.resume_id)
         
-        # Evaluate answer
-        if question.question_type == "mcq":
+        # Evaluate answer only if it's not skipped
+        if request.status == "skipped":
+            # Don't evaluate skipped questions - just record them
+            eval_result = {
+                "score": 0.0,
+                "evaluation": "Question skipped"
+            }
+        elif question.question_type == "mcq":
             is_correct = request.answer_text.strip().lower() == question.correct_answer.strip().lower()
             eval_result = {
                 "score": 10.0 if is_correct else 0.0,
@@ -367,12 +373,13 @@ async def submit_answer(request: SubmitAnswerRequest):
         interview_session.total_time_seconds += request.time_taken_seconds
         await interview_session.save()
         
-        # Track answer metrics
-        record_answer_metrics(
-            round_obj.round_type,
-            eval_result["score"],
-            request.time_taken_seconds
-        )
+        # Track answer metrics only for submitted answers (not skipped)
+        if request.status == "submitted":
+            record_answer_metrics(
+                round_obj.round_type,
+                eval_result["score"],
+                request.time_taken_seconds
+            )
         
         # Get all questions in this round
         all_questions = await Question.find(Question.round_id == str(round_obj.id)).to_list()
@@ -821,7 +828,7 @@ async def jump_question(request: JumpQuestionRequest):
 
 @router.post("/session/end/{session_id}")
 async def end_session_for_verification(session_id: str):
-    """End interview session - marks as completed"""
+    """End interview session - marks as completed and calculates final score"""
     try:
         session = await InterviewSession.get(session_id)
         if not session:
@@ -838,6 +845,15 @@ async def end_session_for_verification(session_id: str):
                 round_obj.completed_at = datetime.utcnow()
                 await round_obj.save()
         
+        # Calculate final score before marking as completed
+        try:
+            session_report_data = await generate_final_report_data(session_id)
+            final_score = session_report_data.get('total_score', 0.0)
+            session.total_score = final_score
+        except Exception as score_error:
+            logger.warning(f"Could not calculate score for session {session_id}: {str(score_error)}")
+            session.total_score = 0.0
+        
         # Mark session as completed
         session.status = "completed"
         session.completed_at = datetime.utcnow()
@@ -849,7 +865,8 @@ async def end_session_for_verification(session_id: str):
         
         return {
             "status": "completed", 
-            "message": "Interview ended successfully."
+            "message": "Interview ended successfully.",
+            "total_score": session.total_score
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

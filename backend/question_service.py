@@ -73,6 +73,21 @@ async def generate_questions(resume_text: str, round_type: str, job_title: str =
 
 async def _generate_mcqs(resume_text: str, round_type: str, count: int, job_title: str = "General") -> list[dict]:
     """Helper to generate MCQs with Chain-of-Thought prompting"""
+    
+    # === DB-FIRST APPROACH FOR APTITUDE ===
+    # For aptitude questions, try to fetch from pre-populated QuestionBank first
+    if round_type == "aptitude":
+        db_questions = await get_db_fallback_questions("aptitude", count, "mcq")
+        # If we got enough questions from DB, use them (no AI call needed)
+        if db_questions and len(db_questions) >= count:
+            logger.info(f"✅ Using {len(db_questions)} pre-populated aptitude questions from DB (no AI call)")
+            # Randomize options for each question
+            for q in db_questions:
+                randomize_mcq_options(q)
+            return db_questions[:count]
+        else:
+            logger.info(f"⚠️ Only {len(db_questions) if db_questions else 0} aptitude questions in DB, falling back to AI generation")
+    
     resume_context = resume_text[:3000]
     
     # Round-specific prompting with CoT

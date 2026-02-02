@@ -183,6 +183,38 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
             // Update local state after submit/skip
             const newState = await getSessionState(sessionId);
             setSessionState(newState);
+            
+            // If skipping, automatically advance to next question
+            if (submitStatus === 'skipped') {
+                // Find next unanswered question after current one
+                const allQuestions = newState.rounds.flatMap((r: any) => 
+                    r.questions.map((q: any) => ({ ...q, round_type: r.round_type }))
+                );
+                const currentIndex = allQuestions.findIndex((q: any) => q.id === currentQuestion.id);
+                
+                // Look for next question that hasn't been answered/skipped
+                let nextQuestion = allQuestions.slice(currentIndex + 1).find((q: any) => 
+                    q.status !== 'submitted' && q.status !== 'skipped'
+                );
+                
+                // If no unanswered questions after current, try to find any unanswered from start
+                if (!nextQuestion) {
+                    nextQuestion = allQuestions.find((q: any) => 
+                        q.status !== 'submitted' && q.status !== 'skipped'
+                    );
+                }
+                
+                // If no unanswered questions at all, go to next question in sequence
+                if (!nextQuestion && currentIndex + 1 < allQuestions.length) {
+                    nextQuestion = allQuestions[currentIndex + 1];
+                }
+                
+                if (nextQuestion) {
+                    // Clear current answer and jump to next question
+                    setAnswer('');
+                    handleJump(nextQuestion.id);
+                }
+            }
         } catch (e) {
             console.error(e);
         } finally {
