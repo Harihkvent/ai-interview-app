@@ -43,7 +43,7 @@ def load_job_database() -> pd.DataFrame:
     """Load and cache job database from CSV"""
     global _job_database
     if _job_database is None:
-        csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_title_des.csv')
+        csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_data_merged.csv')
         _job_database = pd.read_csv(csv_path)
         print(f"✅ Loaded {len(_job_database)} jobs from database")
     return _job_database
@@ -179,7 +179,7 @@ def initialize_semantic_matcher():
         _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         
         # Paths
-        csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_title_des.csv')
+        csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_data_merged.csv')
         cache_path = os.path.join(os.path.dirname(__file__), 'job_embeddings.pkl')
         
         # Check for valid cache

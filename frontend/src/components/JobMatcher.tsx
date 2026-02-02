@@ -27,6 +27,7 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
     const [internalSessionId, setInternalSessionId] = useState<string | null>(null);
     const [isCached, setIsCached] = useState(false);
     const [savedResumes, setSavedResumes] = useState<any[]>([]);
+    const [detailsModal, setDetailsModal] = useState<JobMatch | null>(null);
 
     // Use prop sessionId if provided, otherwise use internal
     const activeSessionId = propSessionId || internalSessionId;
@@ -143,6 +144,116 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
             setGenerating(false);
             setSelectedJob(null);
         }
+    };
+
+    // Job Details Modal Component
+    const JobDetailsModal = ({ job, onClose }: { job: JobMatch; onClose: () => void }) => {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+                <div 
+                    className="glass-card p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-white/20 shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-primary-500 text-white w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg">
+                                #{job.rank}
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">{job.job_title}</h2>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-primary-400 font-bold">{job.match_percentage}%</span>
+                                    <span className="text-gray-400 text-sm">Match Accuracy</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={onClose}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Match Bar */}
+                    <div className="mb-6">
+                        <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                            <div 
+                                className="h-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500" 
+                                style={{ width: `${job.match_percentage}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Skills Section */}
+                    <div className="grid md:grid-cols-2 gap-4 mb-6">
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <span className="text-lg">✓</span> Your Matching Skills
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {job.matched_skills.length > 0 ? job.matched_skills.map(skill => (
+                                    <span key={skill} className="px-3 py-1.5 bg-green-500/20 text-green-300 rounded-lg text-sm font-medium">
+                                        {skill}
+                                    </span>
+                                )) : (
+                                    <span className="text-gray-400 text-sm">No specific skills matched</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4">
+                            <h3 className="text-sm font-bold text-orange-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <span className="text-lg">📚</span> Skills to Learn
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {job.missing_skills.length > 0 ? job.missing_skills.map(skill => (
+                                    <span key={skill} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 rounded-lg text-sm font-medium">
+                                        {skill}
+                                    </span>
+                                )) : (
+                                    <span className="text-gray-400 text-sm">You have all required skills!</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Job Description */}
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6">
+                        <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                            <span className="text-lg">📋</span> Job Description
+                        </h3>
+                        <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                            {job.job_description || 'No description available for this position.'}
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => {
+                                onClose();
+                                handleGenerateRoadmap(job.job_title);
+                            }}
+                            disabled={generating}
+                            className="flex-1 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            <span>🗺️</span>
+                            {generating && selectedJob === job.job_title ? 'Generating...' : 'Generate Career Roadmap'}
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold border border-white/10 transition-all"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     if (stage === 'upload') {
@@ -263,7 +374,7 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
                                     {generating && selectedJob === match.job_title ? 'Generating...' : 'Career Roadmap'}
                                 </button>
                                 <button
-                                    onClick={() => {/* View Details logic */}}
+                                    onClick={() => setDetailsModal(match)}
                                     className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg font-semibold border border-white/10 transition-all"
                                 >
                                     Details
@@ -280,6 +391,11 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
                     ← Upload different resume
                 </button>
             </div>
+
+            {/* Job Details Modal */}
+            {detailsModal && (
+                <JobDetailsModal job={detailsModal} onClose={() => setDetailsModal(null)} />
+            )}
         </div>
     );
 };
