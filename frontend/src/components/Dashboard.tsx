@@ -255,12 +255,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
               </button>
 
               <button
-                onClick={() => onNavigate('question_gen')}
-                className="flex flex-col items-center justify-center p-10 bg-white/5 hover:bg-white/10 rounded-[2rem] border-2 border-dashed border-white/10 transition-all group"
+                onClick={() => onNavigate('skill-tests')}
+                className="flex flex-col items-center justify-center p-8 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 transition-all group"
               >
-                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">⚡</span>
-                <span className="font-black text-xl">Quick Practice</span>
-                <span className="text-sm opacity-40 mt-1 text-center">Random AI question generator</span>
+                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">✍️</span>
+                <span className="font-bold text-lg">Quick Practice</span>
+                <span className="text-xs opacity-40 text-center">Skill assessment tests</span>
               </button>
 
               <button

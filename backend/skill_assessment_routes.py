@@ -239,6 +239,68 @@ async def submit_answer(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/attempts/{attempt_id}/skip")
+async def skip_question(
+    attempt_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Skip the current question"""
+    try:
+        # Verify ownership
+        from skill_assessment_models import SkillTestAttempt, SkillTest, SkillTestQuestion
+        from skill_assessment_service import skip_test_question
+        
+        attempt = await SkillTestAttempt.get(attempt_id)
+        
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        
+        if attempt.user_id != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized")
+        
+        # Get current question
+        test = await SkillTest.get(attempt.skill_test_id)
+        current_question_index = len(attempt.answers)
+        
+        if not test or not test.question_ids or current_question_index >= len(test.question_ids):
+            raise HTTPException(status_code=400, detail="No question to skip")
+        
+        current_question_id = test.question_ids[current_question_index]
+        
+        # Skip the question
+        await skip_test_question(attempt_id, current_question_id)
+        
+        # Get next question
+        # Reload attempt to get updated answers count
+        attempt = await SkillTestAttempt.get(attempt_id)
+        
+        next_question = None
+        new_question_index = len(attempt.answers)
+        
+        if test.question_ids and new_question_index < len(test.question_ids):
+            question_id = test.question_ids[new_question_index]
+            question = await SkillTestQuestion.get(question_id)
+            
+            if question:
+                next_question = {
+                    "question_id": str(question.id),
+                    "question_text": question.question_text,
+                    "question_type": question.question_type,
+                    "options": question.options,
+                    "question_number": new_question_index + 1
+                }
+        
+        return {
+            "message": "Question skipped",
+            "next_question": next_question
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @router.post("/attempts/{attempt_id}/complete")
 async def complete_test(
     attempt_id: str,

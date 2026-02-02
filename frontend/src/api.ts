@@ -348,46 +348,7 @@ export const startInterviewFromRole = async (targetJobTitle: string) => {
   return response.data;
 };
 
-/**
- * Generate questions with caching
- * Caches based on resume text hash + round type to avoid regeneration
- */
-export const generateQuestionsOnly = async (
-  resumeText: string,
-  roundType: string,
-  numQuestions: number = 5,
-  jobTitle: string = "General"
-): Promise<{ questions: any[] }> => {
-  // Create a cache key based on resume text hash, round type, and job title
-  // Simple hash function for client-side caching
-  const textHash = resumeText.split("").reduce((a, b) => {
-    a = (a << 5) - a + b.charCodeAt(0);
-    return a & a;
-  }, 0);
-
-  // v3 prefix to invalidate old cache and include jobTitle in key
-  const cacheKey = `v3_${roundType}_${jobTitle}_${textHash}`;
-
-  // Check cache first
-  const cached = cacheService.get<{ questions: any[] }>("questions", cacheKey);
-  if (cached && cached.questions) {
-    console.log("📦 Returning cached questions for round:", roundType);
-    return cached;
-  }
-
-  // Fetch from backend
-  const response = await api.post("/generate-questions-only", {
-    resume_text: resumeText,
-    round_type: roundType,
-    num_questions: numQuestions,
-    job_title: jobTitle,
-  });
-
-  // Cache the result
-  cacheService.set("questions", cacheKey, response.data);
-
-  return response.data;
-};
+// generateQuestionsOnly removed - was only used by standalone Question Generator
 
 /**
  * Extract text with caching
@@ -422,20 +383,7 @@ export const deleteInterview = async (sessionId: string | number) => {
   return response.data;
 };
 
-export const saveGeneratedSession = async (
-  resumeText: string,
-  resumeFilename: string,
-  roundType: string,
-  questions: any[]
-) => {
-  const response = await api.post("/save-generated-session", {
-    resume_text: resumeText,
-    resume_filename: resumeFilename,
-    round_type: roundType,
-    questions: questions,
-  });
-  return response.data;
-};
+// saveGeneratedSession removed - was only used by standalone Question Generator
 export const saveJob = async (jobDbId: string) => {
   if (!jobDbId || jobDbId === "undefined") {
     console.error("❌ Cannot save job: jobDbId is undefined or invalid.");

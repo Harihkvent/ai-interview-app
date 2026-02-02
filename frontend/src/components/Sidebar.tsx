@@ -22,7 +22,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     { id: 'insights', path: '/insights', label: 'AI Review', icon: '🤖' },
     { id: 'live_jobs', path: '/live-jobs', label: 'Live Jobs', icon: '🌐' },
     { id: 'saved_jobs', path: '/saved-jobs', label: 'Saved Jobs', icon: '⭐' },
-    { id: 'question_gen', path: '/question-gen', label: 'Question Gen', icon: '⚡' },
   ];
 
   const isActive = (path: string) => {

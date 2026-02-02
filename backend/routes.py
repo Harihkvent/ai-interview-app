@@ -64,17 +64,7 @@ class JumpQuestionRequest(BaseModel):
     session_id: str
     question_id: str
 
-class GenerateQuestionsOnlyRequest(BaseModel):
-    resume_text: str
-    round_type: str
-    num_questions: Optional[int] = 5
-    job_title: Optional[str] = "General"
-
-class SaveGeneratedSessionRequest(BaseModel):
-    resume_text: str
-    resume_filename: str
-    round_type: str
-    questions: list[dict] # Expected to have question_text, type, options, answer
+# Removed GenerateQuestionsOnlyRequest and SaveGeneratedSessionRequest - were only used by standalone Question Generator
 
 # ============= Resume Upload & Session Start =============
 
@@ -864,24 +854,7 @@ async def end_session_for_verification(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/generate-questions-only")
-async def generate_questions_only(request: GenerateQuestionsOnlyRequest):
-    """Standalone endpoint that generates questions without starting an interview session - uses cache if available"""
-    try:
-        from question_service import generate_questions
-        questions = await generate_questions(
-            request.resume_text,
-            request.round_type,
-            request.job_title
-        )
-        
-        return {
-            "round_type": request.round_type,
-            "questions": questions,
-            "job_title": request.job_title
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Removed /generate-questions-only endpoint - was only used by standalone Question Generator
 
 @router.post("/extract-text")
 async def extract_text_from_file(file: UploadFile = File(...)):
@@ -1213,82 +1186,7 @@ async def get_roadmap(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/save-generated-session")
-async def save_generated_session(
-    request: SaveGeneratedSessionRequest,
-    current_user: User = Depends(get_current_user)
-):
-    """Save a session from the standalone generator"""
-    try:
-        # 1. Create new session
-        new_session = InterviewSession(
-            user_id=str(current_user.id),
-            status="active",
-            started_at=datetime.utcnow()
-        )
-        await new_session.insert()
-        interview_sessions_total.inc()
-        interview_sessions_active.inc()
-
-        # 2. Save Resume
-        # We don't have the raw file, so we store text as content
-        resume = Resume(
-            user_id=str(current_user.id),
-            session_id=str(new_session.id),
-            filename=request.resume_filename,
-            name=request.resume_filename,
-            content=request.resume_text,
-            raw_content=b"", # No raw bytes available from text-only input
-            candidate_name="Candidate", # Could extract if we had parser here
-            candidate_email="" 
-        )
-        await resume.insert()
-        
-        new_session.resume_id = str(resume.id)
-        
-        # 3. Create Rounds
-        round_types = ["aptitude", "technical", "hr"]
-        
-        for r_type in round_types:
-            is_active = (r_type == request.round_type)
-            round_obj = InterviewRound(
-                session_id=str(new_session.id),
-                round_type=r_type,
-                status="active" if is_active else "pending",
-                started_at=datetime.utcnow() if is_active else None
-            )
-            # Set job title for generated session
-            if is_active:
-                new_session.job_title = f"{request.round_type.capitalize()} Interview"
-                new_session.session_type = "interview"
-            await round_obj.insert()
-            
-            if is_active:
-                active_round_id = str(round_obj.id)
-                new_session.current_round_id = active_round_id
-                
-                # 4. Save Questions for the active round
-                for i, q_data in enumerate(request.questions, 1):
-                    # Handle frontend data format mismatch if any
-                    q_text = q_data.get("question") or q_data.get("question_text")
-                    q_type = q_data.get("type") or q_data.get("question_type") or "descriptive"
-                    
-                    question = Question(
-                        round_id=active_round_id,
-                        question_text=q_text,
-                        question_type=q_type,
-                        options=q_data.get("options"),
-                        correct_answer=q_data.get("answer") or q_data.get("correct_answer"),
-                        question_number=i
-                    )
-                    await question.insert()
-
-        await new_session.save()
-        
-        return {
-            "session_id": str(new_session.id),
-            "message": "Session saved successfully"
-        }
+# Removed /save-generated-session endpoint - was only used by standalone Question Generator
 
     except Exception as e:
         logger.error(f"Error saving generated session: {str(e)}")

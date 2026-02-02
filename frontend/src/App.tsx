@@ -11,7 +11,6 @@ import { RoadmapViewer } from './components/RoadmapViewer';
 import { JobMatcher } from './components/JobMatcher';
 import { LiveJobs } from './components/LiveJobs';
 import { SavedJobs } from './components/SavedJobs';
-import { QuestionGenerator } from './components/QuestionGenerator';
 import { InterviewSession } from './components/InterviewSession';
 import { useAuth } from './contexts/AuthContext';
 import { AgentOverlay } from './components/AgentOverlay';
@@ -208,11 +207,6 @@ function App() {
                 } />
                 <Route path="/live-jobs" element={<LiveJobs />} />
                 <Route path="/saved-jobs" element={<SavedJobs />} />
-                <Route path="/question-gen" element={
-                    <QuestionGenerator 
-                        onSessionCreated={(sid) => navigate(`/interview/${sid}`)}
-                    />
-                } />
                 <Route path="/analytics" element={
                     <AnalyticsDashboard />
                 } />

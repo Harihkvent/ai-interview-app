@@ -11,13 +11,16 @@ interface TestResults {
     proficiency_level: string;
     correct_answers: number;
     total_questions: number;
+    answered_questions?: number;  // Number of questions answered (excluding skipped)
+    skipped_count?: number;  // Number of skipped questions
     time_taken: number;
     recommendations: string[];
     detailed_answers: Array<{
         question_text: string;
         user_answer: string;
         correct_answer: string;
-        is_correct: boolean;
+        is_correct?: boolean;
+        is_skipped?: boolean;  // Flag for skipped questions
         explanation: string;
         time_taken: number;
     }>;
@@ -115,7 +118,7 @@ export const SkillTestResults: React.FC = () => {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className={`grid grid-cols-1 md:grid-cols-${results.skipped_count && results.skipped_count > 0 ? '4' : '3'} gap-4`}>
                     <div className="glass-card p-6 text-center">
                         <div className="text-4xl mb-2">✓</div>
                         <div className="text-3xl font-bold text-green-400">{results.correct_answers}</div>
@@ -126,6 +129,13 @@ export const SkillTestResults: React.FC = () => {
                         <div className="text-3xl font-bold text-white">{results.total_questions}</div>
                         <div className="text-sm text-gray-400">Total Questions</div>
                     </div>
+                    {results.skipped_count && results.skipped_count > 0 && (
+                        <div className="glass-card p-6 text-center">
+                            <div className="text-4xl mb-2">⏭️</div>
+                            <div className="text-3xl font-bold text-yellow-400">{results.skipped_count}</div>
+                            <div className="text-sm text-gray-400">Skipped</div>
+                        </div>
+                    )}
                     <div className="glass-card p-6 text-center">
                         <div className="text-4xl mb-2">⏱️</div>
                         <div className="text-3xl font-bold text-purple-400">
@@ -161,32 +171,48 @@ export const SkillTestResults: React.FC = () => {
                                 <div
                                     key={index}
                                     className={`border-2 rounded-lg p-4 ${
-                                        answer.is_correct
+                                        answer.is_skipped
+                                            ? 'border-yellow-500/30 bg-yellow-500/5'
+                                            : answer.is_correct
                                             ? 'border-green-500/30 bg-green-500/5'
                                             : 'border-red-500/30 bg-red-500/5'
                                     }`}
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <h4 className="font-bold text-lg">Question {index + 1}</h4>
-                                        <span className={`text-2xl ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
-                                            {answer.is_correct ? '✓' : '✗'}
+                                        <span className={`text-2xl ${
+                                            answer.is_skipped
+                                                ? 'text-yellow-400'
+                                                : answer.is_correct
+                                                ? 'text-green-400'
+                                                : 'text-red-400'
+                                        }`}>
+                                            {answer.is_skipped ? '⏭️' : answer.is_correct ? '✓' : '✗'}
                                         </span>
                                     </div>
                                     <p className="text-gray-300 mb-3">{answer.question_text}</p>
                                     <div className="space-y-2 text-sm">
-                                        <div>
-                                            <span className="text-gray-400">Your Answer: </span>
-                                            <span className={answer.is_correct ? 'text-green-400' : 'text-red-400'}>
-                                                {answer.user_answer}
-                                            </span>
-                                        </div>
-                                        {!answer.is_correct && (
+                                        {answer.is_skipped ? (
                                             <div>
-                                                <span className="text-gray-400">Correct Answer: </span>
-                                                <span className="text-green-400">{answer.correct_answer}</span>
+                                                <span className="text-yellow-400 font-bold">Skipped - Not answered</span>
                                             </div>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    <span className="text-gray-400">Your Answer: </span>
+                                                    <span className={answer.is_correct ? 'text-green-400' : 'text-red-400'}>
+                                                        {answer.user_answer}
+                                                    </span>
+                                                </div>
+                                                {!answer.is_correct && (
+                                                    <div>
+                                                        <span className="text-gray-400">Correct Answer: </span>
+                                                        <span className="text-green-400">{answer.correct_answer}</span>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
-                                        {answer.explanation && (
+                                        {answer.explanation && !answer.is_skipped && (
                                             <div className="mt-2 p-3 bg-white/5 rounded-lg">
                                                 <span className="text-gray-400">Explanation: </span>
                                                 <span className="text-gray-300">{answer.explanation}</span>

@@ -42,8 +42,9 @@ class SkillTestAttempt(Document):
     score: float = 0.0  # Percentage
     total_questions: int = 0
     correct_answers: int = 0
+    skipped_count: int = 0  # Number of skipped questions
     
-    # Answers: [{question_id, answer, is_correct, time_taken}]
+    # Answers: [{question_id, answer, is_correct, time_taken, is_skipped}]
     answers: List[Dict] = []
     
     # Timing

@@ -137,6 +137,42 @@ async def submit_test_answer(
         raise
 
 
+async def skip_test_question(
+    attempt_id: str,
+    question_id: str
+) -> Dict:
+    """Skip a question without answering it"""
+    try:
+        attempt = await SkillTestAttempt.get(attempt_id)
+        if not attempt:
+            raise ValueError("Attempt not found")
+        
+        if attempt.status != "in-progress":
+            raise ValueError("Test is not in progress")
+        
+        # Mark question as skipped
+        skip_data = {
+            "question_id": question_id,
+            "answer": "",
+            "is_skipped": True,
+            "time_taken": 0
+        }
+        attempt.answers.append(skip_data)
+        attempt.skipped_count += 1
+        
+        await attempt.save()
+        
+        logger.info(f"Skipped question {question_id} in attempt {attempt_id}")
+        
+        return {
+            "message": "Question skipped"
+        }
+    except Exception as e:
+        logger.error(f"Error skipping question: {str(e)}")
+        raise
+
+
+
 async def _evaluate_descriptive_answer(question: SkillTestQuestion, answer: str) -> bool:
     """Evaluate descriptive answer using AI"""
     try:
@@ -164,10 +200,13 @@ async def complete_skill_test(attempt_id: str) -> Dict:
         if not attempt:
             raise ValueError("Attempt not found")
         
-        # Calculate score
-        if attempt.total_questions > 0:
-            attempt.score = (attempt.correct_answers / attempt.total_questions) * 100
+        # Calculate score based on answered questions only (excluding skipped)
+        answered_questions = attempt.total_questions - attempt.skipped_count
+        
+        if answered_questions > 0:
+            attempt.score = (attempt.correct_answers / answered_questions) * 100
         else:
+            # If all questions were skipped, score is 0
             attempt.score = 0.0
         
         # Get test details for passing score
@@ -194,7 +233,7 @@ async def complete_skill_test(attempt_id: str) -> Dict:
         
         await attempt.save()
         
-        logger.info(f"Completed skill test attempt {attempt_id} with score {attempt.score}%")
+        logger.info(f"Completed skill test attempt {attempt_id} with score {attempt.score}% ({attempt.correct_answers}/{answered_questions} answered, {attempt.skipped_count} skipped)")
         
         return {
             "score": attempt.score,
@@ -202,6 +241,8 @@ async def complete_skill_test(attempt_id: str) -> Dict:
             "proficiency_level": attempt.proficiency_level,
             "correct_answers": attempt.correct_answers,
             "total_questions": attempt.total_questions,
+            "answered_questions": answered_questions,
+            "skipped_count": attempt.skipped_count,
             "time_taken": attempt.time_taken_seconds,
             "recommendations": attempt.recommendations
         }
@@ -244,11 +285,15 @@ async def get_test_results(attempt_id: str) -> Dict:
         for answer_data in attempt.answers:
             question = await SkillTestQuestion.get(answer_data["question_id"])
             if question:
+                # Check if question was skipped
+                is_skipped = answer_data.get("is_skipped", False)
+                
                 detailed_answers.append({
                     "question_text": question.question_text,
                     "user_answer": answer_data["answer"],
                     "correct_answer": question.correct_answer,
-                    "is_correct": answer_data["is_correct"],
+                    "is_correct": answer_data.get("is_correct", False) if not is_skipped else None,
+                    "is_skipped": is_skipped,
                     "explanation": question.explanation,
                     "time_taken": answer_data["time_taken"]
                 })

@@ -90,6 +90,35 @@ export const SkillTestSession: React.FC = () => {
         }
     };
 
+    const handleSkipQuestion = async () => {
+        if (!currentQuestion) return;
+
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('auth_token');
+
+            const response = await axios.post(
+                `${API_BASE_URL}/api/skill-tests/attempts/${attemptId}/skip`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data.next_question) {
+                setCurrentQuestion(response.data.next_question);
+                setQuestionNumber(response.data.next_question.question_number);
+                setAnswer('');
+                setStartTime(Date.now());
+            } else {
+                // Test completed
+                handleCompleteTest();
+            }
+        } catch (err: any) {
+            alert(err.response?.data?.detail || 'Failed to skip question');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleCompleteTest = async () => {
         try {
             const token = localStorage.getItem('auth_token');
@@ -195,6 +224,13 @@ export const SkillTestSession: React.FC = () => {
                             className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? 'Submitting...' : 'Submit Answer'}
+                        </button>
+                        <button
+                            onClick={handleSkipQuestion}
+                            disabled={loading}
+                            className="px-6 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 text-yellow-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Skip
                         </button>
                         <button
                             onClick={async () => {

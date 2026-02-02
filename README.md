@@ -22,7 +22,6 @@ An AI-driven career advisory ecosystem built with **FastAPI** (backend), **React
 
 - **File System Storage** - Scalable resume storage.
 - **Multi-Format Support** - Parse and analyze PDF and DOCX resumes.
-- **Standalone Question Generator** - Quickly generate interview questions from any resume text.
 
 ### 🎯 Job Matching & Live Search
 
