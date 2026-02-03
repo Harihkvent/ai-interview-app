@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { InterviewStart } from './components/InterviewStart';
 import { CareerRoadmap } from './components/CareerRoadmap';
 import { AuthPage } from './components/AuthPage';
@@ -23,15 +23,15 @@ import { SkillTestSession } from './components/SkillTestSession';
 import { SkillTestResults } from './components/SkillTestResults';
 import { AvatarInterviewStart } from './components/AvatarInterviewStart';
 import { AvatarInterviewSession } from './components/AvatarInterviewSession';
+import { LandingPage } from './components/LandingPage';
 import './index.css';
 
 function App() {
     const { isAuthenticated, loading: authLoading } = useAuth();
     const navigate = useNavigate();
-    const location = useLocation();
     
     const [sessionId, setSessionId] = useState<string | number | null>(null);
-
+    const [showAuthPage, setShowAuthPage] = useState(false);
 
     if (authLoading) {
         return (
@@ -44,8 +44,19 @@ function App() {
         );
     }
 
-    if (!isAuthenticated) {
+    // Show auth page if user clicked sign in/get started
+    if (!isAuthenticated && showAuthPage) {
         return <AuthPage onSuccess={() => navigate('/dashboard')} />;
+    }
+
+    // Show landing page for unauthenticated users
+    if (!isAuthenticated) {
+        return (
+            <LandingPage 
+                onSignIn={() => setShowAuthPage(true)}
+                onGetStarted={() => setShowAuthPage(true)}
+            />
+        );
     }
 
     return (

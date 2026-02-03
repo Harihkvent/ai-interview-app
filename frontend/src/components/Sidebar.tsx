@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -9,19 +10,23 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
-  const navItems = [
-    { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'jobs', path: '/jobs', label: 'Job Matcher', icon: '🎯' },
-    { id: 'roadmaps', path: '/roadmaps', label: 'My Roadmaps', icon: '🗺️' },
-    { id: 'interview', path: '/upload', label: 'Interview', icon: '💼' },
-    { id: 'avatar_interview', path: '/avatar-interview/start', label: 'AI Avatar', icon: '🤖' },
-    { id: 'analytics', path: '/analytics', label: 'Analytics', icon: '📈' },
-    { id: 'schedule', path: '/schedule', label: 'Schedule', icon: '📅' },
-    { id: 'skill_tests', path: '/skill-tests', label: 'Skill Tests', icon: '✍️' },
-    { id: 'insights', path: '/insights', label: 'AI Review', icon: '🤖' },
-    { id: 'live_jobs', path: '/live-jobs', label: 'Live Jobs', icon: '🌐' },
-    { id: 'saved_jobs', path: '/saved-jobs', label: 'Saved Jobs', icon: '⭐' },
+  const menuItems = [
+    { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', badge: null },
+    { id: 'interview', path: '/upload', label: 'Interviews', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z', badge: null },
+    { id: 'skill_tests', path: '/skill-tests', label: 'Practice', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', badge: null },
+    { id: 'insights', path: '/insights', label: 'AI Insights', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z', badge: null },
+    { id: 'jobs', path: '/jobs', label: 'Job Matcher', icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', badge: null },
+    { id: 'live_jobs', path: '/live-jobs', label: 'Live Jobs', icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9', badge: null },
+    { id: 'roadmaps', path: '/roadmaps', label: 'Roadmaps', icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7', badge: null },
+    { id: 'saved_jobs', path: '/saved-jobs', label: 'Saved Jobs', icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z', badge: null },
+    { id: 'schedule', path: '/schedule', label: 'Schedule', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', badge: null },
+  ];
+
+  const bottomItems = [
+    { id: 'analytics', path: '/analytics', label: 'Analytics', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+    { id: 'profile', path: '/profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
   ];
 
   const isActive = (path: string) => {
@@ -29,110 +34,189 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     return location.pathname.startsWith(path);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  // Get user initials
+  const getInitials = () => {
+    if (user?.full_name) {
+      return user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (user?.username) {
+      return user.username.slice(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
+
   return (
-    <aside 
-      className={`
-        fixed left-0 top-16 h-[calc(100vh-4rem)] z-40
-        border-r transition-all duration-300 ease-in-out
-        ${isOpen ? 'w-64' : 'w-16'}
-        flex flex-col
-      `}
-      style={{
-        backgroundColor: 'var(--sidebar-bg)',
-        borderColor: 'var(--sidebar-border)',
-      }}
+    <div
+      className={`h-screen bg-zinc-950 border-r border-zinc-800 flex flex-col transition-all duration-300 ${
+        isOpen ? 'w-72' : 'w-20'
+      }`}
     >
-      {/* Header / Toggle Area */}
-      <div className="h-12 flex items-center justify-between px-3 border-b" style={{ borderColor: 'var(--sidebar-border)' }}>
+      {/* Logo & Toggle */}
+      <div className="h-16 px-4 flex items-center justify-between border-b border-zinc-800">
         {isOpen && (
-          <span 
-            className="font-semibold text-sm tracking-wide whitespace-nowrap overflow-hidden"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            NAVIGATION
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center">
+              <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-white font-bold text-lg">CareerPath</h2>
+              <p className="text-gray-400 text-xs">AI Interview</p>
+            </div>
+          </div>
         )}
-        <button 
+        
+        <button
           onClick={onToggle}
-          className="p-1.5 rounded-md transition-colors ml-auto"
-          style={{ 
-            color: 'var(--text-tertiary)',
-            backgroundColor: 'transparent'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          className={`p-2 rounded-lg bg-zinc-800 text-gray-300 hover:bg-zinc-700 transition-all ${!isOpen ? 'mx-auto' : ''}`}
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-4 w-4" 
-            fill="none" 
-            viewBox="0 0 24 24" 
+          <svg
+            className={`w-5 h-5 transition-transform ${!isOpen ? 'rotate-180' : ''}`}
+            fill="none"
             stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            {isOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            )}
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
         </button>
       </div>
 
-      {/* Navigation Items */}
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-        {navItems.map((item) => {
+      {/* Main Navigation */}
+      <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+        {menuItems.map((item) => {
           const active = isActive(item.path);
           return (
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`
-                w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
-                ${active ? 'font-semibold' : 'font-medium'}
-              `}
-              style={{
-                backgroundColor: active ? 'var(--sidebar-active)' : 'transparent',
-                color: active ? 'var(--sidebar-active-text)' : 'var(--text-secondary)',
-              }}
-              onMouseEnter={(e) => {
-                if (!active) {
-                  e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)';
-                  e.currentTarget.style.color = 'var(--text-primary)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                }
-              }}
-              title={!isOpen ? item.label : ''}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
+                active
+                  ? 'bg-white text-black'
+                  : 'text-gray-400 hover:text-white hover:bg-zinc-800'
+              }`}
             >
-              <span className="text-lg min-w-[20px] text-center flex-shrink-0">{item.icon}</span>
-              <span 
-                className={`
-                  whitespace-nowrap overflow-hidden transition-all duration-300 text-sm
-                  ${isOpen ? 'w-full opacity-100' : 'w-0 opacity-0'}
-                `}
-              >
-                {item.label}
-              </span>
+              {/* Active Indicator */}
+              {active && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r" />
+              )}
+
+              {/* Icon */}
+              <div className={`flex-shrink-0 ${!isOpen ? 'mx-auto' : ''}`}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                </svg>
+              </div>
+
+              {/* Label */}
+              {isOpen && (
+                <>
+                  <span className="flex-1 text-left font-medium">{item.label}</span>
+                  
+                  {/* Badge */}
+                  {item.badge && (
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      active
+                        ? 'bg-black text-white'
+                        : 'bg-zinc-700 text-white'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </>
+              )}
+
+              {/* Tooltip for collapsed state */}
+              {!isOpen && (
+                <div className="absolute left-full ml-4 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                  {item.label}
+                  {item.badge && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-zinc-700 text-xs font-bold">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Divider */}
+      <div className="px-3">
+        <div className="h-px bg-zinc-800" />
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="px-3 py-4 space-y-1">
+        {bottomItems.map((item) => {
+          const active = isActive(item.path);
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.path)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
+                active
+                  ? 'bg-white text-black'
+                  : 'text-gray-400 hover:text-white hover:bg-zinc-800'
+              }`}
+            >
+              <div className={`flex-shrink-0 ${!isOpen ? 'mx-auto' : ''}`}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                </svg>
+              </div>
+
+              {isOpen && <span className="flex-1 text-left font-medium">{item.label}</span>}
+
+              {!isOpen && (
+                <div className="absolute left-full ml-4 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                  {item.label}
+                </div>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Footer Area */}
-      <div className="p-3 border-t" style={{ borderColor: 'var(--sidebar-border)' }}>
-        <div className={`
-          text-[10px] font-medium text-center transition-opacity duration-300 uppercase tracking-wider
-          ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}
-        `}
-        style={{ color: 'var(--text-muted)' }}
+      {/* User Profile */}
+      <div className="px-3 pb-4 border-t border-zinc-800 pt-4">
+        <div 
+          onClick={() => navigate('/profile')}
+          className={`flex items-center gap-3 px-3 py-3 rounded-xl bg-zinc-900 border border-zinc-800 cursor-pointer hover:border-zinc-700 transition-all ${
+            !isOpen ? 'justify-center' : ''
+          }`}
         >
-          Version 1.0.0
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center flex-shrink-0">
+            <span className="text-black font-bold text-sm">{getInitials()}</span>
+          </div>
+          
+          {isOpen && (
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-medium truncate">{user?.full_name || user?.username || 'User'}</p>
+              <p className="text-gray-400 text-xs truncate">{user?.email || ''}</p>
+            </div>
+          )}
         </div>
+
+        {/* Logout Button */}
+        {isOpen && (
+          <button
+            onClick={handleLogout}
+            className="w-full mt-3 flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="font-medium">Sign Out</span>
+          </button>
+        )}
       </div>
-    </aside>
+    </div>
   );
 };

@@ -133,74 +133,101 @@ export const SkillTests: React.FC = () => {
         }
     };
 
-    const getDifficultyColor = (difficulty: string) => {
-        const colors: { [key: string]: string } = {
-            easy: 'text-green-400 bg-green-500/10 border-green-500/20',
-            medium: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
-            hard: 'text-red-400 bg-red-500/10 border-red-500/20'
+    const getDifficultyStyle = (difficulty: string) => {
+        const styles: { [key: string]: string } = {
+            easy: 'bg-green-500/10 border-green-500/20 text-green-400',
+            beginner: 'bg-green-500/10 border-green-500/20 text-green-400',
+            medium: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+            intermediate: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+            hard: 'bg-red-500/10 border-red-500/20 text-red-400',
+            advanced: 'bg-red-500/10 border-red-500/20 text-red-400'
         };
-        return colors[difficulty] || 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+        return styles[difficulty.toLowerCase()] || 'bg-gray-500/10 border-gray-500/20 text-gray-400';
+    };
+
+    const getCategoryIcon = (category: string) => {
+        const icons: { [key: string]: string } = {
+            programming: '💻',
+            frontend: '🎨',
+            backend: '⚙️',
+            database: '🗄️',
+            devops: '🚀'
+        };
+        return icons[category.toLowerCase()] || '📝';
     };
 
     if (loading) {
         return (
-            <div className="p-4">
-                <div className="max-w-7xl mx-auto">
-                    <div className="glass-card p-8 text-center">
-                        <div className="text-6xl mb-4 animate-pulse">📝</div>
-                        <p className="text-xl text-gray-300">Loading skill tests...</p>
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center mb-4">
+                        <svg className="w-8 h-8 text-black animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
                     </div>
+                    <p className="text-gray-400">Loading skill tests...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="p-4">
+        <div className="min-h-screen bg-black p-6">
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="glass-card p-4 flex items-center justify-between">
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                        <span>←</span>
-                        <span>Back</span>
-                    </button>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
-                        📝 Skill Assessments
-                    </h2>
-                    <button
-                        onClick={() => setShowGenerateForm(!showGenerateForm)}
-                        className="btn-primary"
-                    >
-                        + Generate Custom Test
-                    </button>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-2">Skill Tests</h1>
+                            <p className="text-gray-400">Assess your knowledge and track your progress</p>
+                        </div>
+                        <button
+                            onClick={() => setShowGenerateForm(!showGenerateForm)}
+                            className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                        >
+                            Create Test
+                        </button>
+                    </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid md:grid-cols-4 gap-4">
+                    {[
+                        { label: 'Tests Available', value: tests.length.toString() },
+                        { label: 'Tests Taken', value: history.length.toString() },
+                        { label: 'Pass Rate', value: history.length > 0 ? `${Math.round((history.filter(h => h.passed).length / history.length) * 100)}%` : '0%' },
+                        { label: 'Avg Score', value: history.length > 0 ? `${Math.round(history.reduce((a, h) => a + h.score, 0) / history.length)}%` : '0%' },
+                    ].map((stat, i) => (
+                        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
+                            <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
+                            <div className="text-sm text-gray-400">{stat.label}</div>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Generate Form */}
                 {showGenerateForm && (
-                    <div className="glass-card p-6">
-                        <h3 className="text-xl font-bold mb-4">Generate AI-Powered Test</h3>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-4">Generate AI-Powered Test</h3>
                         <form onSubmit={handleGenerateTest} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-2">Skill Name</label>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">Skill Name</label>
                                 <input
                                     type="text"
                                     required
                                     value={generateForm.skill_name}
                                     onChange={(e) => setGenerateForm({ ...generateForm, skill_name: e.target.value })}
                                     placeholder="e.g., React Hooks, Python OOP, SQL Queries"
-                                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-primary-400 focus:outline-none"
+                                    className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
                                 />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Category</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Category</label>
                                     <select
                                         value={generateForm.category}
                                         onChange={(e) => setGenerateForm({ ...generateForm, category: e.target.value })}
-                                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-primary-400 focus:outline-none"
+                                        className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-white focus:border-white focus:outline-none transition-colors"
                                     >
                                         <option value="programming">Programming</option>
                                         <option value="frontend">Frontend</option>
@@ -210,25 +237,25 @@ export const SkillTests: React.FC = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Number of Questions</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Number of Questions</label>
                                     <input
                                         type="number"
                                         min="5"
                                         max="30"
                                         value={generateForm.count}
                                         onChange={(e) => setGenerateForm({ ...generateForm, count: parseInt(e.target.value) })}
-                                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-primary-400 focus:outline-none"
+                                        className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-white focus:border-white focus:outline-none transition-colors"
                                     />
                                 </div>
                             </div>
                             <div className="flex gap-3">
-                                <button type="submit" className="btn-primary flex-1">
+                                <button type="submit" className="flex-1 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all">
                                     Generate Test
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setShowGenerateForm(false)}
-                                    className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                                    className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-white rounded-xl font-semibold hover:bg-zinc-700 transition-all"
                                 >
                                     Cancel
                                 </button>
@@ -238,14 +265,14 @@ export const SkillTests: React.FC = () => {
                 )}
 
                 {/* Filters */}
-                <div className="glass-card p-4">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
                     <div className="flex flex-wrap gap-4">
                         <div>
-                            <label className="block text-sm font-medium mb-2">Category</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Category</label>
                             <select
                                 value={selectedCategory}
                                 onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-primary-400 focus:outline-none"
+                                className="px-4 py-2 bg-black border border-zinc-800 rounded-xl text-white focus:border-white focus:outline-none transition-colors"
                             >
                                 <option value="all">All Categories</option>
                                 <option value="programming">Programming</option>
@@ -255,11 +282,11 @@ export const SkillTests: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2">Difficulty</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Difficulty</label>
                             <select
                                 value={selectedDifficulty}
                                 onChange={(e) => setSelectedDifficulty(e.target.value)}
-                                className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-primary-400 focus:outline-none"
+                                className="px-4 py-2 bg-black border border-zinc-800 rounded-xl text-white focus:border-white focus:outline-none transition-colors"
                             >
                                 <option value="all">All Levels</option>
                                 <option value="easy">Easy</option>
@@ -271,64 +298,62 @@ export const SkillTests: React.FC = () => {
                 </div>
 
                 {/* Available Tests */}
-                <div className="glass-card p-6">
-                    <h3 className="text-xl font-bold mb-4">Available Tests</h3>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                    <h2 className="text-2xl font-bold text-white mb-6">Available Tests</h2>
                     {tests.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="text-6xl mb-4">📝</div>
                             <p className="text-gray-400 mb-4">No tests found</p>
                             <button
                                 onClick={() => setShowGenerateForm(true)}
-                                className="btn-primary"
+                                className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all"
                             >
                                 Generate Your First Test
                             </button>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid md:grid-cols-2 gap-4">
                             {tests.map((test) => (
                                 <div
                                     key={test.test_id}
-                                    className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-all hover:scale-105"
+                                    className="bg-black border border-zinc-800 rounded-xl p-6 hover:border-zinc-700 transition-all"
                                 >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <h4 className="font-bold text-lg">{test.skill_name}</h4>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDifficultyColor(test.difficulty)}`}>
-                                                {test.difficulty}
-                                            </span>
-                                            {test.created_by && test.created_by !== 'system' && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteTest(test.test_id, test.skill_name);
-                                                    }}
-                                                    className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
-                                                    title="Delete test"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <p className="text-sm text-gray-400 mb-4">{test.description}</p>
-                                    <div className="space-y-2 text-sm text-gray-300 mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <span>📊</span>
-                                            <span>{test.total_questions} questions</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span>⏱️</span>
-                                            <span>{test.duration_minutes} minutes</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span>🎯</span>
-                                            <span>Pass: {test.passing_score}%</span>
+                                    <div className="flex items-start gap-4 mb-4">
+                                        <div className="text-4xl">{getCategoryIcon(test.category)}</div>
+                                        <div className="flex-1">
+                                            <div className="flex items-start justify-between">
+                                                <h3 className="text-lg font-bold text-white mb-2">{test.skill_name}</h3>
+                                                {test.created_by && test.created_by !== 'system' && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteTest(test.test_id, test.skill_name);
+                                                        }}
+                                                        className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                        title="Delete test"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-gray-400">
+                                                    {test.total_questions} questions
+                                                </span>
+                                                <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-gray-400">
+                                                    {test.duration_minutes} min
+                                                </span>
+                                                <span className={`px-2 py-1 rounded text-xs border ${getDifficultyStyle(test.difficulty)}`}>
+                                                    {test.difficulty}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => handleStartTest(test.test_id)}
-                                        className="w-full btn-primary"
+                                        className="w-full py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-all"
                                     >
                                         Start Test
                                     </button>
@@ -340,44 +365,48 @@ export const SkillTests: React.FC = () => {
 
                 {/* Test History */}
                 {history.length > 0 && (
-                    <div className="glass-card p-6">
-                        <h3 className="text-xl font-bold mb-4">Recent Attempts</h3>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                        <h2 className="text-2xl font-bold text-white mb-6">My Attempts</h2>
                         <div className="space-y-3">
                             {history.slice(0, 5).map((attempt) => (
                                 <div
                                     key={attempt.attempt_id}
-                                    className="bg-white/5 border border-white/10 rounded-lg p-4 flex items-center justify-between"
+                                    className="flex items-center gap-4 p-4 bg-black border border-zinc-800 rounded-xl"
                                 >
-                                    <div>
-                                        <h4 className="font-medium">{attempt.test_name}</h4>
-                                        <p className="text-sm text-gray-400">
-                                            {new Date(attempt.completed_at).toLocaleDateString()}
-                                        </p>
+                                    <div className={`w-16 h-16 rounded-xl flex items-center justify-center font-bold text-2xl ${
+                                        attempt.passed ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                                    }`}>
+                                        {attempt.score}
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-right">
-                                            <div className="text-2xl font-bold text-primary-400">
-                                                {attempt.score}%
-                                            </div>
-                                            <div className={`text-xs ${attempt.passed ? 'text-green-400' : 'text-red-400'}`}>
-                                                {attempt.passed ? 'Passed ✓' : 'Failed ✗'}
-                                            </div>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-white mb-1">{attempt.test_name}</div>
+                                        <div className="text-sm text-gray-400">
+                                            {new Date(attempt.completed_at).toLocaleDateString()}
                                         </div>
+                                    </div>
+                                    <div className={`px-4 py-2 rounded-lg font-semibold ${
+                                        attempt.passed ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                                    }`}>
+                                        {attempt.passed ? 'Passed' : 'Failed'}
+                                    </div>
+                                    <div className="flex gap-2">
                                         <button
                                             onClick={() => navigate(`/skill-tests/results/${attempt.attempt_id}`)}
-                                            className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-sm"
+                                            className="px-4 py-2 bg-zinc-800 border border-zinc-700 text-white rounded-lg font-medium hover:bg-zinc-700 transition-all"
                                         >
-                                            View Details
+                                            View Results
                                         </button>
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleDeleteAttempt(attempt.attempt_id);
                                             }}
-                                            className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                                            className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                                             title="Delete attempt"
                                         >
-                                            🗑️
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </div>

@@ -59,7 +59,7 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
         try {
             await saveRoadmap(roadmap.roadmap_id);
             setSaved(true);
-            setTimeout(() => setSaved(false), 3000); // Hide success message after 3s
+            setTimeout(() => setSaved(false), 3000);
         } catch (err: any) {
             console.error('Failed to save roadmap:', err);
             alert('Failed to save roadmap. Please try again.');
@@ -70,17 +70,19 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
-                    <div className="text-6xl animate-pulse">🗺️</div>
-                    <h2 className="text-3xl font-bold">Generating Your Career Roadmap...</h2>
-                    <p className="text-gray-300">
-                        AI is creating a personalized learning path for you
-                    </p>
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 max-w-2xl w-full text-center space-y-6">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center">
+                        <svg className="w-9 h-9 text-black animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                    </div>
+                    <h2 className="text-3xl font-bold text-white">Generating Your Career Roadmap...</h2>
+                    <p className="text-gray-400">AI is creating a personalized learning path for you</p>
                     <div className="flex justify-center gap-2">
-                        <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
                 </div>
             </div>
@@ -89,12 +91,15 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
 
     if (error || !roadmap) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 max-w-2xl w-full text-center space-y-6">
                     <div className="text-6xl">⚠️</div>
                     <h2 className="text-3xl font-bold text-red-400">Error Loading Roadmap</h2>
-                    <p className="text-gray-300">{error || 'No roadmap data available'}</p>
-                    <button onClick={loadRoadmap} className="btn-primary">
+                    <p className="text-gray-400">{error || 'No roadmap data available'}</p>
+                    <button 
+                        onClick={loadRoadmap} 
+                        className="px-8 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                    >
                         Try Again
                     </button>
                 </div>
@@ -103,141 +108,82 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
     }
 
     return (
-        <div className="min-h-screen p-4 pb-20">
+        <div className="min-h-screen bg-black p-6">
             <div className="max-w-5xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="glass-card p-8 text-center">
-                    <div className="text-6xl mb-4">🎯</div>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-3">
-                        Your Career Roadmap
-                    </h1>
-                    <h2 className="text-2xl font-semibold text-white mb-4">
-                        {roadmap.target_role}
-                    </h2>
-                    <div className="flex items-center justify-center gap-4 flex-wrap">
-                        <div className="bg-purple-500/20 px-6 py-2 rounded-full">
-                            <span className="text-purple-300 font-semibold">
-                                ⏱️ {roadmap.estimated_timeline}
-                            </span>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+                    <div className="flex items-start gap-6">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-9 h-9 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
                         </div>
-                        <div className="bg-green-500/20 px-6 py-2 rounded-full">
-                            <span className="text-green-300 font-semibold">
-                                ✓ {roadmap.skills_gap.match_percentage.toFixed(0)}% Skills Match
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Skills Gap Analysis */}
-                <div className="glass-card p-6">
-                    <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                        <span>📊</span> Skills Analysis
-                    </h3>
-                    <div className="grid md:grid-cols-2 gap-6">
-                        {/* Matched Skills */}
-                        <div>
-                            <h4 className="text-lg font-semibold text-green-400 mb-3 flex items-center gap-2">
-                                <span>✓</span> Your Strengths ({roadmap.skills_gap.matched_skills.length})
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                                {roadmap.skills_gap.matched_skills.map((skill) => (
-                                    <span
-                                        key={skill}
-                                        className="px-3 py-1.5 bg-green-500/20 text-green-300 rounded-lg text-sm font-medium"
-                                    >
-                                        {skill}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Missing Skills */}
-                        <div>
-                            <h4 className="text-lg font-semibold text-orange-400 mb-3 flex items-center gap-2">
-                                <span>📚</span> Skills to Acquire ({roadmap.skills_gap.missing_skills.length})
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                                {roadmap.skills_gap.missing_skills.map((skill) => (
-                                    <span
-                                        key={skill}
-                                        className="px-3 py-1.5 bg-orange-500/20 text-orange-300 rounded-lg text-sm font-medium"
-                                    >
-                                        {skill}
-                                    </span>
-                                ))}
+                        <div className="flex-1">
+                            <h1 className="text-3xl font-bold text-white mb-2">Career Roadmap</h1>
+                            <p className="text-lg text-gray-400 mb-4">{roadmap.target_role}</p>
+                            <div className="flex flex-wrap gap-3">
+                                <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg">
+                                    <span className="text-xs text-gray-500">Duration:</span>
+                                    <span className="ml-2 font-semibold text-white">{roadmap.estimated_timeline}</span>
+                                </div>
+                                <div className="px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                    <span className="text-xs text-green-500">Difficulty:</span>
+                                    <span className="ml-2 font-semibold text-green-400">Intermediate</span>
+                                </div>
+                                <div className="px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                    <span className="text-xs text-blue-500">Match:</span>
+                                    <span className="ml-2 font-semibold text-blue-400">{roadmap.skills_gap.match_percentage.toFixed(0)}%</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Learning Milestones */}
-                <div className="glass-card p-6">
-                    <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                        <span>🎓</span> Learning Milestones
-                    </h3>
+                {/* Roadmap Timeline */}
+                <div className="relative">
+                    {/* Connecting Line */}
+                    <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-white via-gray-500 to-white"></div>
+
+                    {/* Milestones */}
                     <div className="space-y-6">
-                        {roadmap.milestones.map((milestone, index) => (
-                            <div
-                                key={index}
-                                className="relative pl-8 pb-6 border-l-2 border-purple-500/30 last:border-l-0 last:pb-0"
-                            >
-                                {/* Timeline Dot */}
-                                <div className="absolute left-[-9px] top-0 w-4 h-4 bg-purple-500 rounded-full border-4 border-gray-900"></div>
+                        {roadmap.milestones.map((milestone, i) => (
+                            <div key={i} className="relative pl-20">
+                                {/* Node */}
+                                <div className={`absolute left-0 w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg ${
+                                    i === 0 ? 'bg-white text-black' :
+                                    i === roadmap.milestones.length - 1 ? 'bg-green-500 text-white' :
+                                    'bg-zinc-800 border-2 border-white text-white'
+                                }`}>
+                                    {i === 0 ? '🏁' : i === roadmap.milestones.length - 1 ? '🎯' : i}
+                                </div>
 
-                                {/* Milestone Content */}
-                                <div className="bg-white/5 rounded-xl p-6 hover:bg-white/10 transition-colors">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div>
-                                            <h4 className="text-xl font-bold text-purple-300">
-                                                {milestone.phase}
-                                            </h4>
-                                            <p className="text-sm text-gray-400">
-                                                Duration: {milestone.duration}
-                                            </p>
-                                        </div>
-                                        <span className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-sm font-semibold">
-                                            Phase {index + 1}
-                                        </span>
+                                {/* Content */}
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover:border-zinc-700 transition-all">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-xl font-bold text-white">{milestone.phase}</h3>
+                                        <span className="text-sm text-gray-500">{milestone.duration}</span>
                                     </div>
-
-                                    {/* Goals */}
-                                    <div className="mb-4">
-                                        <h5 className="text-sm font-semibold text-gray-300 mb-2">🎯 Goals:</h5>
-                                        <ul className="space-y-1.5">
-                                            {milestone.goals.map((goal, i) => (
-                                                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                                                    <span className="text-purple-400 mt-0.5">•</span>
-                                                    <span>{goal}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-
-                                    {/* Resources */}
-                                    <div className="mb-4">
-                                        <h5 className="text-sm font-semibold text-gray-300 mb-2">📚 Resources:</h5>
-                                        <ul className="space-y-1.5">
-                                            {milestone.resources.map((resource, i) => (
-                                                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                                                    <span className="text-green-400 mt-0.5">•</span>
-                                                    <span>{resource}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-
-                                    {/* Success Criteria */}
-                                    {milestone.success_criteria && milestone.success_criteria.length > 0 && (
-                                        <div>
-                                            <h5 className="text-sm font-semibold text-gray-300 mb-2">✅ Success Criteria:</h5>
-                                            <ul className="space-y-1.5">
-                                                {milestone.success_criteria.map((criteria, i) => (
-                                                    <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                                                        <span className="text-blue-400 mt-0.5">•</span>
-                                                        <span>{criteria}</span>
-                                                    </li>
+                                    <ul className="space-y-2">
+                                        {milestone.goals.map((goal, j) => (
+                                            <li key={j} className="flex items-start gap-3">
+                                                <svg className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span className="text-gray-300">{goal}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    
+                                    {/* Resources - compact list */}
+                                    {milestone.resources.length > 0 && (
+                                        <div className="mt-4 pt-4 border-t border-zinc-800">
+                                            <div className="flex flex-wrap gap-2">
+                                                {milestone.resources.slice(0, 3).map((resource, j) => (
+                                                    <span key={j} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-gray-400">
+                                                        📚 {resource.length > 30 ? resource.substring(0, 30) + '...' : resource}
+                                                    </span>
                                                 ))}
-                                            </ul>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -246,64 +192,40 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
                     </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="glass-card p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30">
-                    <div className="text-center space-y-4">
-                        <h3 className="text-xl font-bold text-white">
-                            Ready to Test Your Skills?
-                        </h3>
-                        <p className="text-gray-300">
-                            Now that you have your career roadmap, let's assess your current abilities with our AI-powered interview
+                {/* Success Message */}
+                {saved && (
+                    <div className="bg-green-500/20 border border-green-500/50 rounded-xl p-4 text-center">
+                        <p className="text-green-400 font-semibold flex items-center justify-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Roadmap saved successfully!
                         </p>
-                        
-                        {/* Success Message */}
-                        {saved && (
-                            <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 animate-pulse">
-                                <p className="text-green-300 font-semibold flex items-center justify-center gap-2">
-                                    <span>✓</span>
-                                    Roadmap saved successfully!
-                                </p>
-                            </div>
-                        )}
-                        
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <button
-                                onClick={handleSaveRoadmap}
-                                disabled={saving || saved}
-                                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                                    saved
-                                        ? 'bg-green-500/20 text-green-300 cursor-default'
-                                        : 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300'
-                                } disabled:opacity-50`}
-                            >
-                                <span className="flex items-center justify-center gap-2">
-                                    <span>{saved ? '✓' : '⭐'}</span>
-                                    {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Roadmap'}
-                                </span>
-                            </button>
-                            
-                            <button
-                                onClick={onProceedToInterview}
-                                className="btn-primary text-lg px-8 py-3"
-                            >
-                                <span className="flex items-center justify-center gap-2">
-                                    <span>🎤</span>
-                                    Start AI Interview
-                                </span>
-                            </button>
-                        </div>
                     </div>
-                </div>
+                )}
 
-                {/* Info Card */}
-                <div className="glass-card p-6 bg-blue-500/10 border border-blue-500/30">
-                    <h3 className="font-semibold text-blue-300 mb-2 flex items-center gap-2">
-                        <span>💡</span> Pro Tip
-                    </h3>
-                    <p className="text-sm text-gray-300">
-                        Save this roadmap! After the interview, you'll receive a comprehensive PDF report
-                        including your roadmap, interview performance, and personalized recommendations.
-                    </p>
+                {/* Actions */}
+                <div className="flex gap-4">
+                    <button 
+                        onClick={onProceedToInterview}
+                        className="flex-1 py-4 bg-white text-black rounded-xl font-semibold text-lg hover:bg-gray-200 transition-all"
+                    >
+                        Start Interview Prep
+                    </button>
+                    <button 
+                        onClick={handleSaveRoadmap}
+                        disabled={saving || saved}
+                        className={`px-8 py-4 rounded-xl font-semibold transition-all ${
+                            saved 
+                                ? 'bg-green-500/20 border border-green-500/50 text-green-400' 
+                                : 'bg-zinc-900 border border-zinc-800 text-white hover:bg-zinc-800'
+                        } disabled:opacity-50`}
+                    >
+                        {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Roadmap'}
+                    </button>
+                    <button className="px-8 py-4 bg-zinc-900 border border-zinc-800 text-white rounded-xl font-semibold hover:bg-zinc-800 transition-all">
+                        Export PDF
+                    </button>
                 </div>
             </div>
         </div>

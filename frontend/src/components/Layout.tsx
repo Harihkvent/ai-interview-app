@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
-import { Navbar } from './Navbar';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,23 +16,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [isSidebarOpen]);
 
   return (
-    <div 
-      className="min-h-screen transition-colors duration-200"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
-    >
-      <Navbar onNavigate={() => {}} />
-      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+    <div className="min-h-screen bg-black">
+      {/* Fixed Sidebar */}
+      <div className="fixed left-0 top-0 h-screen z-50">
+        <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+      </div>
       
+      {/* Main Content with left margin for sidebar */}
       <main 
         className={`
-          transition-all duration-300 ease-in-out
-          ${isSidebarOpen ? 'pl-64' : 'pl-16'}
-          pt-16 pb-10 min-h-screen
+          min-h-screen transition-all duration-300 ease-in-out
+          ${isSidebarOpen ? 'ml-72' : 'ml-20'}
         `}
       >
-        <div className="container mx-auto px-6 max-w-7xl py-6">
-          {children}
-        </div>
+        {children}
       </main>
     </div>
   );

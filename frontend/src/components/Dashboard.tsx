@@ -112,12 +112,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
     }
   };
 
+  // Stats configuration
+  const statsConfig = [
+    { 
+      title: 'Total Interviews', 
+      value: data?.stats.total_interviews || 0, 
+      icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z'
+    },
+    { 
+      title: 'Completed', 
+      value: data?.stats.completed_interviews || 0, 
+      icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
+    { 
+      title: 'Roadmaps', 
+      value: data?.stats.saved_roadmaps || 0, 
+      icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
+    },
+    { 
+      title: 'Member Since', 
+      value: data?.stats.member_since ? new Date(data.stats.member_since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A', 
+      icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
+  ];
+
+  // Get thumbnail emoji based on job title
+  const getThumbnail = (jobTitle?: string, status?: string) => {
+    if (status === 'completed') return '🎯';
+    if (status === 'in-progress' || status === 'active') return '⚡';
+    if (jobTitle?.toLowerCase().includes('frontend')) return '💻';
+    if (jobTitle?.toLowerCase().includes('backend')) return '🔧';
+    if (jobTitle?.toLowerCase().includes('data')) return '📊';
+    return '💼';
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center animate-pulse-subtle">
-          <div className="text-6xl mb-4">📊</div>
-          <p className="text-lg font-medium" style={{ color: 'var(--text-tertiary)' }}>Loading dashboard...</p>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center animate-pulse">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <p className="text-gray-400">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -125,280 +163,353 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="card p-8 text-center max-w-md">
-          <p className="text-lg font-semibold mb-4" style={{ color: 'var(--error)' }}>Connection Failed</p>
-          <button onClick={loadDashboard} className="btn-primary">Retry</button>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center max-w-md">
+          <div className="text-4xl mb-4">⚠️</div>
+          <p className="text-white font-semibold mb-4">Connection Failed</p>
+          <button onClick={loadDashboard} className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all">
+            Retry
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      {/* Header Section */}
-      <section className="card p-8">
-        <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-          Welcome back, {data.user.full_name || data.user.username}
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{data.user.email}</p>
-      </section>
-
-      {/* Paused Interview Message */}
-      {pausedMessage && (
-        <div 
-          className="card p-6 flex items-center gap-4 animate-fade-in"
-          style={{ 
-            backgroundColor: 'var(--warning-light)', 
-            borderColor: 'var(--warning)',
-            borderWidth: '1px'
-          }}
-        >
-          <div className="text-4xl">⏸️</div>
-          <div className="flex-1">
-            <h3 className="font-bold mb-1" style={{ color: 'var(--warning)' }}>Interview Paused</h3>
-            <p style={{ color: 'var(--text-secondary)' }}>{pausedMessage}</p>
-          </div>
-          <button 
-            onClick={() => setPausedMessage(null)}
-            className="p-2 rounded-lg hover:bg-black/10 transition-colors"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Active Session Notification */}
-      {activeSession && (
-        <div 
-          className="card p-6 flex flex-col md:flex-row items-center justify-between gap-4"
-          style={{ 
-            backgroundColor: 'var(--accent-primary-light)',
-            borderColor: 'var(--accent-primary)'
-          }}
-        >
-          <div className="flex items-center gap-4">
-            <div className="text-3xl">🎭</div>
+    <div className="min-h-screen bg-black">
+      {/* Header */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-zinc-900/80 border-b border-zinc-800">
+        <div className="px-8 py-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--accent-primary)' }}>Resume Your Interview</h3>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>You have an active interview session</p>
-            </div>
-          </div>
-          <button 
-            onClick={() => onNavigate('interview', { resumeSessionId: activeSession })}
-            className="btn-primary"
-          >
-            Continue →
-          </button>
-        </div>
-      )}
-
-      {/* Statistics Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { label: 'Total Interviews', value: data.stats.total_interviews, icon: '📝' },
-          { label: 'Completed', value: data.stats.completed_interviews, icon: '✅' },
-          { label: 'Roadmaps', value: data.stats.saved_roadmaps, icon: '🗺️' }
-        ].map((stat, i) => (
-          <div key={i} className="stat-card">
-            <div className="stat-card-title">{stat.label}</div>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{stat.icon}</span>
-              <div className="stat-card-value">{stat.value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* AI Profile Insights Promo */}
-      <div 
-        onClick={() => onNavigate('insights')}
-        className="card card-hover p-6 cursor-pointer"
-      >
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <span className="text-3xl">🤖</span>
-            <div>
-              <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                AI Profile Insights
-              </h2>
-              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                {data.active_resume 
-                  ? "View your professional summary and skill analysis" 
-                  : "Upload a resume to unlock AI feedback"}
+              <h1 className="text-3xl font-bold text-white">
+                Dashboard
+              </h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Welcome back, {data.user.full_name || data.user.username}! 🚀
               </p>
             </div>
-          </div>
-          <button className="btn-primary shrink-0">
-            {data.active_resume ? "View →" : "Get Started →"}
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Action Center - 2/3 width */}
-        <div className="lg:col-span-2 card p-6 space-y-6">
-          <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button
+            
+            <div className="flex items-center gap-4">
+              <button 
                 onClick={onStartNewInterview}
-                className="flex flex-col items-center justify-center p-10 bg-primary-500 hover:bg-primary-600 text-white rounded-[2rem] transition-all shadow-xl shadow-primary-500/30 group relative overflow-hidden"
+                className="px-5 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-gray-200 transition-all"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <span className="text-6xl mb-4 group-hover:scale-110 transition-transform">🎤</span>
-                <span className="font-black text-2xl">Start Interview</span>
-                <span className="text-sm opacity-80 mt-2">Full simulation (Aptitude + Tech + HR)</span>
+                + New Interview
               </button>
-
-              <button
-                onClick={() => onNavigate('skill-tests')}
-                className="flex flex-col items-center justify-center p-8 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 transition-all group"
+              
+              <div 
+                onClick={() => onNavigate('profile')}
+                className="w-12 h-12 rounded-xl bg-zinc-700 flex items-center justify-center cursor-pointer hover:bg-zinc-600 transition-all"
               >
-                <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">✍️</span>
-                <span className="font-bold text-lg">Quick Practice</span>
-                <span className="text-xs opacity-40 text-center">Skill assessment tests</span>
-              </button>
-
-              <button
-                onClick={() => onNavigate('jobs')}
-                className="flex flex-col items-center justify-center p-8 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 transition-all group"
-              >
-                <span className="text-4xl mb-3 group-hover:rotate-12 transition-transform">🎯</span>
-                <span className="font-bold text-lg">Predict Career</span>
-                <span className="text-xs opacity-40 text-center">Skill-based job matching</span>
-              </button>
-
-              <button
-                 onClick={() => onNavigate('live-jobs')}
-                 className="flex flex-col items-center justify-center p-8 bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 transition-all group"
-              >
-                 <span className="text-4xl mb-3 group-hover:-rotate-12 transition-transform">🌐</span>
-                 <span className="font-bold text-lg">Market Trends</span>
-                 <span className="text-xs opacity-40 text-center">Live vacancy tracking</span>
-              </button>
-            </div>
-        </div>
-
-        {/* Side Panel - History & Stats */}
-        <div className="space-y-8">
-          {/* Roadmaps Preview */}
-          <div className="glass-card p-8 flex flex-col h-full">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black">Roadmaps</h3>
-              <button onClick={onViewRoadmaps} className="text-xs font-bold text-primary-500 hover:underline">View All</button>
-            </div>
-            <div className="space-y-4 flex-1">
-              {data.recent_roadmaps.length > 0 ? (
-                data.recent_roadmaps.slice(0, 4).map((roadmap) => (
-                  <div 
-                    key={roadmap.id} 
-                    onClick={() => onNavigate('roadmaps', { selectedId: roadmap.id })}
-                    className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 border border-white/5 transition-all cursor-pointer group"
-                  >
-                    <div className="font-bold text-sm truncate group-hover:text-primary-500 transition-colors uppercase tracking-tight">{roadmap.target_role}</div>
-                    <div className="text-[10px] opacity-40 mt-1">{new Date(roadmap.created_at).toLocaleDateString()}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center opacity-30 py-10">
-                  <span className="text-4xl mb-2">🗺️</span>
-                  <p className="text-xs font-bold">No roadmaps generated</p>
-                </div>
-              )}
+                <span className="text-xl">👨‍💻</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* History Section */}
-      <section className="glass-card p-10">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-3xl font-black">Interview History</h2>
+      {/* Main Content */}
+      <main className="px-8 py-8">
+        {/* Paused Interview Message */}
+        {pausedMessage && (
+          <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl flex items-center gap-4">
+            <span className="text-2xl">⏸️</span>
+            <div className="flex-1">
+              <p className="text-yellow-400 font-medium">Interview Paused</p>
+              <p className="text-gray-400 text-sm">{pausedMessage}</p>
+            </div>
+            <button 
+              onClick={() => setPausedMessage(null)}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Active Session Notification */}
+        {activeSession && (
+          <div className="mb-6 p-6 bg-zinc-900 border border-zinc-700 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-green-500/20 flex items-center justify-center">
+                <span className="text-2xl">🎭</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Resume Your Interview</h3>
+                <p className="text-sm text-gray-400">You have an active interview session</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => onNavigate('interview', { resumeSessionId: activeSession })}
+              className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all"
+            >
+              Continue →
+            </button>
+          </div>
+        )}
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {statsConfig.map((stat, index) => (
+            <div
+              key={index}
+              className="group relative overflow-hidden rounded-2xl p-6 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all duration-300 hover:scale-105 cursor-pointer"
+            >
+              <div className="relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="p-3 rounded-xl bg-zinc-800 group-hover:bg-zinc-700 transition-colors">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
+                    </svg>
+                  </div>
+                </div>
+                
+                <h3 className="text-gray-400 text-sm mb-1">{stat.title}</h3>
+                <p className="text-3xl font-bold text-white">{stat.value}</p>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data.recent_interviews.length > 0 ? (
-            data.recent_interviews.map((interview) => (
-              <div 
-                key={interview.id} 
-                className={`rounded-3xl p-6 border transition-all group relative overflow-hidden ${
-                  interview.status === 'completed'
-                  ? 'bg-green-500/5 border-green-500/10 hover:border-green-500/30'
-                  : 'bg-white/5 border-white/5 hover:border-primary-500/30'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex flex-col gap-1">
-                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter w-fit ${
-                      interview.status === 'completed' 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-primary-500/10 text-primary-500'
-                    }`}>
-                      {interview.status === 'completed' ? '✨ COMPLETED' : '🕒 ' + interview.status.toUpperCase()}
-                    </span>
-                    <span className="text-[10px] font-bold opacity-30 pl-1">{new Date(interview.created_at).toLocaleDateString()}</span>
-                  </div>
-                  {interview.status === 'completed' && (
-                    <div className="text-2xl">🏆</div>
-                  )}
-                </div>
-                
-                <div className="mb-4">
-                  <h3 className="text-xl font-bold text-white truncate group-hover:text-primary-400 transition-colors uppercase tracking-tight">
-                      {interview.job_title || 'General Interview'}
-                  </h3>
-                </div>
-                
-                <div className="mb-6">
-                  <div className="text-xs font-bold opacity-40 uppercase tracking-widest mb-1">
-                    {interview.status === 'completed' ? 'Final Score' : 'Current Progress'}
-                  </div>
-                  <div className={`text-4xl font-black tracking-tight ${
-                    interview.status === 'completed' ? 'text-green-400' : 'text-white'
-                  }`}>
-                    {interview.total_score.toFixed(1)}<span className="text-sm opacity-30">/10</span>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {interview.status === 'completed' ? (
-                    <button 
-                      onClick={() => window.open(`http://localhost:8000/report/${interview.id}`, '_blank')}
-                      className="flex-1 py-3 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2"
-                    >
-                      📥 VIEW REPORT
-                    </button>
-                  ) : (
-                    <button 
-                       onClick={() => onNavigate('interview', { resumeSessionId: interview.id })}
-                       className="flex-1 py-3 bg-primary-500/10 hover:bg-primary-500 text-primary-500 hover:text-white rounded-xl text-xs font-black transition-all"
-                    >
-                       RESUME INTERVIEW
-                    </button>
-                  )}
-                  <button 
-                    onClick={(e) => handleDeleteInterview(e, interview.id)}
-                    className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all"
-                    title="Delete History"
-                  >
-                    🗑️
-                  </button>
+        {/* Quick Actions Grid */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={onStartNewInterview}
+              className="group p-6 rounded-2xl bg-white text-black hover:bg-gray-100 transition-all"
+            >
+              <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">🎤</div>
+              <div className="font-bold">Start Interview</div>
+              <div className="text-xs text-gray-600 mt-1">Full simulation</div>
+            </button>
+
+            <button
+              onClick={() => onNavigate('skill-tests')}
+              className="group p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all"
+            >
+              <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">✍️</div>
+              <div className="font-semibold text-white">Quick Practice</div>
+              <div className="text-xs text-gray-500 mt-1">Skill assessments</div>
+            </button>
+
+            <button
+              onClick={() => onNavigate('jobs')}
+              className="group p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all"
+            >
+              <div className="text-4xl mb-3 group-hover:rotate-12 transition-transform">🎯</div>
+              <div className="font-semibold text-white">Predict Career</div>
+              <div className="text-xs text-gray-500 mt-1">Job matching</div>
+            </button>
+
+            <button
+              onClick={() => onNavigate('live-jobs')}
+              className="group p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all"
+            >
+              <div className="text-4xl mb-3 group-hover:-rotate-12 transition-transform">🌐</div>
+              <div className="font-semibold text-white">Market Trends</div>
+              <div className="text-xs text-gray-500 mt-1">Live vacancies</div>
+            </button>
+          </div>
+        </div>
+
+        {/* AI Insights Card */}
+        <div 
+          onClick={() => onNavigate('insights')}
+          className="mb-8 p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer group"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-zinc-800 group-hover:bg-zinc-700 flex items-center justify-center transition-colors">
+                <span className="text-2xl">🤖</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">AI Profile Insights</h2>
+                <p className="text-sm text-gray-400">
+                  {data.active_resume 
+                    ? "View your professional summary and skill analysis" 
+                    : "Upload a resume to unlock AI feedback"}
+                </p>
+              </div>
+            </div>
+            <button className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all">
+              {data.active_resume ? "View →" : "Get Started →"}
+            </button>
+          </div>
+        </div>
+
+        {/* Recent Interviews Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">Recent Interviews</h2>
+            <div className="flex items-center gap-3">
+              <button className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-gray-200 transition-all">
+                All
+              </button>
+              <button className="px-4 py-2 rounded-lg text-gray-400 text-sm font-medium hover:text-white transition-colors">
+                Completed
+              </button>
+            </div>
+          </div>
+
+          {/* Interview Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {data.recent_interviews.length > 0 ? (
+              data.recent_interviews.map((interview) => (
+                <div
+                  key={interview.id}
+                  className="group cursor-pointer"
+                >
+                  {/* Thumbnail */}
+                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-3 bg-zinc-900 border border-zinc-800 group-hover:border-zinc-700 transition-all duration-300">
+                    {/* Emoji Icon */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-6xl group-hover:scale-110 transition-transform duration-300">
+                        {getThumbnail(interview.job_title, interview.status)}
+                      </span>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="absolute top-3 right-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
+                        interview.status === 'completed'
+                          ? 'bg-green-500/20 text-green-300 border border-green-500/40'
+                          : interview.status === 'in-progress' || interview.status === 'active'
+                          ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40'
+                          : 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                      }`}>
+                        {interview.status === 'completed' ? 'Done' : interview.status === 'in-progress' || interview.status === 'active' ? 'Live' : 'Upcoming'}
+                      </span>
+                    </div>
+
+                    {/* Score Badge (for completed) */}
+                    {interview.status === 'completed' && (
+                      <div className="absolute bottom-3 left-3">
+                        <div className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-sm border border-zinc-700">
+                          <span className="text-sm font-bold text-white">{interview.total_score.toFixed(1)}/10</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-6">
+                      <div className="flex gap-2">
+                        {interview.status === 'completed' ? (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`http://localhost:8000/report/${interview.id}`, '_blank');
+                            }}
+                            className="px-4 py-2 rounded-lg bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors"
+                          >
+                            View Report
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigate('interview', { resumeSessionId: interview.id });
+                            }}
+                            className="px-4 py-2 rounded-lg bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors"
+                          >
+                            Resume
+                          </button>
+                        )}
+                        <button 
+                          onClick={(e) => handleDeleteInterview(e, interview.id)}
+                          className="px-3 py-2 rounded-lg bg-red-500/80 text-white font-medium text-sm hover:bg-red-600 transition-colors"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="px-1">
+                    <h3 className="text-white font-semibold mb-1 group-hover:text-gray-300 transition-colors line-clamp-2">
+                      {interview.job_title || 'General Interview'}
+                    </h3>
+                    <p className="text-gray-500 text-xs">
+                      {new Date(interview.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : null}
+
+            {/* Add New Card */}
+            <div 
+              onClick={onStartNewInterview}
+              className="group cursor-pointer"
+            >
+              <div className="aspect-video rounded-2xl border-2 border-dashed border-zinc-800 group-hover:border-zinc-600 transition-all duration-300 flex items-center justify-center bg-zinc-900/50 group-hover:bg-zinc-900">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-zinc-800 group-hover:bg-zinc-700 flex items-center justify-center transition-colors">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-400 font-medium group-hover:text-white transition-colors">Start New Interview</p>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="col-span-full py-20 text-center opacity-20">
-              <div className="text-8xl mb-4">📭</div>
-              <p className="text-xl font-black">YOUR HISTORY IS EMPTY</p>
+            </div>
+          </div>
+
+          {data.recent_interviews.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📭</div>
+              <p className="text-gray-400 font-medium">No interviews yet. Start your first one!</p>
             </div>
           )}
         </div>
-      </section>
+
+        {/* Roadmaps Section */}
+        <div className="rounded-2xl p-8 bg-zinc-900 border border-zinc-800">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">Career Roadmaps</h2>
+            <button 
+              onClick={onViewRoadmaps}
+              className="px-4 py-2 rounded-lg text-gray-400 text-sm font-medium hover:text-white transition-colors"
+            >
+              View All →
+            </button>
+          </div>
+          
+          {data.recent_roadmaps.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {data.recent_roadmaps.slice(0, 4).map((roadmap) => (
+                <div 
+                  key={roadmap.id}
+                  onClick={() => onNavigate('roadmaps', { selectedId: roadmap.id })}
+                  className="p-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-600 transition-all cursor-pointer group"
+                >
+                  <div className="text-2xl mb-2">🗺️</div>
+                  <div className="font-semibold text-white text-sm truncate group-hover:text-gray-300 transition-colors">
+                    {roadmap.target_role}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {new Date(roadmap.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-3">🗺️</div>
+              <p className="text-gray-400 text-sm">No roadmaps generated yet</p>
+              <button 
+                onClick={() => onNavigate('jobs')}
+                className="mt-4 px-6 py-2 bg-white text-black rounded-xl font-medium text-sm hover:bg-gray-200 transition-all"
+              >
+                Generate Roadmap
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
       <ConfirmDialogComponent />
     </div>
   );
 };
-

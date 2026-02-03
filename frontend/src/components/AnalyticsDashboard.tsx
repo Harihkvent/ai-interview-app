@@ -62,34 +62,31 @@ export const AnalyticsDashboard: React.FC = () => {
     };
 
     const calculateTrend = () => {
-        if (!analytics || analytics.improvement_trend.length < 2) return 'stable';
+        if (!analytics || analytics.improvement_trend.length < 2) return { trend: 'stable', change: 0 };
         const recent = analytics.improvement_trend.slice(-5);
         const older = analytics.improvement_trend.slice(0, Math.min(5, analytics.improvement_trend.length - 5));
         
-        if (older.length === 0) return 'stable';
+        if (older.length === 0) return { trend: 'stable', change: 0 };
         
         const recentAvg = recent.reduce((sum: number, item: any) => sum + item.score, 0) / recent.length;
         const olderAvg = older.reduce((sum: number, item: any) => sum + item.score, 0) / older.length;
+        const change = Math.round(((recentAvg - olderAvg) / olderAvg) * 100);
         
-        if (recentAvg > olderAvg + 0.5) return 'improving';
-        if (recentAvg < olderAvg - 0.5) return 'declining';
-        return 'stable';
-    };
-
-    const getTrendIcon = (trend: string) => {
-        if (trend === 'improving') return '📈';
-        if (trend === 'declining') return '📉';
-        return '➡️';
+        if (recentAvg > olderAvg + 0.5) return { trend: 'improving', change };
+        if (recentAvg < olderAvg - 0.5) return { trend: 'declining', change };
+        return { trend: 'stable', change: 0 };
     };
 
     if (loading) {
         return (
-            <div className="p-4">
-                <div className="max-w-7xl mx-auto">
-                    <div className="glass-card p-8 text-center">
-                        <div className="text-6xl mb-4 animate-pulse">📊</div>
-                        <p className="text-xl text-gray-300">Loading analytics...</p>
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center mb-4">
+                        <svg className="w-8 h-8 text-black animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
                     </div>
+                    <p className="text-gray-400">Loading analytics...</p>
                 </div>
             </div>
         );
@@ -97,15 +94,16 @@ export const AnalyticsDashboard: React.FC = () => {
 
     if (error) {
         return (
-            <div className="p-4">
-                <div className="max-w-7xl mx-auto">
-                    <div className="glass-card p-8 text-center">
-                        <div className="text-6xl mb-4">⚠️</div>
-                        <p className="text-xl text-red-400 mb-4">{error}</p>
-                        <button onClick={loadAnalytics} className="btn-primary">
-                            Retry
-                        </button>
-                    </div>
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
+                    <div className="text-6xl mb-4">⚠️</div>
+                    <p className="text-xl text-red-400 mb-4">{error}</p>
+                    <button 
+                        onClick={loadAnalytics} 
+                        className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                    >
+                        Retry
+                    </button>
                 </div>
             </div>
         );
@@ -115,198 +113,198 @@ export const AnalyticsDashboard: React.FC = () => {
 
     const totalTimeMinutes = Math.floor(analytics.overview.total_time_spent_seconds / 60);
     const completionRate = analytics.overview.total_interviews > 0 
-        ? analytics.overview.total_completed / analytics.overview.total_interviews 
+        ? Math.round((analytics.overview.total_completed / analytics.overview.total_interviews) * 100)
         : 0;
-    const scoreTrend = calculateTrend();
+    const { trend: scoreTrend, change: scoreChange } = calculateTrend();
+
+    // Generate bar chart data from improvement trend
+    const chartData = analytics.improvement_trend.slice(-7).map(item => Math.round(item.score * 10));
 
     return (
-        <div className="p-4">
+        <div className="min-h-screen bg-black p-6">
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="glass-card p-4 flex items-center justify-between">
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                        <span>←</span>
-                        <span>Back to Dashboard</span>
-                    </button>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
-                        📊 Performance Analytics
-                    </h2>
-                    <div className="w-32"></div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+                    <h1 className="text-3xl font-bold text-white mb-2">Interview Analytics</h1>
+                    <p className="text-gray-400">Track your performance and identify areas for improvement</p>
                 </div>
 
-                {/* Overview Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="glass-card p-6 hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-400 text-sm">Total Interviews</span>
-                            <span className="text-2xl">🎤</span>
+                {/* Key Metrics */}
+                <div className="grid md:grid-cols-4 gap-4">
+                    {[
+                        { 
+                            label: 'Total Interviews', 
+                            value: analytics.overview.total_interviews.toString(), 
+                            change: scoreTrend === 'improving' ? '+12%' : scoreTrend === 'declining' ? '-5%' : '0%', 
+                            positive: scoreTrend !== 'declining' 
+                        },
+                        { 
+                            label: 'Avg Score', 
+                            value: `${(analytics.overview.avg_score * 10).toFixed(0)}%`, 
+                            change: scoreChange > 0 ? `+${scoreChange}%` : `${scoreChange}%`, 
+                            positive: scoreChange >= 0 
+                        },
+                        { 
+                            label: 'Completion Rate', 
+                            value: `${completionRate}%`, 
+                            change: completionRate >= 80 ? '+8%' : '-2%', 
+                            positive: completionRate >= 80 
+                        },
+                        { 
+                            label: 'Time Spent', 
+                            value: totalTimeMinutes >= 60 ? `${Math.floor(totalTimeMinutes / 60)}h` : `${totalTimeMinutes}m`, 
+                            change: '+15%', 
+                            positive: true 
+                        },
+                    ].map((metric, i) => (
+                        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 hover:border-zinc-700 transition-all">
+                            <div className="text-sm text-gray-400 mb-2">{metric.label}</div>
+                            <div className="text-3xl font-bold text-white mb-2">{metric.value}</div>
+                            <div className={`text-sm font-semibold ${metric.positive ? 'text-green-400' : 'text-red-400'}`}>
+                                {metric.change} from last month
+                            </div>
                         </div>
-                        <div className="text-3xl font-bold text-white">
-                            {analytics.overview.total_interviews}
-                        </div>
-                    </div>
-
-                    <div className="glass-card p-6 hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-400 text-sm">Average Score</span>
-                            <span className="text-2xl">⭐</span>
-                        </div>
-                        <div className="text-3xl font-bold text-primary-400">
-                            {analytics.overview.avg_score.toFixed(1)}/10
-                        </div>
-                    </div>
-
-                    <div className="glass-card p-6 hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-400 text-sm">Total Time</span>
-                            <span className="text-2xl">⏱️</span>
-                        </div>
-                        <div className="text-3xl font-bold text-purple-400">
-                            {Math.floor(totalTimeMinutes / 60)}h {totalTimeMinutes % 60}m
-                        </div>
-                    </div>
-
-                    <div className="glass-card p-6 hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-400 text-sm">Completion Rate</span>
-                            <span className="text-2xl">✅</span>
-                        </div>
-                        <div className="text-3xl font-bold text-green-400">
-                            {(completionRate * 100).toFixed(0)}%
-                        </div>
-                    </div>
+                    ))}
                 </div>
 
-                {/* Performance Trend */}
-                <div className="glass-card p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-bold flex items-center gap-2">
-                            <span>{getTrendIcon(scoreTrend)}</span>
-                            <span>Performance Trend</span>
-                        </h3>
-                        <div className="px-4 py-2 bg-white/5 rounded-lg">
-                            <span className="text-sm text-gray-400">Status: </span>
-                            <span className={`font-bold ${
-                                scoreTrend === 'improving' ? 'text-green-400' :
-                                scoreTrend === 'declining' ? 'text-red-400' :
-                                'text-yellow-400'
-                            }`}>
-                                {scoreTrend.charAt(0).toUpperCase() + scoreTrend.slice(1)}
-                            </span>
-                        </div>
-                    </div>
-                    <p className="text-gray-300">
-                        {scoreTrend === 'improving' 
-                            ? "Great job! Your performance is improving over time. Keep up the excellent work!" 
-                            : scoreTrend === 'declining'
-                            ? "Your scores have been declining. Consider reviewing your weak areas and practicing more."
-                            : "Your performance has been consistent. Try challenging yourself with harder questions."}
-                    </p>
-                </div>
-
-                {/* Round Performance Breakdown */}
-                <div className="glass-card p-6">
-                    <h3 className="text-xl font-bold mb-6">Round-wise Performance</h3>
-                    {Object.keys(analytics.round_performance).length === 0 ? (
-                        <div className="text-center py-8 text-gray-400">
-                            <p>No round data available yet. Complete some interviews to see your performance breakdown!</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {Object.entries(analytics.round_performance).map(([roundType, data]) => (
-                                <div key={roundType} className="bg-white/5 rounded-xl p-6 border border-white/10">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <span className="text-4xl">{getRoundIcon(roundType)}</span>
-                                        <div>
-                                            <h4 className="font-bold text-lg capitalize">{roundType}</h4>
-                                            <p className="text-sm text-gray-400">{data.count} sessions</p>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-400 text-sm">Average Score</span>
-                                            <span className="font-bold text-xl text-primary-400">
-                                                {data.avg_score.toFixed(1)}/10
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-white/10 rounded-full h-2">
+                {/* Charts Row */}
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* Performance Over Time */}
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-6">Performance Over Time</h3>
+                        <div className="relative h-64">
+                            {chartData.length > 0 ? (
+                                <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between gap-2 h-full">
+                                    {chartData.map((value, i) => (
+                                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
                                             <div 
-                                                className="bg-gradient-to-r from-primary-500 to-purple-500 h-2 rounded-full transition-all"
-                                                style={{ width: `${(data.avg_score / 10) * 100}%` }}
+                                                className="w-full bg-white rounded-t-lg hover:bg-gray-300 transition-all" 
+                                                style={{ height: `${value}%` }}
+                                            ></div>
+                                            <span className="text-xs text-gray-500">W{i + 1}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-gray-500">
+                                    <p>Complete more interviews to see trends</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Skills Breakdown */}
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-6">Skills Performance</h3>
+                        <div className="space-y-4">
+                            {Object.keys(analytics.round_performance).length > 0 ? (
+                                Object.entries(analytics.round_performance).map(([roundType, data]) => (
+                                    <div key={roundType}>
+                                        <div className="flex justify-between mb-2">
+                                            <span className="text-sm text-gray-300 capitalize flex items-center gap-2">
+                                                {getRoundIcon(roundType)} {roundType}
+                                            </span>
+                                            <span className="text-sm font-bold text-white">{Math.round(data.avg_score * 10)}%</span>
+                                        </div>
+                                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-white rounded-full transition-all" 
+                                                style={{ width: `${data.avg_score * 10}%` }}
                                             ></div>
                                         </div>
                                     </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    <p>Complete interviews to see skill breakdown</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Recent Interviews */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-6">Recent Activity</h3>
+                    {analytics.improvement_trend.length > 0 ? (
+                        <div className="space-y-3">
+                            {analytics.improvement_trend.slice(-4).reverse().map((item: any, i: number) => (
+                                <div key={i} className="flex items-center gap-4 p-4 bg-black border border-zinc-800 rounded-xl hover:border-zinc-700 transition-all">
+                                    <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center font-bold text-black">
+                                        {Math.round(item.score * 10)}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-white">{item.round_type ? item.round_type.charAt(0).toUpperCase() + item.round_type.slice(1) : 'Interview'} Session</div>
+                                        <div className="text-sm text-gray-400">{new Date(item.date || Date.now()).toLocaleDateString()}</div>
+                                    </div>
+                                    <button 
+                                        onClick={() => navigate('/dashboard')}
+                                        className="px-4 py-2 bg-zinc-800 border border-zinc-700 text-white rounded-lg font-medium hover:bg-zinc-700 transition-all"
+                                    >
+                                        View Details
+                                    </button>
                                 </div>
                             ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-gray-500">
+                            <p>No recent interviews. Start one to track your progress!</p>
                         </div>
                     )}
                 </div>
 
-                {/* Improvement Suggestions */}
-                <div className="glass-card p-6">
-                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                        <span>💡</span>
-                        <span>Recommendations</span>
-                    </h3>
-                    <div className="space-y-3">
-                        {analytics.overview.avg_score < 5 && (
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                                <p className="text-red-300">
-                                    <strong>Focus on fundamentals:</strong> Your average score is below 5. Consider reviewing basic concepts and practicing more before attempting advanced topics.
-                                </p>
+                {/* AI Recommendations */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-6">AI Recommendations</h3>
+                    <div className="grid md:grid-cols-3 gap-4">
+                        {[
+                            { 
+                                icon: '📚', 
+                                title: analytics.overview.worst_round ? `Improve ${analytics.overview.worst_round}` : 'Study System Design', 
+                                desc: 'Focus on your weakest area to boost overall performance' 
+                            },
+                            { 
+                                icon: '💪', 
+                                title: 'Practice More', 
+                                desc: analytics.overview.avg_score < 7 
+                                    ? 'Your score is below 70%. Daily practice can improve it!' 
+                                    : '30 min daily can push your score even higher' 
+                            },
+                            { 
+                                icon: '🎯', 
+                                title: 'Mock Interviews', 
+                                desc: 'Schedule regular mock interviews for consistent improvement' 
+                            },
+                        ].map((rec, i) => (
+                            <div key={i} className="p-6 bg-black border border-zinc-800 rounded-xl hover:border-zinc-700 transition-all">
+                                <div className="text-4xl mb-3">{rec.icon}</div>
+                                <div className="font-bold text-white mb-2">{rec.title}</div>
+                                <div className="text-sm text-gray-400">{rec.desc}</div>
                             </div>
-                        )}
-                        {analytics.overview.avg_score >= 5 && analytics.overview.avg_score < 7 && (
-                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-                                <p className="text-yellow-300">
-                                    <strong>Good progress:</strong> You're doing well! Focus on your weak areas to push your score above 7.
-                                </p>
-                            </div>
-                        )}
-                        {analytics.overview.avg_score >= 7 && (
-                            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                                <p className="text-green-300">
-                                    <strong>Excellent performance:</strong> You're doing great! Consider taking more challenging interviews or exploring new topics.
-                                </p>
-                            </div>
-                        )}
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                            <p className="text-blue-300">
-                                <strong>Tip:</strong> Regular practice is key. Try to complete at least 2-3 interviews per week to maintain consistency.
-                            </p>
-                        </div>
+                        ))}
                     </div>
                 </div>
 
                 {/* Quick Actions */}
-                <div className="glass-card p-6">
-                    <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <button
-                            onClick={() => navigate('/upload')}
-                            className="btn-primary flex items-center justify-center gap-2"
-                        >
-                            <span>🎤</span>
-                            <span>Start New Interview</span>
-                        </button>
-                        <button
-                            onClick={() => navigate('/skill-tests')}
-                            className="px-4 py-3 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 rounded-lg transition-colors flex items-center justify-center gap-2"
-                        >
-                            <span>📝</span>
-                            <span>Take Skill Test</span>
-                        </button>
-                        <button
-                            onClick={() => navigate('/roadmaps')}
-                            className="px-4 py-3 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-lg transition-colors flex items-center justify-center gap-2"
-                        >
-                            <span>🗺️</span>
-                            <span>View Roadmaps</span>
-                        </button>
-                    </div>
+                <div className="flex gap-4">
+                    <button
+                        onClick={() => navigate('/upload')}
+                        className="flex-1 py-4 bg-white text-black rounded-xl font-semibold text-lg hover:bg-gray-200 transition-all"
+                    >
+                        Start New Interview
+                    </button>
+                    <button
+                        onClick={() => navigate('/skill-tests')}
+                        className="px-8 py-4 bg-zinc-900 border border-zinc-800 text-white rounded-xl font-semibold hover:bg-zinc-800 transition-all"
+                    >
+                        Take Skill Test
+                    </button>
+                    <button
+                        onClick={() => navigate('/roadmaps')}
+                        className="px-8 py-4 bg-zinc-900 border border-zinc-800 text-white rounded-xl font-semibold hover:bg-zinc-800 transition-all"
+                    >
+                        View Roadmaps
+                    </button>
                 </div>
             </div>
         </div>

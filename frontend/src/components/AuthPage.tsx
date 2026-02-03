@@ -11,16 +11,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
 
   // Form fields
   const [email, setEmail] = useState('');
@@ -83,135 +73,168 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden backdrop-blur-sm">
-      {/* Background blobs */}
-      <div className="absolute top-0 -left-10 w-72 h-72 bg-primary-500/10 rounded-full blur-[100px] animate-pulse"></div>
-      <div className="absolute bottom-0 -right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] animate-pulse"></div>
-
-      {/* Theme Toggle - Top Right */}
-      <button
-        onClick={toggleTheme}
-        className="absolute top-6 right-6 w-12 h-12 rounded-2xl glass-card flex items-center justify-center shadow-2xl active:scale-95 transition-all text-xl"
-      >
-        {theme === 'light' ? '🌙' : '☀️'}
-      </button>
-
-      <div className="glass-card p-10 max-w-lg w-full space-y-8 relative z-10 shadow-2xl">
-        <div className="text-center">
-          <div className="text-7xl mb-4 animate-bounce">🚀</div>
-          <h1 className="text-4xl font-black mb-2 tracking-tight">
-            <span className="text-gradient">CareerPath AI</span>
+    <div className="min-h-screen bg-black flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center">
+              <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="text-2xl font-bold text-white">CareerPath AI</span>
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-2">
+            {isLogin ? 'Welcome Back' : 'Create Account'}
           </h1>
-          <p className="text-lg opacity-60 font-medium">
-            {isLogin ? 'Welcome back! Accelerate your career.' : 'Join the next generation of career advisory.'}
+          <p className="text-gray-400">
+            {isLogin ? 'Sign in to continue your interview prep' : 'Join and start your interview preparation'}
           </p>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border-2 border-red-500/20 rounded-2xl p-4 text-red-500 text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-             <span>⚠️</span>
-             {error}
-          </div>
-        )}
+        {/* Auth Card */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center gap-3">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {error}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-4">
-            <div className="relative group">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
-                placeholder="Email Address"
-              />
+          {/* Google Sign In */}
+          <div className="flex justify-center mb-6">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              useOneTap={false}
+              size="large"
+              theme="filled_black"
+              shape="pill"
+              width="100%"
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-6">
+            <div className="h-px flex-1 bg-zinc-800"></div>
+            <span className="text-sm text-gray-500 uppercase tracking-wider">Or</span>
+            <div className="h-px flex-1 bg-zinc-800"></div>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4 mb-6">
+              {/* Email Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Username & Full Name - Only for Register */}
+              {!isLogin && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="johndoe"
+                      required
+                      className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Full Name (Optional)</label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="John Doe"
+                      className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Password Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Confirm Password - Only for Register */}
+              {!isLogin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                  />
+                </div>
+              )}
             </div>
 
-            {!isLogin && (
-              <>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
-                  placeholder="Choose Username"
-                />
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
-                  placeholder="Full Name (John Doe)"
-                />
-              </>
+            {/* Forgot Password - Only for Login */}
+            {isLogin && (
+              <div className="flex items-center justify-end mb-6">
+                <a href="#" className="text-sm text-white hover:underline">Forgot password?</a>
+              </div>
             )}
 
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
-              placeholder="Password"
-            />
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full px-6 py-3.5 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-3">
+                  <span className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></span>
+                  Processing...
+                </span>
+              ) : (
+                isLogin ? 'Sign In' : 'Create Account'
+              )}
+            </button>
 
-            {!isLogin && (
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full bg-white/5 border-2 border-white/5 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary-500/50 transition-all group-hover:bg-white/10"
-                placeholder="Confirm Password"
-              />
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full btn-primary text-xl py-4 shadow-2xl shadow-primary-500/40"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-3">
-                <span className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></span>
-                Processing...
-              </span>
-            ) : (
-              isLogin ? 'Get Started →' : 'Create Account →'
-            )}
-          </button>
-        </form>
-
-        <div className="flex items-center gap-4 py-2">
-            <div className="flex-1 h-[1px] bg-white/10"></div>
-            <span className="text-xs font-black opacity-30 uppercase">Or continue with</span>
-            <div className="flex-1 h-[1px] bg-white/10"></div>
+            {/* Toggle Mode Link */}
+            <p className="text-center text-sm text-gray-400">
+              {isLogin ? (
+                <>Don't have an account? <button type="button" onClick={toggleMode} className="text-white hover:underline font-semibold">Sign up</button></>
+              ) : (
+                <>Already have an account? <button type="button" onClick={toggleMode} className="text-white hover:underline font-semibold">Sign in</button></>
+              )}
+            </p>
+          </form>
         </div>
 
-        <div className="flex justify-center transform scale-110 hover:scale-[1.12] transition-transform">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            useOneTap={false}
-            size="large"
-            theme={theme === 'dark' ? 'filled_blue' : 'outline'}
-          />
-        </div>
-
-        <div className="text-center pt-4">
-          <button
-            onClick={toggleMode}
-            className="text-primary-500 hover:text-primary-400 font-bold tracking-tight transition-colors"
-          >
-            {isLogin ? (
-              <>Don't have an account? <span className="underline decoration-2 underline-offset-4">Sign up FREE</span></>
-            ) : (
-              <>Already member? <span className="underline decoration-2 underline-offset-4">Sign in</span></>
-            )}
-          </button>
-        </div>
+        {/* Footer */}
+        <p className="text-center text-xs text-gray-500 mt-6">
+          Protected by reCAPTCHA and subject to the Google Privacy Policy
+        </p>
       </div>
     </div>
   );
