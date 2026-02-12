@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Sun, Moon, LogOut, Rocket } from 'lucide-react';
 
 interface NavbarProps {
   currentPage?: 'dashboard' | 'jobs' | 'live_jobs' | 'saved_jobs' | 'interview' | 'roadmaps' | 'question_gen' | 'insights' | 'profile';
@@ -37,7 +38,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
             className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" 
             onClick={() => navigate('/dashboard')}
           >
-            <div className="text-2xl">🚀</div>
+            <div className="text-2xl text-blue-500">
+              <Rocket size={24} fill="currentColor" />
+            </div>
             <div>
               <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                 CareerPath AI
@@ -57,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
               title="Toggle Theme"
               style={{ color: 'var(--text-secondary)' }}
             >
-              {theme === 'light' ? '🌙' : '☀️'}
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
 
             {/* User Profile */}
@@ -92,20 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
               }}
               title="Logout"
             >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-4 w-4" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" 
-                />
-              </svg>
+              <LogOut size={16} />
             </button>
           </div>
         </div>

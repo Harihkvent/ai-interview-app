@@ -468,7 +468,7 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                 
                 q_obj = {
                     "question": item["question"],
-                    "type": item.get("type", q_type),
+                    "type": q_type,  # Always use the requested type, not AI's response
                     "options": sanitized_options if sanitized_options else None,
                     "answer": final_answer,
                     "starter_code": item.get("starter_code"),

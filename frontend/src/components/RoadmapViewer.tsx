@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getRoadmapById } from '../api';
 import { useParams } from 'react-router-dom';
+import { MapIcon, Target, Clock, Star, BarChart3, BookOpen, GraduationCap, CheckCircle, Calendar, ArrowLeft, AlertTriangle, Check } from 'lucide-react';
 
 interface Milestone {
     phase: string;
@@ -69,7 +70,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
         return (
             <div className="min-h-screen flex items-center justify-center p-4">
                 <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
-                    <div className="text-6xl animate-pulse">🗺️</div>
+                    <div className="flex justify-center"><MapIcon size={64} className="text-primary-500 animate-pulse" /></div>
                     <h2 className="text-3xl font-bold">Loading Roadmap...</h2>
                 </div>
             </div>
@@ -80,7 +81,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
         return (
             <div className="min-h-screen flex items-center justify-center p-4">
                 <div className="glass-card p-12 max-w-2xl w-full text-center space-y-6">
-                    <div className="text-6xl">⚠️</div>
+                    <div className="flex justify-center"><AlertTriangle size={64} className="text-red-400" /></div>
                     <h2 className="text-3xl font-bold text-red-400">Error Loading Roadmap</h2>
                     <p className="text-gray-300">{error || 'Roadmap not found'}</p>
                     <button onClick={onBack} className="btn-primary">
@@ -99,13 +100,13 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                     onClick={onBack}
                     className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
                 >
-                    <span>←</span>
+                    <ArrowLeft size={18} />
                     <span>Back to My Roadmaps</span>
                 </button>
 
                 {/* Header */}
                 <div className="glass-card p-8 text-center">
-                    <div className="text-6xl mb-4">🎯</div>
+                    <div className="flex justify-center mb-4"><Target size={64} className="text-purple-400" /></div>
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-3">
                         Career Roadmap
                     </h1>
@@ -115,18 +116,18 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                     <div className="flex items-center justify-center gap-4 flex-wrap">
                         <div className="bg-purple-500/20 px-6 py-2 rounded-full">
                             <span className="text-purple-300 font-semibold">
-                                ⏱️ {roadmap.estimated_timeline}
+                                <Clock size={16} className="inline mr-1" /> {roadmap.estimated_timeline}
                             </span>
                         </div>
                         <div className="bg-green-500/20 px-6 py-2 rounded-full">
                             <span className="text-green-300 font-semibold">
-                                ✓ {roadmap.skills_gap?.match_percentage?.toFixed(0) || 0}% Skills Match
+                                <Check size={16} className="inline mr-1" /> {roadmap.skills_gap?.match_percentage?.toFixed(0) || 0}% Skills Match
                             </span>
                         </div>
                         {roadmap.is_saved && (
                             <div className="bg-yellow-500/20 px-6 py-2 rounded-full">
                                 <span className="text-yellow-300 font-semibold">
-                                    ⭐ Saved
+                                    <Star size={16} className="inline mr-1" /> Saved
                                 </span>
                             </div>
                         )}
@@ -136,13 +137,13 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                 {/* Skills Gap Analysis */}
                 <div className="glass-card p-6">
                     <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                        <span>📊</span> Skills Analysis
+                        <BarChart3 size={20} className="inline mr-1" /> Skills Analysis
                     </h3>
                     <div className="grid md:grid-cols-2 gap-6">
                         {/* Matched Skills */}
                         <div>
                             <h4 className="text-lg font-semibold text-green-400 mb-3 flex items-center gap-2">
-                                <span>✓</span> Your Strengths ({roadmap.skills_gap?.matched_skills?.length || 0})
+                                <Check size={16} /> Your Strengths ({roadmap.skills_gap?.matched_skills?.length || 0})
                             </h4>
                             <div className="flex flex-wrap gap-2">
                                 {(roadmap.skills_gap.matched_skills || []).map((skill) => (
@@ -159,7 +160,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                         {/* Missing Skills */}
                         <div>
                             <h4 className="text-lg font-semibold text-orange-400 mb-3 flex items-center gap-2">
-                                <span>📚</span> Skills to Acquire ({roadmap.skills_gap?.missing_skills?.length || 0})
+                                <BookOpen size={16} /> Skills to Acquire ({roadmap.skills_gap?.missing_skills?.length || 0})
                             </h4>
                             <div className="flex flex-wrap gap-2">
                                 {(roadmap.skills_gap.missing_skills || []).map((skill) => (
@@ -178,7 +179,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                 {/* Learning Milestones */}
                 <div className="glass-card p-6">
                     <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                        <span>🎓</span> Learning Milestones
+                        <GraduationCap size={20} className="inline mr-1" /> Learning Milestones
                     </h3>
                     <div className="space-y-6">
                         {(roadmap.milestones || []).map((milestone, index) => (
@@ -207,7 +208,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
 
                                     {/* Goals */}
                                     <div className="mb-4">
-                                        <h5 className="text-sm font-semibold text-gray-300 mb-2">🎯 Goals:</h5>
+                                        <h5 className="text-sm font-semibold text-gray-300 mb-2"><Target size={14} className="inline mr-1" /> Goals:</h5>
                                         <ul className="space-y-1.5">
                                             {(milestone.goals || []).map((goal, i) => (
                                                 <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
@@ -220,7 +221,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
 
                                     {/* Resources */}
                                     <div className="mb-4">
-                                        <h5 className="text-sm font-semibold text-gray-300 mb-2">📚 Resources:</h5>
+                                        <h5 className="text-sm font-semibold text-gray-300 mb-2"><BookOpen size={14} className="inline mr-1" /> Resources:</h5>
                                         <ul className="space-y-1.5">
                                             {(milestone.resources || []).map((resource, i) => (
                                                 <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
@@ -234,7 +235,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                                     {/* Success Criteria */}
                                     {milestone.success_criteria && milestone.success_criteria.length > 0 && (
                                         <div>
-                                            <h5 className="text-sm font-semibold text-gray-300 mb-2">✅ Success Criteria:</h5>
+                                            <h5 className="text-sm font-semibold text-gray-300 mb-2"><CheckCircle size={14} className="inline mr-1" /> Success Criteria:</h5>
                                             <ul className="space-y-1.5">
                                                 {milestone.success_criteria.map((criteria, i) => (
                                                     <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
@@ -254,7 +255,7 @@ export const RoadmapViewer: React.FC<RoadmapViewerProps> = ({ roadmapId: propsRo
                 {/* Info */}
                 <div className="glass-card p-6 bg-blue-500/10 border border-blue-500/30">
                     <p className="text-sm text-gray-300 text-center">
-                        📅 Created on {new Date(roadmap.created_at).toLocaleDateString()}
+                        <Calendar size={14} className="inline mr-1" /> Created on {new Date(roadmap.created_at).toLocaleDateString()}
                     </p>
                 </div>
             </div>

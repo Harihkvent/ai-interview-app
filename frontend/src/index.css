@@ -10,33 +10,33 @@
   --bg-secondary: #f8f9fa;
   --bg-tertiary: #f5f5f5;
   --bg-hover: #f0f0f0;
-  
+
   --text-primary: #1a1a1a;
   --text-secondary: #3c3c3c;
   --text-tertiary: #6c6c6c;
   --text-muted: #9ca3af;
-  
+
   --border-primary: #e0e0e0;
   --border-secondary: #d1d1d1;
   --border-hover: #b3b3b3;
-  
+
   --card-bg: #ffffff;
   --card-border: #e5e7eb;
   --card-shadow: rgba(0, 0, 0, 0.05);
-  
+
   /* Accent Colors */
   --accent-primary: #0a84ff;
   --accent-primary-hover: #0066cc;
   --accent-primary-light: #e6f2ff;
   --accent-primary-dark: #005299;
-  
+
   --success: #10b981;
   --success-light: #d1fae5;
   --warning: #f59e0b;
   --warning-light: #fef3c7;
   --error: #ef4444;
   --error-light: #fee2e2;
-  
+
   /* Navbar & Sidebar */
   --navbar-bg: #ffffff;
   --navbar-border: #e5e7eb;
@@ -53,33 +53,33 @@
   --bg-secondary: #282828;
   --bg-tertiary: #2d2d2d;
   --bg-hover: #333333;
-  
+
   --text-primary: #e5e5e5;
   --text-secondary: #b3b3b3;
   --text-tertiary: #808080;
   --text-muted: #6b7280;
-  
+
   --border-primary: #3c3c3c;
   --border-secondary: #404040;
   --border-hover: #4d4d4d;
-  
+
   --card-bg: #242424;
   --card-border: #333333;
   --card-shadow: rgba(0, 0, 0, 0.3);
-  
+
   /* Accent Colors */
   --accent-primary: #3b82f6;
   --accent-primary-hover: #60a5fa;
   --accent-primary-light: #1e3a5f;
   --accent-primary-dark: #2563eb;
-  
+
   --success: #22c55e;
   --success-light: #1e3a2a;
   --warning: #fb923c;
   --warning-light: #3a2e1e;
   --error: #f87171;
   --error-light: #3a1e1e;
-  
+
   /* Navbar & Sidebar */
   --navbar-bg: #1f1f1f;
   --navbar-border: #333333;
@@ -102,23 +102,45 @@
   * {
     box-sizing: border-box;
   }
-  
+
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    font-family:
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      "Roboto",
+      "Oxygen",
+      "Ubuntu",
+      "Cantarell",
+      sans-serif;
     @apply min-h-screen transition-colors duration-200;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     color: var(--text-primary);
     @apply font-semibold;
   }
-  
-  h1 { @apply text-3xl; }
-  h2 { @apply text-2xl; }
-  h3 { @apply text-xl; }
-  h4 { @apply text-lg; }
+
+  h1 {
+    @apply text-3xl;
+  }
+  h2 {
+    @apply text-2xl;
+  }
+  h3 {
+    @apply text-xl;
+  }
+  h4 {
+    @apply text-lg;
+  }
 }
 
 /* ============================================
@@ -133,11 +155,11 @@
     box-shadow: 0 1px 3px var(--card-shadow);
     @apply rounded-lg transition-all duration-200;
   }
-  
+
   .card-hover {
     @apply hover:shadow-md hover:border-[var(--border-hover)] transition-all;
   }
-  
+
   /* Remove glassmorphism - use solid backgrounds */
   .glass-card {
     background-color: var(--card-bg);
@@ -145,7 +167,7 @@
     box-shadow: 0 1px 3px var(--card-shadow);
     @apply rounded-lg transition-all duration-200;
   }
-  
+
   /* Button Styles - Minimal & Clean */
   .btn-primary {
     background-color: var(--accent-primary);
@@ -157,7 +179,7 @@
            disabled:opacity-50 disabled:cursor-not-allowed
            focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-offset-2;
   }
-  
+
   .btn-secondary {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
@@ -167,7 +189,7 @@
            active:scale-[0.98]
            focus:outline-none focus:ring-2 focus:ring-[var(--border-hover)] focus:ring-offset-2;
   }
-  
+
   .btn-ghost {
     background-color: transparent;
     color: var(--text-secondary);
@@ -176,7 +198,7 @@
            hover:bg-[var(--bg-hover)]
            active:scale-[0.98];
   }
-  
+
   /* Input Styles */
   .input-field {
     background-color: var(--bg-primary);
@@ -186,36 +208,36 @@
            focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent
            placeholder:text-[var(--text-muted)];
   }
-  
+
   /* Badge Styles - Minimal */
   .badge {
     @apply inline-flex items-center px-3 py-1 rounded-md text-xs font-medium;
   }
-  
+
   .badge-primary {
     background-color: var(--accent-primary-light);
     color: var(--accent-primary);
     border: 1px solid var(--accent-primary);
   }
-  
+
   .badge-success {
     background-color: var(--success-light);
     color: var(--success);
     border: 1px solid var(--success);
   }
-  
+
   .badge-warning {
     background-color: var(--warning-light);
     color: var(--warning);
     border: 1px solid var(--warning);
   }
-  
+
   .badge-error {
     background-color: var(--error-light);
     color: var(--error);
     border: 1px solid var(--error);
   }
-  
+
   /* Typography Utilities */
   .text-gradient {
     background: linear-gradient(135deg, var(--accent-primary) 0%, #6366f1 100%);
@@ -224,53 +246,53 @@
     background-clip: text;
     @apply font-bold;
   }
-  
+
   .text-muted {
     color: var(--text-muted);
   }
-  
+
   /* Divider */
   .divider {
     height: 1px;
     background-color: var(--border-primary);
     @apply my-4;
   }
-  
+
   /* Link Styles */
   .link {
     color: var(--accent-primary);
     @apply hover:underline transition-all duration-200;
   }
-  
+
   /* Code Block Styles */
   .code-block {
     background-color: var(--bg-tertiary);
     border: 1px solid var(--border-primary);
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
     @apply rounded-lg p-4 text-sm overflow-x-auto;
   }
-  
+
   /* Stat Card - LeetCode Style */
   .stat-card {
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
     @apply rounded-lg p-6 transition-all duration-200 hover:shadow-md;
   }
-  
+
   .stat-card-title {
     color: var(--text-tertiary);
     @apply text-sm font-medium uppercase tracking-wide mb-2;
   }
-  
+
   .stat-card-value {
     color: var(--text-primary);
     @apply text-3xl font-bold mb-1;
   }
-  
+
   .stat-card-change {
     @apply text-sm font-medium;
   }
-  
+
   /* Navigation Styles */
   .nav-link {
     color: var(--text-secondary);
@@ -278,31 +300,31 @@
            hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]
            font-medium;
   }
-  
+
   .nav-link-active {
     background-color: var(--sidebar-active);
     color: var(--sidebar-active-text);
     @apply font-semibold;
   }
-  
+
   /* Table Styles */
   .table {
     width: 100%;
     border-collapse: collapse;
   }
-  
+
   .table th {
     background-color: var(--bg-secondary);
     color: var(--text-secondary);
     border-bottom: 2px solid var(--border-primary);
     @apply px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider;
   }
-  
+
   .table td {
     border-bottom: 1px solid var(--border-primary);
     @apply px-4 py-3 text-sm;
   }
-  
+
   .table tr:hover {
     background-color: var(--bg-hover);
   }
@@ -335,7 +357,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -364,11 +387,15 @@
 }
 
 .shadow-md {
-  box-shadow: 0 4px 6px -1px var(--card-shadow), 0 2px 4px -1px var(--card-shadow);
+  box-shadow:
+    0 4px 6px -1px var(--card-shadow),
+    0 2px 4px -1px var(--card-shadow);
 }
 
 .shadow-lg {
-  box-shadow: 0 10px 15px -3px var(--card-shadow), 0 4px 6px -2px var(--card-shadow);
+  box-shadow:
+    0 10px 15px -3px var(--card-shadow),
+    0 4px 6px -2px var(--card-shadow);
 }
 
 /* Scrollbar Styling */
@@ -390,8 +417,226 @@
   background: var(--border-hover);
 }
 
+/* ============================================
+   Theme Utility Classes
+   ============================================ */
+
+.theme-bg {
+  background-color: var(--bg-primary);
+}
+.theme-bg-s {
+  background-color: var(--bg-secondary);
+}
+.theme-bg-t {
+  background-color: var(--bg-tertiary);
+}
+.theme-bg-hover {
+  background-color: var(--bg-hover);
+}
+
+.theme-text {
+  color: var(--text-primary);
+}
+.theme-text-s {
+  color: var(--text-secondary);
+}
+.theme-text-t {
+  color: var(--text-tertiary);
+}
+.theme-text-m {
+  color: var(--text-muted);
+}
+
+.theme-border {
+  border-color: var(--border-primary);
+}
+.theme-border-s {
+  border-color: var(--border-secondary);
+}
+
+.theme-card {
+  background-color: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+.theme-input {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+}
+
+.theme-input:focus {
+  border-color: var(--accent-primary);
+  outline: none;
+}
+
 /* Selection */
 ::selection {
   background-color: var(--accent-primary-light);
   color: var(--accent-primary);
+}
+
+/* ============================================
+   Tailwind Dark-Mode Overrides
+   Remaps hardcoded Tailwind utility classes to
+   CSS variables so theme switching works globally
+   ============================================ */
+
+/* --- Background Overrides --- */
+.bg-black {
+  background-color: var(--bg-primary) !important;
+}
+.bg-zinc-950 {
+  background-color: var(--bg-primary) !important;
+}
+.bg-zinc-900 {
+  background-color: var(--card-bg) !important;
+}
+.bg-zinc-900\/80 {
+  background-color: color-mix(in srgb, var(--card-bg) 80%, transparent) !important;
+}
+.bg-zinc-900\/50 {
+  background-color: color-mix(in srgb, var(--card-bg) 50%, transparent) !important;
+}
+.bg-zinc-800 {
+  background-color: var(--bg-tertiary) !important;
+}
+.bg-zinc-700 {
+  background-color: var(--bg-hover) !important;
+}
+.bg-zinc-600 {
+  background-color: var(--border-hover) !important;
+}
+
+/* --- Text Overrides --- */
+.text-white {
+  color: var(--text-primary) !important;
+}
+.text-gray-300 {
+  color: var(--text-secondary) !important;
+}
+.text-gray-400 {
+  color: var(--text-muted) !important;
+}
+.text-gray-500 {
+  color: var(--text-muted) !important;
+}
+.text-gray-600 {
+  color: var(--text-muted) !important;
+}
+
+/* --- Border Overrides --- */
+.border-zinc-800 {
+  border-color: var(--card-border) !important;
+}
+.border-zinc-700 {
+  border-color: var(--border-primary) !important;
+}
+.border-zinc-600 {
+  border-color: var(--border-hover) !important;
+}
+.border-gray-700 {
+  border-color: var(--border-primary) !important;
+}
+.border-gray-800 {
+  border-color: var(--card-border) !important;
+}
+
+/* --- Hover State Overrides --- */
+.hover\:bg-zinc-800:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+.hover\:bg-zinc-700:hover {
+  background-color: var(--bg-hover) !important;
+}
+.hover\:bg-zinc-600:hover {
+  background-color: var(--border-hover) !important;
+}
+.hover\:border-zinc-700:hover {
+  border-color: var(--border-primary) !important;
+}
+.hover\:border-zinc-600:hover {
+  border-color: var(--border-hover) !important;
+}
+.hover\:text-white:hover {
+  color: var(--text-primary) !important;
+}
+.hover\:text-gray-300:hover {
+  color: var(--text-secondary) !important;
+}
+.hover\:bg-gray-200:hover {
+  background-color: var(--bg-hover) !important;
+}
+.hover\:bg-gray-100:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+/* --- Focus State Overrides --- */
+.focus\:border-white:focus {
+  border-color: var(--accent-primary) !important;
+}
+
+/* --- Group Hover Overrides --- */
+.group:hover .group-hover\:bg-zinc-700 {
+  background-color: var(--bg-hover) !important;
+}
+.group:hover .group-hover\:text-white {
+  color: var(--text-primary) !important;
+}
+.group:hover .group-hover\:text-gray-300 {
+  color: var(--text-secondary) !important;
+}
+
+/* --- Placeholder Overrides --- */
+.placeholder-gray-500::placeholder {
+  color: var(--text-muted) !important;
+}
+.placeholder-gray-400::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* --- Accent Button Overrides --- */
+/* Primary action buttons: bg-white text-black in dark mode → accent blue */
+button.bg-white,
+a.bg-white,
+[role="button"].bg-white {
+  background-color: var(--accent-primary) !important;
+  color: white !important;
+}
+button.bg-white:hover,
+a.bg-white:hover,
+[role="button"].bg-white:hover {
+  background-color: var(--accent-primary-hover) !important;
+}
+
+/* --- Divider lines --- */
+.bg-zinc-800 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* --- Ring/outline for zinc --- */
+.ring-zinc-800 {
+  --tw-ring-color: var(--card-border) !important;
+}
+.ring-zinc-700 {
+  --tw-ring-color: var(--border-primary) !important;
+}
+
+/* --- Gradient text fix --- */
+.from-white {
+  --tw-gradient-from: var(--text-primary) !important;
+}
+.to-zinc-400 {
+  --tw-gradient-to: var(--text-muted) !important;
+}
+.via-gray-300 {
+  --tw-gradient-via: var(--text-secondary) !important;
+}
+.to-gray-500 {
+  --tw-gradient-to: var(--text-muted) !important;
+}
+
+/* --- background-clip text gradients --- */
+.from-zinc-700 {
+  --tw-gradient-from: var(--border-primary) !important;
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Bot, User } from 'lucide-react';
 
 interface TranscriptEntry {
   role: 'avatar' | 'user';
@@ -44,7 +45,7 @@ export const TranscriptPanel: React.FC<TranscriptPanelProps> = ({ transcript, in
             >
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-bold">
-                  {entry.role === 'avatar' ? '🤖 AI Interviewer' : '👤 You'}
+                  {entry.role === 'avatar' ? <><Bot size={12} className="inline mr-1" /> AI Interviewer</> : <><User size={12} className="inline mr-1" /> You</>}
                 </span>
                 <span className="text-xs text-gray-400">
                   {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -60,7 +61,7 @@ export const TranscriptPanel: React.FC<TranscriptPanelProps> = ({ transcript, in
           <div className="flex justify-end">
             <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-green-500/10 text-green-200 border border-green-500/20 border-dashed">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold">👤 You</span>
+                <span className="text-xs font-bold"><User size={12} className="inline mr-1" /> You</span>
                 <span className="text-xs text-gray-400 animate-pulse">Speaking...</span>
               </div>
               <p className="text-sm leading-relaxed italic">{interimText}</p>

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Sun, Moon } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +12,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+
+  // Theme state
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   const menuItems = [
     { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', badge: null },
@@ -52,29 +67,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
   return (
     <div
-      className={`h-screen bg-zinc-950 border-r border-zinc-800 flex flex-col transition-all duration-300 ${
+      className={`h-screen flex flex-col transition-all duration-300 ${
         isOpen ? 'w-72' : 'w-20'
       }`}
+      style={{
+        backgroundColor: 'var(--sidebar-bg)',
+        borderRight: '1px solid var(--sidebar-border)',
+      }}
     >
       {/* Logo & Toggle */}
-      <div className="h-16 px-4 flex items-center justify-between border-b border-zinc-800">
+      <div className="h-16 px-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
         {isOpen && (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center">
-              <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}>
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg">CareerPath</h2>
-              <p className="text-gray-400 text-xs">AI Interview</p>
+              <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>CareerPath</h2>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>AI Interview</p>
             </div>
           </div>
         )}
         
         <button
           onClick={onToggle}
-          className={`p-2 rounded-lg bg-zinc-800 text-gray-300 hover:bg-zinc-700 transition-all ${!isOpen ? 'mx-auto' : ''}`}
+          className={`p-2 rounded-lg transition-all ${!isOpen ? 'mx-auto' : ''}`}
+          style={{
+            backgroundColor: 'var(--bg-hover)',
+            color: 'var(--text-secondary)',
+          }}
         >
           <svg
             className={`w-5 h-5 transition-transform ${!isOpen ? 'rotate-180' : ''}`}
@@ -95,15 +118,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
-                active
-                  ? 'bg-white text-black'
-                  : 'text-gray-400 hover:text-white hover:bg-zinc-800'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative`}
+              style={{
+                backgroundColor: active ? 'var(--sidebar-active)' : 'transparent',
+                color: active ? 'var(--sidebar-active-text)' : 'var(--text-secondary)',
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }
+              }}
             >
               {/* Active Indicator */}
               {active && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r" style={{ backgroundColor: 'var(--accent-primary)' }} />
               )}
 
               {/* Icon */}
@@ -120,11 +155,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                   
                   {/* Badge */}
                   {item.badge && (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                      active
-                        ? 'bg-black text-white'
-                        : 'bg-zinc-700 text-white'
-                    }`}>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{
+                      backgroundColor: active ? 'var(--accent-primary)' : 'var(--bg-hover)',
+                      color: active ? 'white' : 'var(--text-primary)',
+                    }}>
                       {item.badge}
                     </span>
                   )}
@@ -133,10 +167,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
               {/* Tooltip for collapsed state */}
               {!isOpen && (
-                <div className="absolute left-full ml-4 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                <div className="absolute left-full ml-4 px-3 py-2 rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
+                  style={{
+                    backgroundColor: 'var(--card-bg)',
+                    border: '1px solid var(--card-border)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
                   {item.label}
                   {item.badge && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full bg-zinc-700 text-xs font-bold">
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: 'var(--bg-hover)' }}>
                       {item.badge}
                     </span>
                   )}
@@ -149,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
       {/* Divider */}
       <div className="px-3">
-        <div className="h-px bg-zinc-800" />
+        <div className="h-px" style={{ backgroundColor: 'var(--border-primary)' }} />
       </div>
 
       {/* Bottom Navigation */}
@@ -160,11 +200,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
-                active
-                  ? 'bg-white text-black'
-                  : 'text-gray-400 hover:text-white hover:bg-zinc-800'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative`}
+              style={{
+                backgroundColor: active ? 'var(--sidebar-active)' : 'transparent',
+                color: active ? 'var(--sidebar-active-text)' : 'var(--text-secondary)',
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }
+              }}
             >
               <div className={`flex-shrink-0 ${!isOpen ? 'mx-auto' : ''}`}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -175,7 +227,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               {isOpen && <span className="flex-1 text-left font-medium">{item.label}</span>}
 
               {!isOpen && (
-                <div className="absolute left-full ml-4 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                <div className="absolute left-full ml-4 px-3 py-2 rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
+                  style={{
+                    backgroundColor: 'var(--card-bg)',
+                    border: '1px solid var(--card-border)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
                   {item.label}
                 </div>
               )}
@@ -185,30 +243,73 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       </div>
 
       {/* User Profile */}
-      <div className="px-3 pb-4 border-t border-zinc-800 pt-4">
+      <div className="px-3 pb-4 pt-4" style={{ borderTop: '1px solid var(--border-primary)' }}>
         <div 
           onClick={() => navigate('/profile')}
-          className={`flex items-center gap-3 px-3 py-3 rounded-xl bg-zinc-900 border border-zinc-800 cursor-pointer hover:border-zinc-700 transition-all ${
+          className={`flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all ${
             !isOpen ? 'justify-center' : ''
           }`}
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-primary)',
+          }}
         >
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center flex-shrink-0">
-            <span className="text-black font-bold text-sm">{getInitials()}</span>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}>
+            <span className="text-white font-bold text-sm">{getInitials()}</span>
           </div>
           
           {isOpen && (
             <div className="flex-1 min-w-0">
-              <p className="text-white font-medium truncate">{user?.full_name || user?.username || 'User'}</p>
-              <p className="text-gray-400 text-xs truncate">{user?.email || ''}</p>
+              <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{user?.full_name || user?.username || 'User'}</p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{user?.email || ''}</p>
             </div>
           )}
         </div>
+
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className={`w-full mt-3 flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${!isOpen ? 'justify-center' : ''}`}
+          style={{ color: 'var(--text-muted)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)';
+            e.currentTarget.style.color = 'var(--text-primary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'var(--text-muted)';
+          }}
+          title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+        >
+          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          {isOpen && <span className="font-medium">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>}
+          {!isOpen && (
+            <div className="absolute left-full ml-4 px-3 py-2 rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                border: '1px solid var(--card-border)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+            </div>
+          )}
+        </button>
 
         {/* Logout Button */}
         {isOpen && (
           <button
             onClick={handleLogout}
-            className="w-full mt-3 flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+            className="w-full mt-3 flex items-center gap-3 px-4 py-3 rounded-xl transition-all"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--error)';
+              e.currentTarget.style.backgroundColor = 'var(--error-light)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

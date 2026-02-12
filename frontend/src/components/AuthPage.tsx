@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 
@@ -73,28 +73,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center">
-              <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}>
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span className="text-2xl font-bold text-white">CareerPath AI</span>
+            <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>CareerPath AI</span>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">
+          <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </h1>
-          <p className="text-gray-400">
+          <p style={{ color: 'var(--text-muted)' }}>
             {isLogin ? 'Sign in to continue your interview prep' : 'Join and start your interview preparation'}
           </p>
         </div>
 
         {/* Auth Card */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+        <div className="rounded-2xl p-8" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
           {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center gap-3">
@@ -120,9 +120,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
           {/* Divider */}
           <div className="flex items-center gap-4 my-6">
-            <div className="h-px flex-1 bg-zinc-800"></div>
-            <span className="text-sm text-gray-500 uppercase tracking-wider">Or</span>
-            <div className="h-px flex-1 bg-zinc-800"></div>
+            <div className="h-px flex-1" style={{ backgroundColor: 'var(--border-primary)' }}></div>
+            <span className="text-sm uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Or</span>
+            <div className="h-px flex-1" style={{ backgroundColor: 'var(--border-primary)' }}></div>
           </div>
 
           {/* Form */}
@@ -130,14 +130,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             <div className="space-y-4 mb-6">
               {/* Email Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 rounded-xl transition-colors focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
                 />
               </div>
 
@@ -145,24 +150,34 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               {!isLogin && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Username</label>
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="johndoe"
                       required
-                      className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                      className="w-full px-4 py-3 rounded-xl transition-colors focus:outline-none"
+                      style={{
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1px solid var(--border-primary)',
+                        color: 'var(--text-primary)',
+                      }}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Full Name (Optional)</label>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Full Name (Optional)</label>
                     <input
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="John Doe"
-                      className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                      className="w-full px-4 py-3 rounded-xl transition-colors focus:outline-none"
+                      style={{
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1px solid var(--border-primary)',
+                        color: 'var(--text-primary)',
+                      }}
                     />
                   </div>
                 </>
@@ -170,28 +185,38 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
               {/* Password Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 rounded-xl transition-colors focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
                 />
               </div>
 
               {/* Confirm Password - Only for Register */}
               {!isLogin && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Confirm Password</label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                    className="w-full px-4 py-3 rounded-xl transition-colors focus:outline-none"
+                    style={{
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
+                      color: 'var(--text-primary)',
+                    }}
                   />
                 </div>
               )}
@@ -200,7 +225,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             {/* Forgot Password - Only for Login */}
             {isLogin && (
               <div className="flex items-center justify-end mb-6">
-                <a href="#" className="text-sm text-white hover:underline">Forgot password?</a>
+                <a href="#" className="text-sm hover:underline" style={{ color: 'var(--accent-primary)' }}>Forgot password?</a>
               </div>
             )}
 
@@ -208,11 +233,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-6 py-3.5 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+              className="w-full px-6 py-3.5 btn-primary rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-3">
-                  <span className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></span>
+                  <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
                   Processing...
                 </span>
               ) : (
@@ -221,18 +246,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             </button>
 
             {/* Toggle Mode Link */}
-            <p className="text-center text-sm text-gray-400">
+            <p className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>
               {isLogin ? (
-                <>Don't have an account? <button type="button" onClick={toggleMode} className="text-white hover:underline font-semibold">Sign up</button></>
+                <>Don't have an account? <button type="button" onClick={toggleMode} className="hover:underline font-semibold" style={{ color: 'var(--accent-primary)' }}>Sign up</button></>
               ) : (
-                <>Already have an account? <button type="button" onClick={toggleMode} className="text-white hover:underline font-semibold">Sign in</button></>
+                <>Already have an account? <button type="button" onClick={toggleMode} className="hover:underline font-semibold" style={{ color: 'var(--accent-primary)' }}>Sign in</button></>
               )}
             </p>
           </form>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-gray-500 mt-6">
+        <p className="text-center text-xs mt-6" style={{ color: 'var(--text-muted)' }}>
           Protected by reCAPTCHA and subject to the Google Privacy Policy
         </p>
       </div>

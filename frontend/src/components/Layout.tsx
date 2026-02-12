@@ -16,7 +16,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [isSidebarOpen]);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Fixed Sidebar */}
       <div className="fixed left-0 top-0 h-screen z-50">
         <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />

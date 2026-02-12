@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uploadResume, getSavedResumes, analyzeSavedResume } from '../api';
+import { 
+  FileText, 
+  FolderOpen, 
+  Upload, 
+  Check, 
+  ArrowLeft, 
+  ArrowRight,
+  Loader2
+} from 'lucide-react';
 
 interface SavedResume {
     id: string;
@@ -77,7 +86,7 @@ export const InterviewStart: React.FC = () => {
                         onClick={() => navigate('/dashboard')}
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
                     >
-                        <span>←</span>
+                        <ArrowLeft size={18} />
                         <span>Back to Dashboard</span>
                     </button>
                     <h2 className="text-lg font-semibold">New Interview</h2>
@@ -99,13 +108,13 @@ export const InterviewStart: React.FC = () => {
                     {/* Saved Resumes Section */}
                     {loadingResumes ? (
                         <div className="text-center py-4">
-                            <div className="text-2xl animate-pulse">📄</div>
+                            <Loader2 size={32} className="animate-spin text-primary-500" />
                             <p className="text-gray-400 text-sm">Loading your resumes...</p>
                         </div>
                     ) : savedResumes.length > 0 && (
                         <div className="space-y-3">
                             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                                📁 Your Saved Resumes
+                                <FolderOpen size={16} className="inline mr-1" /> Your Saved Resumes
                             </h3>
                             <div className="grid gap-3 max-h-60 overflow-y-auto">
                                 {savedResumes.slice(0, 5).map(resume => (
@@ -115,7 +124,7 @@ export const InterviewStart: React.FC = () => {
                                         disabled={isLoading}
                                         className="w-full flex items-center gap-4 p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary-500/50 rounded-xl transition-all text-left group disabled:opacity-50"
                                     >
-                                        <span className="text-2xl group-hover:scale-110 transition-transform">📄</span>
+                                        <FileText size={24} className="text-primary-400 group-hover:scale-110 transition-transform" />
                                         <div className="flex-1 min-w-0">
                                             <div className="font-semibold text-white truncate">
                                                 {resume.candidate_name || resume.name || resume.filename}
@@ -125,7 +134,7 @@ export const InterviewStart: React.FC = () => {
                                             </div>
                                         </div>
                                         <span className="text-primary-400 opacity-0 group-hover:opacity-100 transition-all font-medium">
-                                            Start →
+                                            Start <ArrowRight size={16} className="inline" />
                                         </span>
                                     </button>
                                 ))}
@@ -153,7 +162,7 @@ export const InterviewStart: React.FC = () => {
                             }`}
                     >
                         <div className="space-y-4">
-                            <div className="text-5xl">📤</div>
+                            <Upload size={48} className="text-gray-400" />
                             <div>
                                 <p className="text-lg text-gray-300 mb-2">Drag and drop your resume here</p>
                                 <p className="text-sm text-gray-400 mb-4">or</p>
@@ -175,7 +184,7 @@ export const InterviewStart: React.FC = () => {
                     {resumeFile && (
                         <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <span className="text-2xl">✓</span>
+                                <Check size={24} className="text-green-500" />
                                 <div>
                                     <p className="font-medium">{resumeFile.name}</p>
                                     <p className="text-sm text-gray-400">{(resumeFile.size / 1024).toFixed(2)} KB</p>

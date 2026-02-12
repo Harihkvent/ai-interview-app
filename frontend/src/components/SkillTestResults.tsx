@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { BarChart3, AlertTriangle, ArrowLeft, Check, X, FileText, SkipForward, Clock, Lightbulb, CheckCircle, XCircle } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -58,7 +59,7 @@ export const SkillTestResults: React.FC = () => {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4 flex items-center justify-center">
                 <div className="glass-card p-8 text-center">
-                    <div className="text-6xl mb-4 animate-pulse">📊</div>
+                    <div className="flex justify-center mb-4"><BarChart3 size={64} className="text-primary-500 animate-pulse" /></div>
                     <p className="text-xl text-gray-300">Loading results...</p>
                 </div>
             </div>
@@ -70,7 +71,7 @@ export const SkillTestResults: React.FC = () => {
             <div className="p-4">
                 <div className="max-w-4xl mx-auto">
                     <div className="glass-card p-8 text-center">
-                        <div className="text-6xl mb-4">⚠️</div>
+                        <div className="flex justify-center mb-4"><AlertTriangle size={64} className="text-red-400" /></div>
                         <p className="text-xl text-red-400 mb-4">{error || 'No results found'}</p>
                         <button onClick={() => navigate('/skill-tests')} className="btn-primary">
                             Back to Tests
@@ -82,7 +83,7 @@ export const SkillTestResults: React.FC = () => {
     }
 
     const scoreColor = results.passed ? 'text-green-400' : 'text-red-400';
-    const scoreIcon = results.passed ? '✅' : '❌';
+    const scoreIcon = results.passed ? <CheckCircle size={80} className="text-green-400" /> : <XCircle size={80} className="text-red-400" />;
 
     return (
         <div className="p-4">
@@ -93,18 +94,18 @@ export const SkillTestResults: React.FC = () => {
                         onClick={() => navigate('/skill-tests')}
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
                     >
-                        <span>←</span>
+                        <ArrowLeft size={18} />
                         <span>Back to Tests</span>
                     </button>
                     <h2 className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
-                        📊 Test Results
+                        <BarChart3 size={20} className="inline mr-1" /> Test Results
                     </h2>
                     <div className="w-32"></div>
                 </div>
 
                 {/* Score Card */}
                 <div className="glass-card p-8 text-center">
-                    <div className="text-8xl mb-4">{scoreIcon}</div>
+                    <div className="flex justify-center mb-4">{scoreIcon}</div>
                     <h3 className="text-3xl font-bold mb-2">{results.test_name}</h3>
                     <div className={`text-6xl font-bold mb-4 ${scoreColor}`}>
                         {results.score.toFixed(1)}%
@@ -120,24 +121,24 @@ export const SkillTestResults: React.FC = () => {
                 {/* Stats */}
                 <div className={`grid grid-cols-1 md:grid-cols-${results.skipped_count && results.skipped_count > 0 ? '4' : '3'} gap-4`}>
                     <div className="glass-card p-6 text-center">
-                        <div className="text-4xl mb-2">✓</div>
+                        <div className="flex justify-center mb-2"><Check size={32} className="text-green-400" /></div>
                         <div className="text-3xl font-bold text-green-400">{results.correct_answers}</div>
                         <div className="text-sm text-gray-400">Correct Answers</div>
                     </div>
                     <div className="glass-card p-6 text-center">
-                        <div className="text-4xl mb-2">📝</div>
+                        <div className="flex justify-center mb-2"><FileText size={32} className="text-white" /></div>
                         <div className="text-3xl font-bold text-white">{results.total_questions}</div>
                         <div className="text-sm text-gray-400">Total Questions</div>
                     </div>
                     {results.skipped_count && results.skipped_count > 0 && (
                         <div className="glass-card p-6 text-center">
-                            <div className="text-4xl mb-2">⏭️</div>
+                            <div className="flex justify-center mb-2"><SkipForward size={32} className="text-yellow-400" /></div>
                             <div className="text-3xl font-bold text-yellow-400">{results.skipped_count}</div>
                             <div className="text-sm text-gray-400">Skipped</div>
                         </div>
                     )}
                     <div className="glass-card p-6 text-center">
-                        <div className="text-4xl mb-2">⏱️</div>
+                        <div className="flex justify-center mb-2"><Clock size={32} className="text-purple-400" /></div>
                         <div className="text-3xl font-bold text-purple-400">
                             {Math.floor(results.time_taken / 60)}:{(results.time_taken % 60).toString().padStart(2, '0')}
                         </div>
@@ -149,7 +150,7 @@ export const SkillTestResults: React.FC = () => {
                 {results.recommendations && results.recommendations.length > 0 && (
                     <div className="glass-card p-6">
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <span>💡</span>
+                            <Lightbulb size={20} />
                             <span>Recommendations</span>
                         </h3>
                         <div className="space-y-2">
@@ -187,7 +188,7 @@ export const SkillTestResults: React.FC = () => {
                                                 ? 'text-green-400'
                                                 : 'text-red-400'
                                         }`}>
-                                            {answer.is_skipped ? '⏭️' : answer.is_correct ? '✓' : '✗'}
+                                            {answer.is_skipped ? <SkipForward size={24} /> : answer.is_correct ? <Check size={24} /> : <X size={24} />}
                                         </span>
                                     </div>
                                     <p className="text-gray-300 mb-3">{answer.question_text}</p>
