@@ -7,6 +7,7 @@ import logging
 
 from analytics_models import PerformanceMetrics, AnalyticsSnapshot
 from models import InterviewSession, InterviewRound, Question, Answer
+from avatar_interview_models import AvatarInterviewSession, AvatarQuestion, AvatarResponse
 
 logger = logging.getLogger("analytics_service")
 
@@ -15,10 +16,17 @@ async def calculate_user_metrics(user_id: str) -> Dict:
     """Calculate comprehensive metrics for a user"""
     try:
         # Get all completed sessions
-        sessions = await InterviewSession.find(
+        regular_sessions = await InterviewSession.find(
             InterviewSession.user_id == user_id,
             InterviewSession.status == "completed"
         ).to_list()
+        
+        avatar_sessions = await AvatarInterviewSession.find(
+            AvatarInterviewSession.user_id == user_id,
+            AvatarInterviewSession.status == "completed"
+        ).to_list()
+        
+        sessions = regular_sessions + avatar_sessions
         
         if not sessions:
             return {
@@ -64,44 +72,97 @@ async def _calculate_round_performance(user_id: str, sessions: List) -> Dict:
     round_stats = {}
     
     for session in sessions:
-        rounds = await InterviewRound.find(
-            InterviewRound.session_id == str(session.id),
-            InterviewRound.status == "completed"
-        ).to_list()
-        
-        for round_obj in rounds:
-            round_type = round_obj.round_type
-            
-            if round_type not in round_stats:
-                round_stats[round_type] = {
-                    "total_questions": 0,
-                    "total_score": 0.0,
-                    "total_time": 0,
-                    "count": 0
-                }
-            
-            # Get questions and answers for this round
-            questions = await Question.find(
-                Question.round_id == str(round_obj.id)
+        if isinstance(session, InterviewSession):
+            rounds = await InterviewRound.find(
+                InterviewRound.session_id == str(session.id),
+                InterviewRound.status == "completed"
             ).to_list()
             
-            round_score = 0.0
-            for question in questions:
-                answer = await Answer.find_one(
-                    Answer.question_id == str(question.id)
-                )
-                if answer:
-                    round_score += answer.score
+            for round_obj in rounds:
+                round_type = round_obj.round_type
+                
+                if round_type not in round_stats:
+                    round_stats[round_type] = {
+                        "total_questions": 0,
+                        "total_score": 0.0,
+                        "total_time": 0,
+                        "count": 0
+                    }
+                
+                # Get questions and answers for this round
+                questions = await Question.find(
+                    Question.round_id == str(round_obj.id)
+                ).to_list()
+                
+                round_score = 0.0
+                for question in questions:
+                    answer = await Answer.find_one(
+                        Answer.question_id == str(question.id)
+                    )
+                    if answer:
+                        round_score += answer.score
+                
+                round_stats[round_type]["total_questions"] += len(questions)
+                round_stats[round_type]["total_score"] += round_score
+                round_stats[round_type]["total_time"] += round_obj.total_time_seconds
+                round_stats[round_type]["count"] += 1
+        
+        elif isinstance(session, AvatarInterviewSession):
+            # Avatar sessions have rounds in the model but they don't have separate InterviewRound docs
+            # Instead they have round_type in AvatarQuestion and AvatarResponse
+            # To match the structure, we'll iterate through completed rounds for the avatar session
             
-            round_stats[round_type]["total_questions"] += len(questions)
-            round_stats[round_type]["total_score"] += round_score
-            round_stats[round_type]["total_time"] += round_obj.total_time_seconds
-            round_stats[round_type]["count"] += 1
+            # Since AvatarInterviewSession doesn't explicitly track completed rounds in a separate model,
+            # we infer from the current_round and questions answered if status is completed.
+            # However, for simplicity, let's group by round_type in responses.
+            
+            responses = await AvatarResponse.find(
+                AvatarResponse.session_id == str(session.id),
+                AvatarResponse.status == "submitted"
+            ).to_list()
+            
+            # Group responses by round_type (from related question)
+            round_data_map = {} # round_type -> {score, count, time}
+            
+            for resp in responses:
+                ques = await AvatarQuestion.get(resp.question_id)
+                if not ques: continue
+                
+                rtype = ques.round_type
+                if rtype not in round_data_map:
+                    round_data_map[rtype] = {"score": 0.0, "count": 0, "time": 0}
+                
+                round_data_map[rtype]["score"] += resp.score
+                round_data_map[rtype]["count"] += 1
+                round_data_map[rtype]["time"] += resp.time_taken_seconds
+            
+            for rtype, rstats in round_data_map.items():
+                if rtype not in round_stats:
+                    round_stats[rtype] = {
+                        "total_questions": 0,
+                        "total_score": 0.0,
+                        "total_time": 0,
+                        "count": 0
+                    }
+                
+                round_stats[rtype]["total_questions"] += rstats["count"]
+                round_stats[rtype]["total_score"] += rstats["score"]
+                round_stats[rtype]["total_time"] += rstats["time"]
+                round_stats[rtype]["count"] += 1 # Treating one session's round as 1 count
     
     # Calculate averages
     for round_type, stats in round_stats.items():
         count = stats["count"]
-        stats["avg_score"] = round(stats["total_score"] / count, 2) if count > 0 else 0.0
+        # Score is per session-round, so we need average per question or per session?
+        # Regular logic: total_score / count (where count is number of session-rounds)
+        # However, regular total_score is sum over questions. 
+        # Wait, if regular total_score is sum over questions, and count is per session-round,
+        # then avg_score is average per session-round.
+        # For avatar, I grouped by round_type across the session.
+        stats["avg_score"] = round(stats["total_score"] / stats["total_questions"], 2) if stats["total_questions"] > 0 else 0.0
+        # If the UI expects score out of 10, and evaluation returns 0-10, then it's fine.
+        # But regular interviews have multiple rounds, and the UI shows avg per round type.
+        
         stats["avg_time"] = stats["total_time"] // count if count > 0 else 0
         stats["avg_questions"] = stats["total_questions"] // count if count > 0 else 0
     
@@ -119,9 +180,17 @@ async def _calculate_improvement_trend(sessions: List) -> List[Dict]:
     )
     
     for session in sorted_sessions:
+        score = session.total_score
+        session_type = "regular"
+        if isinstance(session, AvatarInterviewSession):
+            # Normalize to average score if it's an avatar session
+            score = session.total_score / session.questions_answered if session.questions_answered > 0 else 0.0
+            session_type = "avatar"
+            
         trend.append({
             "date": session.completed_at.isoformat(),
-            "score": round(session.total_score, 2)
+            "score": round(score, 2),
+            "type": session_type
         })
     
     return trend
@@ -132,11 +201,19 @@ async def get_performance_trends(user_id: str, days: int = 30) -> Dict:
     try:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        sessions = await InterviewSession.find(
+        regular_sessions = await InterviewSession.find(
             InterviewSession.user_id == user_id,
             InterviewSession.status == "completed",
             InterviewSession.completed_at >= cutoff_date
         ).sort("+completed_at").to_list()
+        
+        avatar_sessions = await AvatarInterviewSession.find(
+            AvatarInterviewSession.user_id == user_id,
+            AvatarInterviewSession.status == "completed",
+            AvatarInterviewSession.completed_at >= cutoff_date
+        ).sort("+completed_at").to_list()
+        
+        sessions = sorted(regular_sessions + avatar_sessions, key=lambda x: x.completed_at)
         
         if not sessions:
             return {
@@ -147,21 +224,25 @@ async def get_performance_trends(user_id: str, days: int = 30) -> Dict:
             }
         
         trend_data = []
-        total_score = 0.0
+        total_normalized_score = 0.0
         
         for session in sessions:
+            score = session.total_score
+            if isinstance(session, AvatarInterviewSession):
+                score = session.total_score / session.questions_answered if session.questions_answered > 0 else 0.0
+                
             trend_data.append({
                 "date": session.completed_at.strftime("%Y-%m-%d"),
-                "score": round(session.total_score, 2),
+                "score": round(score, 2),
                 "time_spent": session.total_time_seconds
             })
-            total_score += session.total_score
+            total_normalized_score += score
         
         return {
             "period_days": days,
             "total_interviews": len(sessions),
             "trend_data": trend_data,
-            "avg_score": round(total_score / len(sessions), 2)
+            "avg_score": round(total_normalized_score / len(sessions), 2)
         }
     except Exception as e:
         logger.error(f"Error getting performance trends: {str(e)}")

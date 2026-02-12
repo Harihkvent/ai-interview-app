@@ -234,7 +234,9 @@ export const AnalyticsDashboard: React.FC = () => {
                                         {Math.round(item.score * 10)}
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-semibold text-white">{item.round_type ? item.round_type.charAt(0).toUpperCase() + item.round_type.slice(1) : 'Interview'} Session</div>
+                                        <div className="font-semibold text-white">
+                                            {item.type === 'avatar' ? 'AI Avatar' : (item.round_type ? item.round_type.charAt(0).toUpperCase() + item.round_type.slice(1) : 'Interview')} Session
+                                        </div>
                                         <div className="text-sm text-gray-400">{new Date(item.date || Date.now()).toLocaleDateString()}</div>
                                     </div>
                                     <button 
