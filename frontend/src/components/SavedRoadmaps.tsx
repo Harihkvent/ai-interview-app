@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllRoadmaps, deleteRoadmap } from '../api';
+import { useToast } from '../contexts/ToastContext';
 import { useConfirmDialog } from './ConfirmDialog';
 
 interface Roadmap {
@@ -16,6 +17,7 @@ interface SavedRoadmapsProps {
 
 export const SavedRoadmaps: React.FC<SavedRoadmapsProps> = ({ onViewRoadmap }) => {
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+    const { showToast } = useToast();
     const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -48,7 +50,7 @@ export const SavedRoadmaps: React.FC<SavedRoadmapsProps> = ({ onViewRoadmap }) =
             setRoadmaps(roadmaps.filter(r => r.id !== roadmapId));
         } catch (error) {
             console.error('Failed to delete roadmap:', error);
-            alert('Failed to delete roadmap');
+            showToast('Failed to delete roadmap', 'error');
         }
     };
 

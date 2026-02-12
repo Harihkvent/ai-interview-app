@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 
 interface Resume {
   id: string;
@@ -9,6 +10,7 @@ interface Resume {
 
 export const AvatarInterviewStart: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [selectedResume, setSelectedResume] = useState<string>('');
   const [selectedRounds, setSelectedRounds] = useState<string[]>(['hr', 'technical']);
@@ -81,11 +83,11 @@ export const AvatarInterviewStart: React.FC = () => {
       setUploadFile(null);
       
       // Show success message
-      alert('✅ Resume uploaded successfully!');
+      showToast('Resume uploaded successfully!', 'success');
       
     } catch (error: any) {
       console.error('Error uploading resume:', error);
-      alert(error.message || 'Failed to upload resume. Please try again.');
+      showToast(error.message || 'Failed to upload resume. Please try again.', 'error');
     } finally {
       setUploading(false);
     }
@@ -93,12 +95,12 @@ export const AvatarInterviewStart: React.FC = () => {
 
   async function handleStart() {
     if (!selectedResume) {
-      alert('Please select a resume first');
+      showToast('Please select a resume first', 'warning');
       return;
     }
 
     if (selectedRounds.length === 0) {
-      alert('Please select at least one round');
+      showToast('Please select at least one round', 'warning');
       return;
     }
 
@@ -125,7 +127,7 @@ export const AvatarInterviewStart: React.FC = () => {
       navigate(`/avatar-interview/${data.session_id}`);
     } catch (error) {
       console.error('Error starting interview:', error);
-      alert('Failed to start interview. Please try again.');
+      showToast('Failed to start interview. Please try again.', 'error');
       setLoading(false);
     }
   }

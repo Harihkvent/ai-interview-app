@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { getJobMatches, generateRoadmap, uploadResume, analyzeResume } from '../api';
 import { cacheService } from '../services/cacheService';
 
@@ -18,6 +19,7 @@ interface JobMatcherProps {
 }
 
 export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId, onSessionIdChange, onRoadmapGenerated }) => {
+    const { showToast } = useToast();
     const [matches, setMatches] = useState<JobMatch[]>([]);
     const [loading, setLoading] = useState(false);
     const [stage, setStage] = useState<'upload' | 'results'>('upload');
@@ -139,7 +141,7 @@ export const JobMatcher: React.FC<JobMatcherProps> = ({ sessionId: propSessionId
             onRoadmapGenerated();
         } catch (err: any) {
             console.error('Failed to generate roadmap:', err);
-            alert(err.response?.data?.detail || 'Failed to generate roadmap');
+            showToast(err.response?.data?.detail || 'Failed to generate roadmap', 'error');
         } finally {
             setGenerating(false);
             setSelectedJob(null);

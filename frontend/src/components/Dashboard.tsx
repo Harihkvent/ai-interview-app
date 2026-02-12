@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getActiveSession, deleteInterview } from '../api';
 import { useConfirmDialog } from './ConfirmDialog';
@@ -67,6 +68,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onViewRoadmaps, onNavigate }) => {
   const { token } = useAuth();
+  const { showToast } = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const location = useLocation();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -130,7 +132,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
       }
     } catch (err) {
       console.error('Failed to delete interview:', err);
-      alert('Failed to delete interview history');
+      showToast('Failed to delete interview history', 'error');
     }
   };
 

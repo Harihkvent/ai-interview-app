@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AvatarDisplay, preloadAvatar } from './AvatarDisplay';
 import { useVoiceController } from './VoiceController';
+import { useToast } from '../contexts/ToastContext';
 import { TranscriptPanel } from './TranscriptPanel';
 
 interface Question {
@@ -23,6 +24,7 @@ interface TranscriptEntry {
 export const AvatarInterviewSession: React.FC = () => {
   const { id: sessionId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -46,6 +48,7 @@ export const AvatarInterviewSession: React.FC = () => {
     isSupported,
     speak,
     stopSpeaking,
+    stopListening,
     startListening
   } = useVoiceController({
     onTranscriptComplete: (text) => handleAnswerCompleteRef.current(text),
@@ -116,7 +119,7 @@ export const AvatarInterviewSession: React.FC = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error loading session:', error);
-      alert('Failed to load interview session. Please try again.');
+      showToast('Failed to load interview session. Please try again.', 'error');
       navigate('/avatar-interview/start');
       setLoading(false);
     }
@@ -146,10 +149,8 @@ export const AvatarInterviewSession: React.FC = () => {
       console.log('🎤 Question finished speaking');
       // After question is spoken, optionally start listening
       if (thenListen) {
-        console.log('👂 Starting listening in 500ms...');
-        setTimeout(() => {
-          startListening();
-        }, 500);
+        console.log('👂 Starting listening...');
+        startListening();
       }
     });
   }, [speak, startListening, setTranscript]);
@@ -315,7 +316,23 @@ export const AvatarInterviewSession: React.FC = () => {
 
   function handleEnd() {
     if (confirm('Are you sure you want to end the interview?')) {
-      handleInterviewComplete();
+      // Immediately stop all voice activity
+      stopSpeaking();
+      stopListening();
+
+      // Finalize on the backend and navigate
+      fetch(`http://localhost:8000/api/avatar-interview/finalize?session_id=${sessionId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      }).catch(err => console.error('Error finalizing:', err));
+
+      navigate('/dashboard', {
+        state: {
+          message: 'AI Avatar Interview completed! Check your history for the report.'
+        }
+      });
     }
   }
 

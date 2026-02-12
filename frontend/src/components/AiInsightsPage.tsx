@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { getUserDashboard, uploadProfileResume } from '../api';
 
 interface InsightsData {
@@ -13,6 +14,7 @@ interface InsightsData {
 export const AiInsightsPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -41,7 +43,7 @@ export const AiInsightsPage: React.FC = () => {
     if (file && (file.type === 'application/pdf' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
         setResumeFile(file);
     } else {
-        alert('Please upload a PDF or DOCX file');
+        showToast('Please upload a PDF or DOCX file', 'warning');
     }
   };
 
@@ -55,7 +57,7 @@ export const AiInsightsPage: React.FC = () => {
           setShowUpload(false);
       } catch (error) {
           console.error("Upload failed", error);
-          alert("Failed to upload resume");
+          showToast('Failed to upload resume', 'error');
       } finally {
           setUploading(false);
       }

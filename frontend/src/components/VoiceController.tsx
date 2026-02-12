@@ -9,7 +9,6 @@ interface VoiceControllerProps {
 export const useVoiceController = ({
   onTranscriptComplete,
   onSpeakingStateChange,
-  autoStart = false
 }: VoiceControllerProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -21,7 +20,6 @@ export const useVoiceController = ({
   const finalTranscriptRef = useRef('');
   const hasSubmittedRef = useRef(false);
   const isListeningRef = useRef(false);
-  const voicesLoadedRef = useRef(false);
   const onTranscriptCompleteRef = useRef(onTranscriptComplete);
 
   // Keep the ref updated with the latest callback
@@ -46,13 +44,11 @@ export const useVoiceController = ({
 
     recognition.onresult = (event: any) => {
       let interim = '';
-      let hasFinalResult = false;
       
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           finalTranscriptRef.current += transcript + ' ';
-          hasFinalResult = true;
           console.log('Final transcript:', transcript);
         } else {
           interim += transcript;
@@ -92,7 +88,7 @@ export const useVoiceController = ({
         }
         
         finalTranscriptRef.current = '';
-      }, 2000);
+      }, 4000);
     };
 
     recognition.onerror = (event: any) => {
@@ -140,8 +136,10 @@ export const useVoiceController = ({
         clearTimeout(silenceTimerRef.current);
       }
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
       }
+      // Stop any ongoing speech synthesis
+      window.speechSynthesis.cancel();
     };
   }, []);  // Remove onTranscriptComplete from dependencies
 
@@ -271,11 +269,9 @@ export const useVoiceController = ({
       setIsSpeaking(false);
       onSpeakingStateChange?.(false);
       
-      // Call the onEnd callback without auto-starting listening
+      // Call the onEnd callback immediately without auto-starting listening
       // Listening will be manually controlled by the caller
-      setTimeout(() => {
-        onEnd?.();
-      }, 500);
+      onEnd?.();
     };
 
     utterance.onerror = (event) => {

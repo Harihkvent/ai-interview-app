@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import { 
     getUpcomingSchedules, 
     createScheduledInterview, 
@@ -28,6 +29,7 @@ interface Preferences {
 
 export const ScheduleInterview: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [preferences, setPreferences] = useState<Preferences | null>(null);
@@ -71,7 +73,7 @@ export const ScheduleInterview: React.FC = () => {
             setFormData({ title: '', scheduled_time: '', duration_minutes: 60, description: '' });
             loadData();
         } catch (err: any) {
-            alert(err.message || 'Failed to create schedule');
+            showToast(err.message || 'Failed to create schedule', 'error');
         }
     };
 
@@ -86,7 +88,7 @@ export const ScheduleInterview: React.FC = () => {
             await cancelSchedule(scheduleId);
             loadData();
         } catch (err: any) {
-            alert(err.message || 'Failed to cancel schedule');
+            showToast(err.message || 'Failed to cancel schedule', 'error');
         }
     };
 
@@ -95,7 +97,7 @@ export const ScheduleInterview: React.FC = () => {
             const updated = await updateSchedulePreferences(updates);
             setPreferences(updated.preferences);
         } catch (err: any) {
-            alert(err.message || 'Failed to update preferences');
+            showToast(err.message || 'Failed to update preferences', 'error');
         }
     };
 

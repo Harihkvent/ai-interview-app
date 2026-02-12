@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import axios from 'axios';
 import { useConfirmDialog } from './ConfirmDialog';
 
@@ -16,6 +17,7 @@ interface Question {
 export const SkillTestSession: React.FC = () => {
     const { attemptId } = useParams<{ attemptId: string }>();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
     const [answer, setAnswer] = useState('');
@@ -44,7 +46,7 @@ export const SkillTestSession: React.FC = () => {
                 }
             } catch (err) {
                 console.error('Error loading initial question:', err);
-                alert('Failed to load test. Please try again.');
+                showToast('Failed to load test. Please try again.', 'error');
                 navigate('/skill-tests');
             } finally {
                 setInitialLoading(false);
@@ -84,7 +86,7 @@ export const SkillTestSession: React.FC = () => {
                 handleCompleteTest();
             }
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to submit answer');
+            showToast(err.response?.data?.detail || 'Failed to submit answer', 'error');
         } finally {
             setLoading(false);
         }
@@ -113,7 +115,7 @@ export const SkillTestSession: React.FC = () => {
                 handleCompleteTest();
             }
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to skip question');
+            showToast(err.response?.data?.detail || 'Failed to skip question', 'error');
         } finally {
             setLoading(false);
         }
@@ -129,7 +131,7 @@ export const SkillTestSession: React.FC = () => {
             );
             navigate(`/skill-tests/results/${attemptId}`);
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to complete test');
+            showToast(err.response?.data?.detail || 'Failed to complete test', 'error');
         }
     };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import { getSavedJobs, saveJob, generateRoadmap, prepareForJob, uploadResume } from '../api';
 
 interface JobMatch {
@@ -18,6 +19,7 @@ interface JobMatch {
 }
 
 export const SavedJobs: React.FC = () => {
+    const { showToast } = useToast();
     const [savedJobs, setSavedJobs] = useState<JobMatch[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export const SavedJobs: React.FC = () => {
                 setSelectedJob(job);
                 setShowUploadDialog(true);
             } else {
-                alert('Failed to generate roadmap. Please try again.');
+                showToast('Failed to generate roadmap. Please try again.', 'error');
             }
         } finally {
             setActionLoading(null);
@@ -95,7 +97,7 @@ export const SavedJobs: React.FC = () => {
             navigate('/roadmaps');
         } catch (err) {
             console.error('Failed to upload resume or generate roadmap:', err);
-            alert('Failed to process. Please try again.');
+            showToast('Failed to process. Please try again.', 'error');
         } finally {
             setUploadingResume(false);
         }
@@ -110,7 +112,7 @@ export const SavedJobs: React.FC = () => {
             }
         } catch (err) {
             console.error('Failed to start preparation:', err);
-            alert('Failed to start interview preparation.');
+            showToast('Failed to start interview preparation.', 'error');
         } finally {
             setActionLoading(null);
         }

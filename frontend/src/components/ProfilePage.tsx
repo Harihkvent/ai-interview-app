@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
     getProfileResumes, 
@@ -29,6 +30,7 @@ interface UserPreferences {
 export const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
+    const { showToast } = useToast();
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [activeTab, setActiveTab] = useState<'overview' | 'resumes' | 'settings'>('overview');
     
@@ -161,13 +163,13 @@ export const ProfilePage: React.FC = () => {
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('Please upload an image file (JPG, PNG)');
+            showToast('Please upload an image file (JPG, PNG)', 'warning');
             return;
         }
 
         // Validate file size (max 2MB)
         if (file.size > 2 * 1024 * 1024) {
-            alert('Image size should be less than 2MB');
+            showToast('Image size should be less than 2MB', 'warning');
             return;
         }
 

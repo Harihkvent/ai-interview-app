@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { getJobMatches, uploadResume, analyzeResumeLive, saveJob, getActiveSession } from '../api';
 
 interface JobMatch {
@@ -18,6 +19,7 @@ interface JobMatch {
 }
 
 export const LiveJobs: React.FC = () => {
+    const { showToast } = useToast();
     const [matches, setMatches] = useState<JobMatch[]>([]);
     const [loading, setLoading] = useState(false);
     const [stage, setStage] = useState<'upload' | 'results'>('upload');
@@ -98,7 +100,7 @@ export const LiveJobs: React.FC = () => {
         if (link) {
             window.open(link, '_blank');
         } else {
-            alert('Application link not available for this job.');
+            showToast('Application link not available for this job.', 'warning');
         }
     };
 

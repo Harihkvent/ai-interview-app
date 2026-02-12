@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import { getAvailableSkillTests, startSkillTest, getSkillTestHistory } from '../api';
 import axios from 'axios';
 import { useConfirmDialog } from './ConfirmDialog';
@@ -28,6 +29,7 @@ interface TestHistory {
 
 export const SkillTests: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [tests, setTests] = useState<SkillTest[]>([]);
     const [history, setHistory] = useState<TestHistory[]>([]);
@@ -71,7 +73,7 @@ export const SkillTests: React.FC = () => {
             const response = await startSkillTest(testId);
             navigate(`/skill-tests/${response.attempt_id}`);
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to start test');
+            showToast(err.response?.data?.detail || 'Failed to start test', 'error');
         }
     };
 
@@ -87,9 +89,9 @@ export const SkillTests: React.FC = () => {
             setShowGenerateForm(false);
             setGenerateForm({ skill_name: '', category: 'programming', count: 10 });
             loadData();
-            alert('Test generated successfully!');
+            showToast('Test generated successfully!', 'success');
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to generate test');
+            showToast(err.response?.data?.detail || 'Failed to generate test', 'error');
         }
     };
 
@@ -107,9 +109,9 @@ export const SkillTests: React.FC = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             loadData();
-            alert('Test deleted successfully!');
+            showToast('Test deleted successfully!', 'success');
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to delete test');
+            showToast(err.response?.data?.detail || 'Failed to delete test', 'error');
         }
     };
 
@@ -127,9 +129,9 @@ export const SkillTests: React.FC = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             loadData();
-            alert('Attempt deleted successfully!');
+            showToast('Attempt deleted successfully!', 'success');
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to delete attempt');
+            showToast(err.response?.data?.detail || 'Failed to delete attempt', 'error');
         }
     };
 

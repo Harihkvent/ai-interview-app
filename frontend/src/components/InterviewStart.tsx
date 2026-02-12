@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import { uploadResume, getSavedResumes, analyzeSavedResume } from '../api';
 import { 
   FileText, 
@@ -21,6 +22,7 @@ interface SavedResume {
 
 export const InterviewStart: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [savedResumes, setSavedResumes] = useState<SavedResume[]>([]);
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -46,7 +48,7 @@ export const InterviewStart: React.FC = () => {
         if (file && (file.type === 'application/pdf' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
             setResumeFile(file);
         } else {
-            alert('Please upload a PDF or DOCX file');
+            showToast('Please upload a PDF or DOCX file', 'warning');
         }
     };
 
@@ -59,7 +61,7 @@ export const InterviewStart: React.FC = () => {
             navigate(`/interview/${data.session_id}`);
         } catch (error) {
             console.error('Error uploading resume:', error);
-            alert('Failed to upload resume. Please try again.');
+            showToast('Failed to upload resume. Please try again.', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -72,7 +74,7 @@ export const InterviewStart: React.FC = () => {
             navigate(`/interview/${data.session_id}`);
         } catch (error) {
             console.error('Error starting interview with saved resume:', error);
-            alert('Failed to start interview. Please try again.');
+            showToast('Failed to start interview. Please try again.', 'error');
         } finally {
             setIsLoading(false);
         }
