@@ -20,6 +20,8 @@ export const useVoiceController = ({
   const silenceTimerRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef('');
   const hasSubmittedRef = useRef(false);
+  const isListeningRef = useRef(false);
+  const voicesLoadedRef = useRef(false);
   const onTranscriptCompleteRef = useRef(onTranscriptComplete);
 
   // Keep the ref updated with the latest callback
@@ -78,6 +80,7 @@ export const useVoiceController = ({
           }
         }
         
+        isListeningRef.current = false;
         setIsListening(false);
         setInterimTranscript('');
         
@@ -109,6 +112,7 @@ export const useVoiceController = ({
 
     recognition.onend = () => {
       console.log('Recognition ended');
+      isListeningRef.current = false;
       setIsListening(false);
       
       // Clear the silence timer
@@ -147,9 +151,9 @@ export const useVoiceController = ({
       return;
     }
 
-    // Don't start if already listening
-    if (isListening) {
-      console.log('Already listening, skipping start');
+    // Use ref instead of state to avoid stale closure issues
+    if (isListeningRef.current) {
+      console.log('Already listening (ref check), skipping start');
       return;
     }
 
@@ -161,23 +165,26 @@ export const useVoiceController = ({
     try {
       console.log('Starting speech recognition... (hasSubmittedRef reset to false)');
       recognitionRef.current.start();
+      isListeningRef.current = true;
       setIsListening(true);
     } catch (error: any) {
       // If already started, ignore the error
       if (error.message && error.message.includes('already started')) {
         console.log('Recognition already started, but flags are reset');
+        isListeningRef.current = true;
         setIsListening(true);
       } else {
         console.error('Error starting recognition:', error);
       }
     }
-  }, [isSupported, isListening]);
+  }, [isSupported]);
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
 
     try {
       recognitionRef.current.stop();
+      isListeningRef.current = false;
       setIsListening(false);
       setInterimTranscript('');
       
@@ -189,7 +196,46 @@ export const useVoiceController = ({
     }
   }, []);
 
-  const speak = useCallback((text: string, onEnd?: () => void) => {
+  // Helper to get a male English voice
+  const selectMaleVoice = useCallback((voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
+    return voices.find(v => 
+      (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Mark')) && 
+      v.lang.includes('en')
+    ) || voices.find(v => 
+      v.name.includes('Google') && v.lang.includes('en-US')
+    ) || voices.find(v => 
+      v.lang.includes('en-US')
+    ) || voices.find(v => 
+      v.lang.includes('en')
+    ) || null;
+  }, []);
+
+  // Ensure voices are loaded (returns a promise)
+  const ensureVoicesLoaded = useCallback((): Promise<SpeechSynthesisVoice[]> => {
+    return new Promise((resolve) => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        resolve(voices);
+        return;
+      }
+      // Voices not yet loaded — wait for the event
+      const handler = () => {
+        const v = window.speechSynthesis.getVoices();
+        if (v.length > 0) {
+          window.speechSynthesis.removeEventListener('voiceschanged', handler);
+          resolve(v);
+        }
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', handler);
+      // Safety timeout: if voices never load, resolve with empty after 2s
+      setTimeout(() => {
+        window.speechSynthesis.removeEventListener('voiceschanged', handler);
+        resolve(window.speechSynthesis.getVoices());
+      }, 2000);
+    });
+  }, []);
+
+  const speak = useCallback(async (text: string, onEnd?: () => void) => {
     if (!window.speechSynthesis) {
       console.error('Speech Synthesis not supported');
       onEnd?.();
@@ -199,35 +245,21 @@ export const useVoiceController = ({
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
+    // Wait for voices to be available
+    const voices = await ensureVoicesLoaded();
+    console.log(`[VoiceController] ${voices.length} voices available`);
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.9; // Slightly slower for clarity
     utterance.pitch = 0.9; // Slightly lower pitch for male voice
     utterance.volume = 1.0;
 
-    // Load voices if not already loaded
-    let voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) {
-      // Voices might not be loaded yet, wait for them
-      window.speechSynthesis.onvoiceschanged = () => {
-        voices = window.speechSynthesis.getVoices();
-      };
-    }
-
-    // Prefer male voices - try multiple options
-    const maleVoice = voices.find(v => 
-      (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Mark')) && 
-      v.lang.includes('en')
-    ) || voices.find(v => 
-      v.name.includes('Google') && v.lang.includes('en-US')
-    ) || voices.find(v => 
-      v.lang.includes('en-US')
-    ) || voices.find(v => 
-      v.lang.includes('en')
-    );
-    
+    const maleVoice = selectMaleVoice(voices);
     if (maleVoice) {
       utterance.voice = maleVoice;
       console.log('Using voice:', maleVoice.name);
+    } else {
+      console.warn('No male voice found, using browser default');
     }
 
     utterance.onstart = () => {
@@ -254,7 +286,7 @@ export const useVoiceController = ({
     };
 
     window.speechSynthesis.speak(utterance);
-  }, [autoStart, startListening, onSpeakingStateChange]);
+  }, [ensureVoicesLoaded, selectMaleVoice, onSpeakingStateChange]);
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis.cancel();
