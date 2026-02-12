@@ -385,10 +385,46 @@ export const AvatarInterviewSession: React.FC = () => {
         {/* Left: Avatar and Question */}
         <div className="space-y-6">
           {/* Avatar Display */}
-          <AvatarDisplay 
-            animationState={animationState}
-            isSpeaking={isSpeaking}
-          />
+          <div className="relative">
+            <AvatarDisplay 
+              animationState={animationState}
+              isSpeaking={isSpeaking}
+            />
+
+            {/* Start Interview Overlay */}
+            {!interviewStarted && currentQuestion && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl"
+                style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+              >
+                <div className="text-center">
+                  <div className="text-5xl mb-4">🎙️</div>
+                  <h3 className="text-xl font-bold mb-2 text-white">Ready to Begin</h3>
+                  <p className="text-sm text-gray-400 mb-6 max-w-xs">
+                    Click below to start. The AI avatar will ask you questions via voice.
+                  </p>
+                  <button
+                    onClick={handleStartInterview}
+                    className="px-8 py-3 rounded-xl font-bold text-lg transition-all"
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                      color: 'white',
+                      boxShadow: '0 4px 24px rgba(59,130,246,0.3)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 8px 32px rgba(59,130,246,0.5)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 4px 24px rgba(59,130,246,0.3)';
+                    }}
+                  >
+                    Start Interview
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Current Question Display */}
           {currentQuestion && (
