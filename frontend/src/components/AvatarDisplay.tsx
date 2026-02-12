@@ -16,6 +16,9 @@ const BLINK_KEYS_R = ['eyeBlinkRight', 'eyeBlink_R', 'eye_blink_right'];
 const SMILE_KEYS = ['mouthSmile', 'mouthSmileLeft', 'mouthSmileRight'];
 const BROW_KEYS = ['browInnerUp', 'browOuterUpLeft', 'browOuterUpRight'];
 
+// Head tilt offset (negative X = look upward) so avatar faces the camera
+const HEAD_TILT_UP = -0.15;
+
 // ─── Helper: find first matching morph target index on a mesh ───
 function findMorphIndex(mesh: THREE.SkinnedMesh | THREE.Mesh, keys: string[]): number {
   const dict = mesh.morphTargetDictionary;
@@ -270,21 +273,22 @@ function Avatar3DModel({ glbPath, animationState, isSpeaking }: Avatar3DProps) {
 
         if (animationState === 'listening') {
           // Attentive slight tilt
+          headTarget.rotation.x = (baseRot?.x || 0) + HEAD_TILT_UP;
           headTarget.rotation.z = (baseRot?.z || 0) + Math.sin(time * 0.8) * 0.03;
           headTarget.rotation.y = (baseRot?.y || 0) + Math.sin(time * 0.5) * 0.04;
         } else if (animationState === 'thinking') {
           // Thoughtful slow movement
+          headTarget.rotation.x = (baseRot?.x || 0) + HEAD_TILT_UP + Math.sin(time * 0.2) * 0.02;
           headTarget.rotation.z = (baseRot?.z || 0) + Math.sin(time * 0.3) * 0.04;
           headTarget.rotation.y = (baseRot?.y || 0) + Math.sin(time * 0.4) * 0.05;
-          headTarget.rotation.x = (baseRot?.x || 0) + Math.sin(time * 0.2) * 0.02;
         } else if (speaking) {
           // Gentle nods while speaking
-          headTarget.rotation.x = (baseRot?.x || 0) + Math.sin(time * 2.5) * 0.015;
+          headTarget.rotation.x = (baseRot?.x || 0) + HEAD_TILT_UP + Math.sin(time * 2.5) * 0.015;
           headTarget.rotation.y = (baseRot?.y || 0) + Math.sin(time * 1.8) * 0.02;
         } else {
           // Idle: very subtle movement
+          headTarget.rotation.x = (baseRot?.x || 0) + HEAD_TILT_UP + Math.sin(time * 0.4) * 0.008;
           headTarget.rotation.y = (baseRot?.y || 0) + Math.sin(time * 0.6) * 0.015;
-          headTarget.rotation.x = (baseRot?.x || 0) + Math.sin(time * 0.4) * 0.008;
         }
       } else {
         // No bones found — animate the whole model subtly
