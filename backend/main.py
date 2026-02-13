@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -116,7 +117,7 @@ async def track_requests(request, call_next):
 app.include_router(auth_router)  # Authentication routes
 app.include_router(user_router)  # User dashboard and management
 from profile_routes import router as profile_router
-app.include_router(profile_router) # New Profile & Resume Management
+app.include_router(profile_router, prefix="/api/v1/profile") # New Profile & Resume Management
 app.include_router(router)  # Main application routes
 from interview_router import router as interview_router
 app.include_router(interview_router) # New modular interview routes
@@ -139,6 +140,12 @@ app.include_router(avatar_interview_router)  # Avatar Interview (prefix already 
 # Mount Prometheus metrics endpoint
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
+
+# Mount static files for uploads (profile photos, etc.)
+from file_handler import BASE_UPLOAD_DIR
+import os
+os.makedirs(BASE_UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=BASE_UPLOAD_DIR), name="uploads")
 
 @app.get("/health")
 async def health_check():

@@ -8,7 +8,7 @@ from models import Resume, UserPreferences
 from file_handler import extract_resume_text
 from resume_service import process_resume_upload
 
-router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
+router = APIRouter(tags=["profile"])
 
 # ============= Resume Management =============
 
@@ -124,10 +124,66 @@ async def update_preferences(
         prefs = UserPreferences(user_id=str(current_user.id), **prefs_data)
         await prefs.insert()
     else:
-        # Update fields
-        for k, v in prefs_data.items():
-            if hasattr(prefs, k):
-                setattr(prefs, k, v)
-        await prefs.save()
+        # Update fields, excluding ID fields to avoid validation errors
+        update_data = {k: v for k, v in prefs_data.items() if k not in ["id", "_id", "user_id"]}
+        if update_data:
+            await prefs.update({"$set": update_data})
+            # Update the object in memory for the response
+            for k, v in update_data.items():
+                if hasattr(prefs, k):
+                    setattr(prefs, k, v)
         
     return {"message": "Preferences updated", "preferences": prefs.dict()}
+
+@router.put("/")
+async def update_profile(
+    profile_data: dict = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Update general user profile details"""
+    if "full_name" in profile_data:
+        current_user.full_name = profile_data["full_name"]
+    if "username" in profile_data:
+        current_user.username = profile_data["username"]
+    if "current_location" in profile_data:
+        current_user.current_location = profile_data["current_location"]
+    
+    await current_user.save()
+    return {"message": "Profile updated successfully", "user": {
+        "full_name": current_user.full_name,
+        "username": current_user.username,
+        "current_location": current_user.current_location
+    }}
+
+@router.post("/photo")
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload and persist profile photo"""
+    try:
+        import os
+        from file_handler import BASE_UPLOAD_DIR
+        
+        # Create profile_photos directory if not exists
+        profile_photo_dir = os.path.join(BASE_UPLOAD_DIR, "profile_photos")
+        os.makedirs(profile_photo_dir, exist_ok=True)
+        
+        # Save file
+        file_ext = os.path.splitext(file.filename)[1]
+        file_name = f"profile_{current_user.id}{file_ext}"
+        file_path = os.path.join(profile_photo_dir, file_name)
+        
+        with open(file_path, "wb") as buffer:
+            import shutil
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Update user model with URL (using relative path for now)
+        # In a real app this would be a full URL from a CDN
+        photo_url = f"/uploads/profile_photos/{file_name}"
+        current_user.profile_picture_url = photo_url
+        await current_user.save()
+        
+        return {"message": "Photo uploaded successfully", "photo_url": photo_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -15,6 +15,7 @@ class User(Document):
     password_hash: Optional[str] = None  # Optional for OAuth users
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None  # For OAuth profile pictures
+    current_location: Optional[str] = None
     oauth_provider: Optional[str] = None  # e.g., "google", "email"
     oauth_user_id: Optional[str] = None  # Provider's unique user ID
     active_resume_id: Optional[str] = None # Currently selected resume context

@@ -6,8 +6,11 @@ import {
     getUserPreferences,
     updateUserPreferences,
     updateUserProfile,
-    getProfileResumes
+    uploadProfilePhoto,
+    getProfileResumes,
+    getUserDashboard
 } from '../api';
+import { Info, HelpCircle } from 'lucide-react';
 import { useConfirmDialog } from './ConfirmDialog';
 import { ResumePicker } from './ResumePicker';
 import { 
@@ -30,6 +33,9 @@ import {
 interface UserPreferences {
     target_role?: string;
     target_salary?: string;
+    target_salary_inr?: string;
+    target_salary_usd?: string;
+    interested_roles?: string[];
     preferred_locations?: string[];
 }
 
@@ -40,7 +46,7 @@ export const ProfilePage: React.FC = () => {
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     // Profile State
     const [isEditingProfile, setIsEditingProfile] = useState(false);
-    const [profileForm, setProfileForm] = useState({ full_name: '', username: '' });
+    const [profileForm, setProfileForm] = useState({ full_name: '', username: '', current_location: '' });
     const [profileLoading, setProfileLoading] = useState(false);
     const [resumeCount, setResumeCount] = useState(0);
 
@@ -53,19 +59,26 @@ export const ProfilePage: React.FC = () => {
     const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
 
+    // Dashboard Stats State
+    const [stats, setStats] = useState<any>(null);
+    const [showRankInfo, setShowRankInfo] = useState(false);
+
     useEffect(() => {
         loadResumeStats();
         loadPreferences();
+        loadDashboardStats();
         if (user) {
             setProfileForm({
                 full_name: user.full_name || '',
-                username: user.username || ''
+                username: user.username || '',
+                current_location: user.current_location || ''
             });
-        }
-        // Load profile photo from localStorage
-        const savedPhoto = localStorage.getItem(`profile_photo_${user?.email}`);
-        if (savedPhoto) {
-            setProfilePhoto(savedPhoto);
+            // Set profile photo from backend if available
+            if (user.profile_picture_url) {
+                setProfilePhoto(user.profile_picture_url.startsWith('http') 
+                    ? user.profile_picture_url 
+                    : `http://localhost:8000${user.profile_picture_url}`);
+            }
         }
     }, [user]);
 
@@ -95,7 +108,7 @@ export const ProfilePage: React.FC = () => {
     };
 
     // ============ Profile Photo Logic ============
-    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -111,17 +124,26 @@ export const ProfilePage: React.FC = () => {
             return;
         }
 
-        // Read and store as base64
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64String = reader.result as string;
-            setProfilePhoto(base64String);
-            // Store in localStorage
-            if (user?.email) {
-                localStorage.setItem(`profile_photo_${user.email}`, base64String);
-            }
-        };
-        reader.readAsDataURL(file);
+        try {
+            const response = await uploadProfilePhoto(file);
+            const photoUrl = response.photo_url.startsWith('http') 
+                ? response.photo_url 
+                : `http://localhost:8000${response.photo_url}`;
+            setProfilePhoto(photoUrl);
+            showToast('Profile photo updated', 'success');
+        } catch (error) {
+            console.error('Failed to upload photo', error);
+            showToast('Failed to upload photo', 'error');
+        }
+    };
+
+    const loadDashboardStats = async () => {
+        try {
+            const data = await getUserDashboard();
+            setStats(data.stats);
+        } catch (err) {
+            console.error('Failed to load dashboard stats');
+        }
     };
 
     // ============ Preferences Logic ============
@@ -212,6 +234,16 @@ export const ProfilePage: React.FC = () => {
                                             className="w-full px-5 py-4 bg-black/40 border border-zinc-700 rounded-2xl text-white font-medium focus:border-white transition-all outline-none"
                                         />
                                     </div>
+                                    <div className="space-y-1 text-left">
+                                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Current Location</label>
+                                        <input 
+                                            type="text" 
+                                            value={profileForm.current_location} 
+                                            onChange={e => setProfileForm({...profileForm, current_location: e.target.value})}
+                                            className="w-full px-5 py-4 bg-black/40 border border-zinc-700 rounded-2xl text-white font-medium focus:border-white transition-all outline-none"
+                                            placeholder="e.g. Bangalore, India"
+                                        />
+                                    </div>
                                     <div className="flex gap-4 pt-2">
                                         <button type="submit" disabled={profileLoading} className="px-8 py-4 bg-white text-black rounded-2xl font-black text-sm hover:scale-105 transition-all">
                                             {profileLoading ? 'SYCHRONIZING...' : 'SAVE CHANGES'}
@@ -237,7 +269,7 @@ export const ProfilePage: React.FC = () => {
                                         </div>
                                         <div className="px-5 py-2.5 bg-zinc-800 border border-zinc-700 rounded-xl text-zinc-400 font-black text-[10px] tracking-widest uppercase flex items-center gap-2">
                                             <MapPin className="w-3.5 h-3.5" />
-                                            {getLocationString().split(',')[0]}
+                                            {user?.current_location || 'Location Not Set'}
                                         </div>
                                     </div>
                                 </div>
@@ -260,12 +292,19 @@ export const ProfilePage: React.FC = () => {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                     {[
                         { label: 'Cloud Resumes', value: resumeCount, sub: 'Active Files', icon: FileText, color: 'text-blue-400' },
-                        { label: 'Global Ranking', value: '42', sub: 'Top 5%', icon: Trophy, color: 'text-yellow-400' },
-                        { label: 'Skill Points', value: '1,280', sub: 'Master Level', icon: Zap, color: 'text-primary-400' },
-                        { label: 'Account Age', value: '14d', sub: 'Loyalty Tier 1', icon: Star, color: 'text-purple-400' },
+                        { label: 'Global Ranking', value: stats?.global_rank || '42', sub: `Top ${stats?.percentile || '5'}%`, icon: Trophy, color: 'text-yellow-400', clickable: true },
+                        { label: 'Skill Points', value: stats?.skill_points?.toLocaleString() || '1,280', sub: 'Master Level', icon: Zap, color: 'text-primary-400', clickable: true },
+                        { label: 'Account Age', value: stats?.member_since ? `${Math.floor((new Date().getTime() - new Date(stats.member_since).getTime()) / (1000 * 60 * 60 * 24))}d` : '14d', sub: 'Loyalty Tier 1', icon: Star, color: 'text-purple-400' },
                     ].map((stat, i) => (
-                        <div key={i} className="bg-zinc-900/40 border border-zinc-800 rounded-[2rem] p-8 backdrop-blur-3xl shadow-xl space-y-4 hover:bg-zinc-900/60 transition-all cursor-default">
-                            <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                        <div 
+                            key={i} 
+                            onClick={stat.clickable ? () => setShowRankInfo(true) : undefined}
+                            className={`bg-zinc-900/40 border border-zinc-800 rounded-[2rem] p-8 backdrop-blur-3xl shadow-xl space-y-4 hover:bg-zinc-900/60 transition-all cursor-default ${stat.clickable ? 'cursor-pointer group/stat' : ''}`}
+                        >
+                            <div className="flex justify-between items-start">
+                                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                                {stat.clickable && <HelpCircle className="w-4 h-4 text-zinc-600 group-hover/stat:text-zinc-400 transition-colors" />}
+                            </div>
                             <div>
                                 <div className="text-3xl font-black text-white tracking-tight">{stat.value}</div>
                                 <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{stat.label}</div>
@@ -375,12 +414,35 @@ export const ProfilePage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Reward Expectation</label>
+                                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Interested Roles (Comma Separated)</label>
                                                     <input 
                                                         type="text" 
-                                                        value={preferences.target_salary || ''}
-                                                        onChange={e => setPreferences({...preferences, target_salary: e.target.value})}
-                                                        placeholder="e.g. $200k+"
+                                                        value={preferences.interested_roles?.join(', ') || ''}
+                                                        onChange={e => setPreferences({...preferences, interested_roles: e.target.value.split(',').map(s => s.trim())})}
+                                                        placeholder="e.g. Backend Engineer, Tech Lead"
+                                                        className="w-full px-6 py-4 bg-black/40 border border-zinc-800 rounded-2xl text-white font-medium focus:border-white transition-all outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Salary Expectation (INR)</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={preferences.target_salary_inr || ''}
+                                                        onChange={e => setPreferences({...preferences, target_salary_inr: e.target.value})}
+                                                        placeholder="e.g. ₹20,00,000"
+                                                        className="w-full px-6 py-4 bg-black/40 border border-zinc-800 rounded-2xl text-white font-medium focus:border-white transition-all outline-none"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Salary Expectation (USD)</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={preferences.target_salary_usd || ''}
+                                                        onChange={e => setPreferences({...preferences, target_salary_usd: e.target.value})}
+                                                        placeholder="e.g. $150,000"
                                                         className="w-full px-6 py-4 bg-black/40 border border-zinc-800 rounded-2xl text-white font-medium focus:border-white transition-all outline-none"
                                                     />
                                                 </div>
@@ -433,6 +495,54 @@ export const ProfilePage: React.FC = () => {
                 </div>
             </div>
             <ConfirmDialogComponent />
+            
+            {/* Rank Explanation Modal */}
+            {showRankInfo && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fadeIn">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-[3rem] p-10 max-w-2xl w-full space-y-8 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/10 blur-[80px] rounded-full -mr-20 -mt-20 group-hover:bg-primary-500/20 transition-all duration-700" />
+                        
+                        <div className="relative space-y-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                                    <Zap className="w-6 h-6 text-primary-400" />
+                                </div>
+                                <h2 className="text-3xl font-black text-white tracking-tighter uppercase">Intelligence Mechanics</h2>
+                            </div>
+
+                            <div className="space-y-6 text-zinc-400 font-medium leading-relaxed">
+                                <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] space-y-3">
+                                    <h3 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                                        <Zap className="w-3.5 h-3.5 text-primary-400" />
+                                        Skill Points (SP)
+                                    </h3>
+                                    <p className="text-sm">Accumulated through tactical performance. Your score in interviews is weighted (10x) and combined with raw scores from Skill Assessments.</p>
+                                    <div className="pt-2 flex items-center gap-3 text-[10px] font-black text-zinc-500">
+                                        <span className="px-2 py-1 bg-black/40 rounded-lg border border-zinc-800 uppercase tracking-widest">Interview Score × 10</span>
+                                        <span className="text-white">+</span>
+                                        <span className="px-2 py-1 bg-black/40 rounded-lg border border-zinc-800 uppercase tracking-widest">Skill Test Score</span>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] space-y-3">
+                                    <h3 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                                        <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+                                        Global Ranking
+                                    </h3>
+                                    <p className="text-sm">Your relative position in the entire operative network. Operatives are sorted by total Skill Points. Percentile indicates your dominance over the network population.</p>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => setShowRankInfo(false)}
+                                className="w-full py-5 bg-white text-black rounded-[2rem] font-black text-xs tracking-[0.2em] uppercase hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
+                            >
+                                ACKNOWLEDGED
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

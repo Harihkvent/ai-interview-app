@@ -11,6 +11,7 @@ from auth_models import User
 from models import InterviewSession, CareerRoadmap, InterviewRound, Answer, Question, Resume, JobMatch
 from avatar_interview_models import AvatarInterviewSession
 from file_handler import extract_resume_text
+from user_service import get_user_performance_summary
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -391,19 +392,27 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
                 "parsed_skills": resume.parsed_skills
             }
     
+    # Get performance stats (points and rank)
+    performance_stats = await get_user_performance_summary(user_id)
+    
     return {
         "user": {
             "id": str(current_user.id),
             "username": current_user.username,
             "email": current_user.email,
-            "full_name": current_user.full_name
+            "full_name": current_user.full_name,
+            "current_location": current_user.current_location,
+            "profile_picture_url": current_user.profile_picture_url
         },
         "active_resume": active_resume_data,
         "stats": {
             "total_interviews": total_interviews,
             "completed_interviews": completed_interviews,
             "saved_roadmaps": saved_roadmaps,
-            "member_since": current_user.created_at.isoformat()
+            "member_since": current_user.created_at.isoformat(),
+            "skill_points": performance_stats["skill_points"],
+            "global_rank": performance_stats["global_rank"],
+            "percentile": performance_stats["percentile"]
         },
         "recent_interviews": combined_recent,
         "recent_roadmaps": [

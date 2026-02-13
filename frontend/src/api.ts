@@ -447,8 +447,20 @@ export const updateUserPreferences = async (data: any) => {
 export const updateUserProfile = async (data: {
   full_name?: string;
   username?: string;
+  current_location?: string;
 }) => {
   const response = await api.put("/auth/profile", data);
+  return response.data;
+};
+
+export const uploadProfilePhoto = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post("/api/v1/profile/photo", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return response.data;
 };
 
