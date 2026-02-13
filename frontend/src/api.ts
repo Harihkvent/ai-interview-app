@@ -400,12 +400,11 @@ export const getSavedJobs = async () => {
 
 // ============= Profile & Insights Functions =============
 
-export const uploadProfileResume = async (file: File) => {
+export const uploadProfileResume = async (file: File, isPrimary: boolean = false) => {
   const formData = new FormData();
   formData.append("file", file);
-  // Explicitly set is_primary=true if we want this to be the active resume for insights
   const response = await api.post(
-    "/api/v1/profile/resumes?is_primary=true",
+    `/api/v1/profile/resumes?is_primary=${isPrimary}`,
     formData,
     {
       headers: {

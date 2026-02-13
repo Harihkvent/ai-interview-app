@@ -45,10 +45,12 @@ class Resume(Document):
     file_path: Optional[str] = None
     candidate_name: Optional[str] = None
     candidate_email: Optional[str] = None
+    content_hash: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:
         name = "resumes"
+        indexes = ["user_id", "content_hash"]
 
 
 class InterviewRound(Document):

@@ -73,13 +73,6 @@ def extract_skills(text: str) -> List[str]:
 def deduplicate_jobs(matches: List[Dict], similarity_threshold: float = 0.85) -> List[Dict]:
     """
     Remove duplicate jobs based on title and description similarity
-    
-    Args:
-        matches: List of job matches with 'job_title' and 'job_description'
-        similarity_threshold: Threshold for considering jobs as duplicates (0-1)
-    
-    Returns:
-        Deduplicated list of job matches
     """
     if not matches:
         return matches
@@ -89,30 +82,36 @@ def deduplicate_jobs(matches: List[Dict], similarity_threshold: float = 0.85) ->
     seen_titles = {}  # title -> index mapping
     
     for i, match in enumerate(matches):
-        title = match['job_title'].lower().strip()
-        description = match['job_description'].lower().strip()
+        title = match.get('job_title', '').lower().strip()
+        description = match.get('job_description', '').lower().strip()
         
+        if not title:
+            continue
+            
         # Check for exact title match
         is_duplicate = False
         for seen_title, seen_idx in seen_titles.items():
             # Exact title match
             if title == seen_title:
                 is_duplicate = True
+                # Keep the one with higher match percentage
+                if match.get('match_percentage', 0) > matches[seen_idx].get('match_percentage', 0):
+                    if seen_idx in keep_indices:
+                        keep_indices.remove(seen_idx)
+                    keep_indices.append(i)
+                    seen_titles[title] = i
                 break
             
             # Check title similarity (simple substring check)
             if title in seen_title or seen_title in title:
-                # Also check description similarity
-                seen_desc = matches[seen_idx]['job_description'].lower().strip()
+                seen_desc = matches[seen_idx].get('job_description', '').lower().strip()
                 
-                # Simple similarity: check if descriptions are very similar
-                # Using Jaccard similarity on words
+                # Simple similarity: Jaccard similarity on words
                 title_words = set(title.split())
                 seen_title_words = set(seen_title.split())
                 desc_words = set(description.split())
                 seen_desc_words = set(seen_desc.split())
                 
-                # Calculate Jaccard similarity for descriptions
                 if desc_words and seen_desc_words:
                     intersection = len(desc_words & seen_desc_words)
                     union = len(desc_words | seen_desc_words)
@@ -120,13 +119,12 @@ def deduplicate_jobs(matches: List[Dict], similarity_threshold: float = 0.85) ->
                     
                     if jaccard_sim > similarity_threshold:
                         is_duplicate = True
-                        # Keep the one with higher match percentage
-                        if match['match_percentage'] > matches[seen_idx]['match_percentage']:
-                            # Replace the old one with this one
-                            keep_indices.remove(seen_idx)
+                        if match.get('match_percentage', 0) > matches[seen_idx].get('match_percentage', 0):
+                            if seen_idx in keep_indices:
+                                keep_indices.remove(seen_idx)
                             keep_indices.append(i)
                             seen_titles[title] = i
-                            del seen_titles[seen_title]
+                            # Note: we don't del seen_titles[seen_title] to avoid modifying during iteration
                         break
         
         if not is_duplicate:
@@ -134,7 +132,7 @@ def deduplicate_jobs(matches: List[Dict], similarity_threshold: float = 0.85) ->
             seen_titles[title] = i
     
     # Return deduplicated matches
-    deduplicated = [matches[i] for i in sorted(keep_indices)]
+    deduplicated = [matches[i] for i in sorted(list(set(keep_indices)))]
     
     if len(deduplicated) < len(matches):
         print(f"🔍 Deduplication: Removed {len(matches) - len(deduplicated)} duplicate jobs")
@@ -175,55 +173,72 @@ def initialize_semantic_matcher():
     if _semantic_model is None:
         print("🔄 Initializing Semantic matcher...")
         
-        # Load pre-trained model (fast)
-        _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
-        
-        # Paths
-        csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_data_merged.csv')
-        cache_path = os.path.join(os.path.dirname(__file__), 'job_embeddings.pkl')
-        
-        # Check for valid cache
-        use_cache = False
-        if os.path.exists(cache_path) and os.path.exists(csv_path):
-            # Cache is valid if it's newer than the CSV
-            if os.path.getmtime(cache_path) > os.path.getmtime(csv_path):
-                use_cache = True
-        
-        if use_cache:
-            try:
-                print(f"📦 Found cached embeddings. Loading from disk...")
-                with open(cache_path, 'rb') as f:
-                    _semantic_job_embeddings = pickle.load(f)
-                print(f"✅ Semantic matcher initialized from cache ({_semantic_job_embeddings.shape})")
-                return _semantic_model, _semantic_job_embeddings
-            except Exception as e:
-                print(f"⚠️ Could not load cache ({e}). Re-computing...")
-        
-        # Fallback: Compute from scratch
-        print("⏳ Computing new embeddings (this takes 2-3 minutes)...")
-        jobs_df = load_job_database()
-        
-        # Combine title and description
-        jobs_df['combined'] = jobs_df['Job Title'].fillna('') + '. ' + jobs_df['Job Description'].fillna('')
-        job_texts = jobs_df['combined'].tolist()
-        
-        # Encode all jobs
-        _semantic_job_embeddings = _semantic_model.encode(
-            job_texts,
-            show_progress_bar=True,
-            convert_to_tensor=True,
-            batch_size=32
-        )
-        
-        # Save to cache
         try:
-            with open(cache_path, 'wb') as f:
-                pickle.dump(_semantic_job_embeddings, f)
-            print(f"💾 Saved embeddings to {os.path.basename(cache_path)}")
-        except Exception as e:
-            print(f"⚠️ Failed to save cache: {e}")
+            # Load pre-trained model (fast)
+            _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
             
-        print(f"✅ Semantic matcher initialized ({_semantic_job_embeddings.shape})")
+            # Paths
+            csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_data_merged.csv')
+            cache_path = os.path.join(os.path.dirname(__file__), 'job_embeddings.pkl')
+            
+            # Check for valid cache
+            use_cache = False
+            if os.path.exists(cache_path) and os.path.exists(csv_path):
+                # Cache is valid if it's newer than the CSV
+                if os.path.getmtime(cache_path) > os.path.getmtime(csv_path):
+                    use_cache = True
+            
+            if use_cache:
+                try:
+                    print(f"📦 Found cached embeddings. Loading from disk...")
+                    with open(cache_path, 'rb') as f:
+                        _semantic_job_embeddings = pickle.load(f)
+                    
+                    # Verify sync between CSV and PKL
+                    jobs_df = load_job_database()
+                    if len(_semantic_job_embeddings) != len(jobs_df):
+                        print(f"⚠️ Cache mismatch: CSV has {len(jobs_df)} rows, PKL has {len(_semantic_job_embeddings)}. Invalidating cache...")
+                        _semantic_job_embeddings = None
+                        use_cache = False
+                    else:
+                        print(f"✅ Semantic matcher initialized from cache ({_semantic_job_embeddings.shape})")
+                        return _semantic_model, _semantic_job_embeddings
+                except Exception as e:
+                    print(f"⚠️ Could not load cache ({e}). Re-computing...")
+                    _semantic_job_embeddings = None
+                    use_cache = False
+            
+            # Fallback: Compute from scratch
+            if not use_cache:
+                print("⏳ Computing new embeddings (this takes 2-3 minutes)...")
+                jobs_df = load_job_database()
+                
+                # Combine title and description
+                jobs_df['combined'] = jobs_df['Job Title'].fillna('') + '. ' + jobs_df['Job Description'].fillna('')
+                job_texts = jobs_df['combined'].tolist()
+                
+                # Encode all jobs
+                _semantic_job_embeddings = _semantic_model.encode(
+                    job_texts,
+                    show_progress_bar=True,
+                    convert_to_tensor=True,
+                    batch_size=32
+                )
+                
+                # Save to cache
+                try:
+                    # Convert to CPU before pickling to avoid CUDA issues
+                    cpu_embeddings = _semantic_job_embeddings.cpu() if hasattr(_semantic_job_embeddings, 'cpu') else _semantic_job_embeddings
+                    with open(cache_path, 'wb') as f:
+                        pickle.dump(cpu_embeddings, f)
+                    print(f"💾 Saved embeddings to {os.path.basename(cache_path)}")
+                except Exception as e:
+                    print(f"⚠️ Failed to save cache: {e}")
+                
+            print(f"✅ Semantic matcher initialized ({_semantic_job_embeddings.shape})")
+        except Exception as e:
+            print(f"❌ Critical error in semantic matcher initialization: {e}")
+            raise
     
     return _semantic_model, _semantic_job_embeddings
 
@@ -249,13 +264,17 @@ def calculate_semantic_scores(resume_text: str, top_n: int = 50) -> List[Tuple[i
     # Encode resume
     resume_embedding = model.encode(resume_text, convert_to_tensor=True)
     
+    # Ensure job_embeddings is on same device as resume_embedding
+    if hasattr(resume_embedding, 'device') and hasattr(job_embeddings, 'to'):
+        job_embeddings = job_embeddings.to(resume_embedding.device)
+    
     # Calculate cosine similarity
     similarities = util.cos_sim(resume_embedding, job_embeddings)[0]
-    similarities_np = similarities.cpu().numpy()
+    similarities_np = similarities.cpu().numpy() if hasattr(similarities, 'cpu') else similarities
     
     # Get top N indices with scores
     top_indices = similarities_np.argsort()[-top_n:][::-1]
-    return [(idx, similarities_np[idx]) for idx in top_indices if similarities_np[idx] > 0.1]
+    return [(int(idx), float(similarities_np[idx])) for idx in top_indices if similarities_np[idx] > 0.1]
 
 def calculate_hybrid_scores(resume_text: str, top_n: int = 10, external_jobs: List[Dict] = None) -> List[Dict]:
     """
@@ -336,7 +355,14 @@ def calculate_hybrid_scores(resume_text: str, top_n: int = 10, external_jobs: Li
     
     # Calculate hybrid score (40% TF-IDF + 60% Semantic)
     matches = []
+    num_jobs = len(jobs_df)
+    
     for idx, scores in combined_scores.items():
+        # Safety check: ensure index is within bounds of current dataframe
+        if idx >= num_jobs:
+            print(f"⚠️ Index {idx} out of bounds for jobs_df (size: {num_jobs}). Skipping...")
+            continue
+            
         tfidf = scores['tfidf_score']
         semantic = scores['semantic_score']
         
@@ -344,36 +370,50 @@ def calculate_hybrid_scores(resume_text: str, top_n: int = 10, external_jobs: Li
         hybrid_score = 0.4 * tfidf + 0.6 * semantic
         
         # Extract skills for this job
-        job_desc = str(jobs_df.iloc[idx]['Job Description'])
-        job_skills = extract_skills(job_desc)
-        
-        matched_skills = list(set(resume_skills) & set(job_skills))
-        missing_skills = list(set(job_skills) - set(resume_skills))
-        
-        match_data = {
-            'index': int(idx),
-            'job_title': str(jobs_df.iloc[idx]['Job Title']),
-            'job_description': job_desc,
-            'match_percentage': round(float(hybrid_score * 100), 2),
-            'tfidf_score': round(float(tfidf * 100), 2),
-            'semantic_score': round(float(semantic * 100), 2),
-            'matched_skills': matched_skills,
-            'missing_skills': missing_skills[:10]
-        }
-        
-        # Include original fields if it's an external job (company, location, etc.)
-        if external_jobs:
-            orig_job = external_jobs[idx]
-            match_data.update({
-                'company_name': orig_job.get('company_name'),
-                'location': orig_job.get('location'),
-                'thumbnail': orig_job.get('thumbnail'),
-                'via': orig_job.get('via'),
-                'job_id': orig_job.get('job_id'),
-                'apply_link': orig_job.get('apply_link')
-            })
+        try:
+            row = jobs_df.iloc[idx]
+            job_desc = str(row.get('Job Description', ''))
+            job_title = str(row.get('Job Title', 'Unknown Role'))
             
-        matches.append(match_data)
+            job_skills = extract_skills(job_desc)
+            
+            matched_skills = list(set(resume_skills) & set(job_skills))
+            missing_skills = list(set(job_skills) - set(resume_skills))
+            
+            match_data = {
+                'index': int(idx),
+                'job_title': job_title,
+                'job_description': job_desc,
+                'match_percentage': round(float(hybrid_score * 100), 2),
+                'tfidf_score': round(float(tfidf * 100), 2),
+                'semantic_score': round(float(semantic * 100), 2),
+                'matched_skills': matched_skills,
+                'missing_skills': missing_skills[:10]
+            }
+            
+            # Include original fields if it's an external job (company, location, etc.)
+            if external_jobs:
+                orig_job = external_jobs[idx]
+                match_data.update({
+                    'company_name': orig_job.get('company_name'),
+                    'location': orig_job.get('location'),
+                    'thumbnail': orig_job.get('thumbnail'),
+                    'via': orig_job.get('via'),
+                    'job_id': orig_job.get('job_id'),
+                    'apply_link': orig_job.get('apply_link')
+                })
+            else:
+                # Also try to get company/location from CSV if available
+                match_data.update({
+                    'company_name': str(row.get('Company Name', 'Unknown')),
+                    'location': str(row.get('Location', 'Remote')),
+                    'thumbnail': str(row.get('Thumbnail', '')),
+                })
+                
+            matches.append(match_data)
+        except Exception as e:
+            print(f"⚠️ Error processing match index {idx}: {e}")
+            continue
     
     # Deduplicate jobs before sorting
     matches = deduplicate_jobs(matches, similarity_threshold=0.85)
@@ -387,44 +427,52 @@ async def analyze_resume_and_match(session_id: str, resume_text: str, top_n: int
     """
     Main function to analyze resume and find job matches
     """
-    print(f"\n🎯 Analyzing resume for session {session_id}...")
-    
-    # Delete existing job matches for this session to prevent duplicates
-    existing_matches = await JobMatch.find(
-        JobMatch.session_id == session_id,
-        JobMatch.is_live == False
-    ).to_list()
-    
-    if existing_matches:
-        print(f"Deleting {len(existing_matches)} existing job matches for session {session_id}")
-        await JobMatch.find(
-            JobMatch.session_id == session_id,
-            JobMatch.is_live == False
-        ).delete()
-    
-    # Calculate hybrid matches
-    matches = calculate_hybrid_scores(resume_text, top_n=top_n)
-    
-    # Store matches in database
-    db_matches = []
-    print(f"💾 Storing {len(matches)} matches in database...")
-    for rank, match in enumerate(matches, 1):
-        job_match = JobMatch(
-            user_id=user_id,
-            session_id=session_id,
-            job_title=match['job_title'],
-            job_description=match['job_description'],
-            match_percentage=match['match_percentage'],
-            matched_skills=match['matched_skills'],
-            missing_skills=match['missing_skills'],
-            rank=rank
-        )
-        await job_match.insert()
-        db_matches.append(job_match)
-    
-    print(f"✅ Analysis complete! Top match: {matches[0]['job_title']} ({matches[0]['match_percentage']}%)")
-    
-    return db_matches
+    try:
+        print(f"\n🎯 Analyzing resume for session {session_id}...")
+        
+        # Delete existing job matches for this session to prevent duplicates
+        try:
+            await JobMatch.find(
+                JobMatch.session_id == session_id,
+                JobMatch.is_live == False
+            ).delete()
+        except Exception as e:
+            print(f"⚠️ Note: Error clearing old matches: {e}")
+        
+        # Calculate hybrid matches
+        matches = calculate_hybrid_scores(resume_text, top_n=top_n)
+        
+        if not matches:
+            print("⚠️ No matches found after analysis.")
+            return []
+            
+        # Store matches in database
+        db_matches = []
+        print(f"💾 Storing {len(matches)} matches in database...")
+        for rank, match in enumerate(matches, 1):
+            job_match = JobMatch(
+                user_id=user_id,
+                session_id=session_id,
+                job_title=match['job_title'],
+                job_description=match['job_description'],
+                match_percentage=match['match_percentage'],
+                matched_skills=match['matched_skills'],
+                missing_skills=match['missing_skills'],
+                rank=rank,
+                company_name=match.get('company_name'),
+                location=match.get('location'),
+                thumbnail=match.get('thumbnail')
+            )
+            await job_match.insert()
+            db_matches.append(job_match)
+        
+        print(f"✅ Analysis complete! Top match: {matches[0]['job_title']} ({matches[0]['match_percentage']}%)")
+        return db_matches
+    except Exception as e:
+        import traceback
+        print(f"❌ Error in analyze_resume_and_match: {e}")
+        print(traceback.format_exc())
+        raise
 
 async def analyze_resume_and_match_live(session_id: str, resume_text: str, top_n: int = 10, location: str = "India", user_id: str = None) -> List[Dict]:
     """

@@ -6,8 +6,7 @@ from auth_routes import get_current_user
 from auth_models import User
 from models import Resume, UserPreferences
 from file_handler import extract_resume_text
-# lazy import to avoid circular dependency if needed, or structured better
-from resume_parser import extract_candidate_info
+from resume_service import process_resume_upload
 
 router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
 
@@ -19,54 +18,28 @@ async def upload_resume(
     is_primary: bool = False,
     current_user: User = Depends(get_current_user)
 ):
-    """Upload a new resume. If first resume, sets as active."""
+    """Upload a new resume. deduplicates by content hash."""
     try:
-        # Extract text
-        file_path, resume_text = await extract_resume_text(file)
-        candidate_name, candidate_email = extract_candidate_info(resume_text)
+        resume, is_duplicate = await process_resume_upload(str(current_user.id), file)
         
         # Check if creating first resume
         count = await Resume.find(Resume.user_id == str(current_user.id)).count()
-        if count == 0:
-            is_primary = True
+        if count == 1 and not is_duplicate:
+            resume.is_primary = True
+            await resume.save()
             
-        resume = Resume(
-            user_id=str(current_user.id),
-            filename=file.filename,
-            name=file.filename, # User can rename later
-            content=resume_text,
-            file_path=file_path,
-            candidate_name=candidate_name,
-            candidate_email=candidate_email,
-            is_primary=is_primary
-        )
-        await resume.insert()
-        
         # If primary (or first), update User's active context
         if is_primary or not current_user.active_resume_id:
             current_user.active_resume_id = str(resume.id)
             await current_user.save()
             
-        # Trigger Agentic Parsing
-        try:
-            from ai_engine.agents.resume_manager import resume_graph
-            # Invoke the graph
-            await resume_graph.ainvoke({
-                "resume_id": str(resume.id), 
-                "resume_text": resume_text
-            })
-            # Reload to get updated fields
-            resume = await Resume.get(resume.id)
-        except Exception as e:
-            # Don't fail the upload if AI fails, just log it
-            print(f"Agentic parsing failed: {e}")
-            
         return {
             "id": str(resume.id),
             "filename": resume.filename,
-            "is_primary": resume.is_primary,
-            "message": "Resume uploaded and processed by AI",
-            "summary": resume.summary # Return summary immediately
+            "is_primary": str(resume.id) == current_user.active_resume_id,
+            "is_duplicate": is_duplicate,
+            "message": "Resume processed successfully" if not is_duplicate else "Resume already exists in vault",
+            "summary": resume.summary
         }
     except HTTPException as he:
         raise he

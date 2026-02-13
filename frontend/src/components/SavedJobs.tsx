@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
-import { getSavedJobs, saveJob, generateRoadmap, prepareForJob, uploadResume } from '../api';
+import { getSavedJobs, saveJob, generateRoadmap, prepareForJob } from '../api';
+import { ResumePicker } from './ResumePicker';
 
 interface JobMatch {
     id: string;
@@ -24,10 +25,7 @@ export const SavedJobs: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [showUploadDialog, setShowUploadDialog] = useState(false);
-    const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
-    const [uploadingResume, setUploadingResume] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -74,7 +72,7 @@ export const SavedJobs: React.FC = () => {
             
             if (err.response?.status === 404 || err.response?.status === 500) {
                 setSelectedJob(job);
-                setShowUploadDialog(true);
+                setShowPicker(true);
             } else {
                 showToast('Failed to generate roadmap. Please try again.', 'error');
             }
@@ -83,25 +81,28 @@ export const SavedJobs: React.FC = () => {
         }
     };
 
-    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file || !selectedJob) return;
-
+    const handleResumeSelect = async (resumeId: string) => {
+        if (!selectedJob) return;
+        setSelectedResumeId(resumeId);
         try {
-            setUploadingResume(true);
-            await uploadResume(file, 'job_match', 'Job Matching');
+            setActionLoading(selectedJob.id);
             const sessionId = (selectedJob as any).session_id || 'placeholder-session';
+            // We need to associate this resume with the session/job if needed
+            // For now, let's assume generateRoadmap uses the active resume or we pass it
             await generateRoadmap(sessionId, selectedJob.job_title);
-            setShowUploadDialog(false);
+            setShowPicker(false);
             setSelectedJob(null);
             navigate('/roadmaps');
         } catch (err) {
-            console.error('Failed to upload resume or generate roadmap:', err);
+            console.error('Failed to generate roadmap:', err);
             showToast('Failed to process. Please try again.', 'error');
         } finally {
-            setUploadingResume(false);
+            setActionLoading(null);
         }
     };
+    
+    const [showPicker, setShowPicker] = useState(false);
+    const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
 
     const handlePrepare = async (job: JobMatch) => {
         try {
@@ -276,47 +277,27 @@ export const SavedJobs: React.FC = () => {
                 )}
             </div>
 
-            {/* Resume Upload Dialog */}
-            {showUploadDialog && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-md w-full">
-                        <h2 className="text-2xl font-bold text-white mb-4">Upload Resume</h2>
-                        <p className="text-gray-400 mb-6">
-                            To generate a personalized roadmap for <span className="text-white font-semibold">{selectedJob?.job_title}</span>, 
-                            please upload your resume first.
-                        </p>
-                        
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".pdf,.doc,.docx"
-                            onChange={handleFileSelect}
-                            className="hidden"
+            {/* Resume Picker Dialog */}
+            {showPicker && (
+                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6 backdrop-blur-xl">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-[3rem] p-10 max-w-2xl w-full shadow-2xl">
+                        <ResumePicker 
+                            selectedId={selectedResumeId}
+                            onSelect={handleResumeSelect}
+                            title="Select Experience Data"
+                            description={`Choose or upload a resume to generate your roadmap for ${selectedJob?.job_title}.`}
                         />
-                        
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={uploadingResume}
-                                className="flex-1 px-6 py-3 bg-white text-black font-semibold rounded-xl hover:bg-gray-200 transition-all disabled:opacity-50"
-                            >
-                                {uploadingResume ? 'Processing...' : 'Choose File'}
-                            </button>
-                            <button
+                        <div className="mt-8 flex justify-end">
+                            <button 
                                 onClick={() => {
-                                    setShowUploadDialog(false);
+                                    setShowPicker(false);
                                     setSelectedJob(null);
                                 }}
-                                disabled={uploadingResume}
-                                className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-white font-semibold rounded-xl hover:bg-zinc-700 transition-all disabled:opacity-50"
+                                className="px-8 py-4 bg-zinc-800 text-white rounded-2xl font-black text-xs tracking-widest uppercase hover:bg-zinc-700 transition-all"
                             >
-                                Cancel
+                                CANCEL
                             </button>
                         </div>
-                        
-                        <p className="text-xs text-gray-500 mt-4">
-                            Supported formats: PDF, DOC, DOCX
-                        </p>
                     </div>
                 </div>
             )}

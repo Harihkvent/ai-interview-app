@@ -5,6 +5,11 @@ import PyPDF2
 import pdfplumber
 from docx import Document
 import io
+import hashlib
+
+def calculate_content_hash(text: str) -> str:
+    """Calculate SHA-256 hash of text content for deduplication"""
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 # Directory to store uploaded resumes
 UPLOAD_DIR = "uploads/resumes"

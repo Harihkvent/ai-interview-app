@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useToast } from '../contexts/ToastContext';
-import { getJobMatches, uploadResume, analyzeResumeLive, saveJob, getActiveSession } from '../api';
+import { getJobMatches, analyzeSavedResume, saveJob, getActiveSession, analyzeResumeLive } from '../api';
+import { ResumePicker } from './ResumePicker';
 
 interface JobMatch {
     id: string;
@@ -24,6 +25,7 @@ export const LiveJobs: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [stage, setStage] = useState<'upload' | 'results'>('upload');
     const [error, setError] = useState<string | null>(null);
+    const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
     const [searchQuery, setSearchQuery] = useState('');
 
     React.useEffect(() => {
@@ -51,31 +53,40 @@ export const LiveJobs: React.FC = () => {
         checkActiveSession();
     }, []);
 
-    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
+    const handleResumeSelect = async (resumeId: string) => {
+        setSelectedResumeId(resumeId);
         try {
             setLoading(true);
             setError(null);
             
-            const uploadData = await uploadResume(file, 'live_trend', 'Live Trend Search');
-            const analysisData = await analyzeResumeLive(uploadData.session_id, 'India');
+            // 1. Create/Update session for this resume
+            const analysisData = await analyzeSavedResume(resumeId, 'live_trend', 'Live Trend Search');
+            const sessionId = analysisData.session_id;
             
-            // Use results from analysis if available, otherwise fallback to getJobMatches
-            let jobsList = analysisData.top_matches || analysisData.matches || [];
+            // 2. Trigger LIVE analysis (SerpApi)
+            console.log('📡 Triggering live analysis for session:', sessionId);
+            const liveAnalysis = await analyzeResumeLive(sessionId);
+            
+            // 3. Process matches from live analysis
+            const jobsList = liveAnalysis.top_matches || liveAnalysis.matches || [];
+            
             if (jobsList.length === 0) {
-                const data = await getJobMatches(uploadData.session_id);
-                jobsList = data.matches || data.top_matches || [];
+                console.warn("⚠️ No matches returned from live analysis. Falling back to getJobMatches.");
+                const data = await getJobMatches(sessionId);
+                const fallbackJobs = data.matches || data.top_matches || [];
+                setMatches(fallbackJobs.map((m: any) => ({
+                    ...m,
+                    id: m.id || m._id || m.job_id || `missing-${Math.random().toString(36).substr(2, 9)}`
+                })).filter((m: any) => m.is_live));
+            } else {
+                const formattedMatches = jobsList.map((m: any) => {
+                    const id = m.id || m._id || m.job_id;
+                    return { ...m, id: id || `missing-${Math.random().toString(36).substr(2, 9)}` };
+                }) as JobMatch[];
+
+                setMatches(formattedMatches.filter((m: any) => m.is_live));
             }
-
-            const formattedMatches = jobsList.map((m: any) => {
-                const id = m.id || m._id || m.job_id;
-                if (!id) console.warn("⚠️ Job match missing ID during upload:", m);
-                return { ...m, id: id || `missing-${Math.random().toString(36).substr(2, 9)}` };
-            }) as JobMatch[];
-
-            setMatches(formattedMatches.filter((m: any) => m.is_live));
+            
             setStage('results');
         } catch (err: any) {
             console.error('Live search failed:', err);
@@ -126,29 +137,25 @@ export const LiveJobs: React.FC = () => {
                         <p className="text-gray-400">Match your profile against thousands of real-time openings from Google Jobs</p>
                     </div>
 
-                    <div className="flex flex-col items-center gap-6">
-                        <label className="w-full flex flex-col items-center px-4 py-8 bg-zinc-800/50 rounded-2xl border-2 border-dashed border-zinc-700 cursor-pointer hover:bg-zinc-800 hover:border-zinc-600 transition-all group">
-                            <div className="w-16 h-16 rounded-full bg-zinc-700 group-hover:bg-zinc-600 flex items-center justify-center mb-4 transition-colors">
-                                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                </svg>
-                            </div>
-                            <span className="text-lg font-semibold text-white mb-1">Scan Resume & Find Jobs</span>
-                            <span className="text-sm text-gray-400">PDF or DOCX files accepted</span>
-                            <input type='file' className="hidden" onChange={handleFileUpload} accept=".pdf,.docx" disabled={loading} />
-                        </label>
+                    <div className="max-w-xl mx-auto">
+                        <ResumePicker 
+                            selectedId={selectedResumeId}
+                            onSelect={handleResumeSelect}
+                            title="Global Opportunity Scan"
+                            description="Upload or select your primary experience data to begin matching against real-time global openings."
+                        />
                         
                         {loading && (
-                            <div className="space-y-4 w-full">
+                            <div className="space-y-4 w-full mt-8">
                                 <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                                     <div className="h-full bg-white animate-pulse" style={{ width: '60%' }}></div>
                                 </div>
-                                <p className="text-sm text-gray-400 animate-pulse font-medium">Querying SerpApi for global openings...</p>
+                                <p className="text-sm text-gray-400 animate-pulse font-medium">Synchronizing with global job markets...</p>
                             </div>
                         )}
                         
                         {error && (
-                            <div className="text-red-400 bg-red-500/10 p-4 rounded-xl border border-red-500/20 w-full">
+                            <div className="text-red-400 bg-red-500/10 p-4 rounded-xl border border-red-500/20 w-full mt-6">
                                 {error}
                             </div>
                         )}
