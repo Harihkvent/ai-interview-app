@@ -26,7 +26,10 @@ class InterviewSession(Document):
 class UserPreferences(Document):
     user_id: str
     target_role: Optional[str] = None
-    target_salary: Optional[str] = None
+    target_salary: Optional[str] = None # Legacy field
+    target_salary_inr: Optional[str] = None
+    target_salary_usd: Optional[str] = None
+    interested_roles: List[str] = []
     preferred_locations: List[str] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -45,10 +48,12 @@ class Resume(Document):
     file_path: Optional[str] = None
     candidate_name: Optional[str] = None
     candidate_email: Optional[str] = None
+    content_hash: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:
         name = "resumes"
+        indexes = ["user_id", "content_hash"]
 
 
 class InterviewRound(Document):

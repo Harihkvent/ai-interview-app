@@ -2,7 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AvatarDisplay, preloadAvatar } from './AvatarDisplay';
 import { useVoiceController } from './VoiceController';
+import { useToast } from '../contexts/ToastContext';
 import { TranscriptPanel } from './TranscriptPanel';
+import { useFullscreen } from '../hooks/useFullscreen';
+import { Maximize, Minimize } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -23,6 +26,7 @@ interface TranscriptEntry {
 export const AvatarInterviewSession: React.FC = () => {
   const { id: sessionId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -34,6 +38,7 @@ export const AvatarInterviewSession: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [interviewStarted, setInterviewStarted] = useState(false);
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // Create a ref to hold the answer complete handler
   const handleAnswerCompleteRef = useRef<(answerText: string) => void>(() => {});
@@ -46,6 +51,7 @@ export const AvatarInterviewSession: React.FC = () => {
     isSupported,
     speak,
     stopSpeaking,
+    stopListening,
     startListening
   } = useVoiceController({
     onTranscriptComplete: (text) => handleAnswerCompleteRef.current(text),
@@ -89,6 +95,18 @@ export const AvatarInterviewSession: React.FC = () => {
     }
   }, [isListening, isSpeaking]);
 
+  // Focus Tracking (Proctoring Lite)
+  useEffect(() => {
+    const handleBlur = () => {
+      if (!isPaused && interviewStarted && currentQuestion) {
+        showToast("Focus Lost: Please stay on this tab during the interview.", "warning");
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, [isPaused, interviewStarted, currentQuestion, showToast]);
+
   async function loadSession() {
     try {
       const response = await fetch(`http://localhost:8000/api/avatar-interview/session/${sessionId}`, {
@@ -116,7 +134,7 @@ export const AvatarInterviewSession: React.FC = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error loading session:', error);
-      alert('Failed to load interview session. Please try again.');
+      showToast('Failed to load interview session. Please try again.', 'error');
       navigate('/avatar-interview/start');
       setLoading(false);
     }
@@ -146,10 +164,8 @@ export const AvatarInterviewSession: React.FC = () => {
       console.log('🎤 Question finished speaking');
       // After question is spoken, optionally start listening
       if (thenListen) {
-        console.log('👂 Starting listening in 500ms...');
-        setTimeout(() => {
-          startListening();
-        }, 500);
+        console.log('👂 Starting listening...');
+        startListening();
       }
     });
   }, [speak, startListening, setTranscript]);
@@ -315,7 +331,23 @@ export const AvatarInterviewSession: React.FC = () => {
 
   function handleEnd() {
     if (confirm('Are you sure you want to end the interview?')) {
-      handleInterviewComplete();
+      // Immediately stop all voice activity
+      stopSpeaking();
+      stopListening();
+
+      // Finalize on the backend and navigate
+      fetch(`http://localhost:8000/api/avatar-interview/finalize?session_id=${sessionId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      }).catch(err => console.error('Error finalizing:', err));
+
+      navigate('/dashboard', {
+        state: {
+          message: 'AI Avatar Interview completed! Check your history for the report.'
+        }
+      });
     }
   }
 
@@ -372,8 +404,15 @@ export const AvatarInterviewSession: React.FC = () => {
             {isPaused ? '▶️ Resume' : '⏸️ Pause'}
           </button>
           <button
+            onClick={() => toggleFullscreen()}
+            className="p-2 bg-white/5 text-gray-400 border border-white/10 rounded-lg hover:bg-white/10 transition-all"
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+          </button>
+          <button
             onClick={handleEnd}
-            className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-600/30"
+            className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-600/30 font-bold"
           >
             End Interview
           </button>
@@ -385,10 +424,49 @@ export const AvatarInterviewSession: React.FC = () => {
         {/* Left: Avatar and Question */}
         <div className="space-y-6">
           {/* Avatar Display */}
-          <AvatarDisplay 
-            animationState={animationState}
-            isSpeaking={isSpeaking}
-          />
+          <div className="relative">
+            <AvatarDisplay 
+              animationState={animationState}
+              isSpeaking={isSpeaking}
+            />
+
+            {/* Start Interview Overlay */}
+            {!interviewStarted && currentQuestion && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl"
+                style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+              >
+                <div className="text-center">
+                  <div className="text-5xl mb-4">🎙️</div>
+                  <h3 className="text-xl font-bold mb-2 text-white">Ready to Begin</h3>
+                  <p className="text-sm text-gray-400 mb-6 max-w-xs">
+                    Click below to start. The AI avatar will ask you questions via voice.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      if (!isFullscreen) await toggleFullscreen();
+                      handleStartInterview();
+                    }}
+                    className="px-8 py-3 rounded-xl font-bold text-lg transition-all"
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                      color: 'white',
+                      boxShadow: '0 4px 24px rgba(59,130,246,0.3)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 8px 32px rgba(59,130,246,0.5)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 4px 24px rgba(59,130,246,0.3)';
+                    }}
+                  >
+                    Start Interview
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Current Question Display */}
           {currentQuestion && (

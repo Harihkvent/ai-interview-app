@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getRoadmap, saveRoadmap } from '../api';
+import { useToast } from '../contexts/ToastContext';
 
 interface Milestone {
     phase: string;
@@ -29,6 +30,7 @@ interface CareerRoadmapProps {
 }
 
 export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProceedToInterview }) => {
+    const { showToast } = useToast();
     const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export const CareerRoadmap: React.FC<CareerRoadmapProps> = ({ sessionId, onProce
             setTimeout(() => setSaved(false), 3000);
         } catch (err: any) {
             console.error('Failed to save roadmap:', err);
-            alert('Failed to save roadmap. Please try again.');
+            showToast('Failed to save roadmap. Please try again.', 'error');
         } finally {
             setSaving(false);
         }

@@ -19,12 +19,16 @@ import {
   Flag, 
   ChevronRight,
   Mic,
-  Square
+  Square,
+  Maximize,
+  Minimize
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { QuestionSidebar } from "./QuestionSidebar";
 import { CodeEditor } from "./CodeEditor";
 import { useConfirmDialog } from "./ConfirmDialog";
+import { useFullscreen } from "../hooks/useFullscreen";
+import { useToast } from "../contexts/ToastContext";
 
 // type RoundType = 'aptitude' | 'technical' | 'hr';
 
@@ -52,7 +56,7 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
   const sessionId = (propsSessionId || paramSessionId)!;
   const navigate = useNavigate();
 
-  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+  const { ConfirmDialogComponent } = useConfirmDialog();
   const [sessionState, setSessionState] = useState<any>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +67,8 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
   const [verificationMode, setVerificationMode] = useState(false);
   const [evaluation, setEvaluation] = useState<any | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const { showToast } = useToast();
 
   // Voice-to-Text state
   const [isRecording, setIsRecording] = useState(false);
@@ -98,6 +104,19 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
       if (syncInterval.current) clearInterval(syncInterval.current);
     };
   }, [sessionId]);
+
+  // Focus Tracking (Proctoring Lite)
+  useEffect(() => {
+    const handleBlur = () => {
+      if (!isPaused && !verificationMode && currentQuestion) {
+        showToast("Focus Lost: Please stay on this tab during the interview.", "warning");
+        // Optionally: log focus loss to backend
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, [isPaused, verificationMode, currentQuestion, showToast]);
 
   const loadSession = async () => {
     try {
@@ -437,6 +456,13 @@ export const InterviewSession: React.FC<InterviewSessionProps> = ({
               className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${isPaused ? "bg-primary-600 text-white" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}
             >
               {isPaused ? <><Play size={18} /> Resume</> : <><Pause size={18} /> Pause</>}
+            </button>
+            <button
+              onClick={() => toggleFullscreen()}
+              className="p-2 bg-white/5 text-gray-400 border border-white/10 rounded-lg hover:bg-white/10 transition-all"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
             <button
               onClick={handleEnd}

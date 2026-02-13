@@ -1,104 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface Resume {
-  id: string;
-  name: string;
-  filename: string;
-}
+import { useToast } from '../contexts/ToastContext';
+import { ResumePicker } from './ResumePicker';
+import { 
+    Cpu, 
+    Target, 
+    ChevronRight, 
+    Info, 
+    Calendar, 
+    Monitor,
+    X,
+    Briefcase,
+    Settings2
+} from 'lucide-react';
 
 export const AvatarInterviewStart: React.FC = () => {
   const navigate = useNavigate();
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [selectedResume, setSelectedResume] = useState<string>('');
+  const { showToast } = useToast();
+  const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
   const [selectedRounds, setSelectedRounds] = useState<string[]>(['hr', 'technical']);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    loadResumes();
-  }, []);
-
-  async function loadResumes() {
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/profile/resumes', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setResumes(data.resumes || []);
-        
-        // Auto-select primary resume
-        const primary = data.resumes?.find((r: any) => r.is_primary);
-        if (primary) {
-          setSelectedResume(primary.id);
-        } else if (data.resumes?.length > 0) {
-          setSelectedResume(data.resumes[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading resumes:', error);
-    }
-  }
-
-  async function handleUploadResume() {
-    if (!uploadFile) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-
-      const response = await fetch('http://localhost:8000/api/v1/profile/resumes?is_primary=true', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
-        throw new Error(errorData.message || 'Upload failed');
-      }
-
-      const data = await response.json();
-      console.log('Upload response:', data);
-      
-      // Reload resumes and auto-select the newly uploaded one
-      await loadResumes();
-      
-      // The response might have resume or resume_id
-      const resumeId = data.resume?.id || data.resume_id || data.id;
-      if (resumeId) {
-        setSelectedResume(resumeId);
-      }
-      
-      setUploadFile(null);
-      
-      // Show success message
-      alert('✅ Resume uploaded successfully!');
-      
-    } catch (error: any) {
-      console.error('Error uploading resume:', error);
-      alert(error.message || 'Failed to upload resume. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function handleStart() {
-    if (!selectedResume) {
-      alert('Please select a resume first');
+    if (!selectedResumeId) {
+      showToast('Please select a resume first', 'warning');
       return;
     }
 
     if (selectedRounds.length === 0) {
-      alert('Please select at least one round');
+      showToast('Please select at least one round', 'warning');
       return;
     }
 
@@ -112,7 +42,7 @@ export const AvatarInterviewStart: React.FC = () => {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
-          resume_id: selectedResume,
+          resume_id: selectedResumeId,
           rounds: selectedRounds
         })
       });
@@ -120,12 +50,10 @@ export const AvatarInterviewStart: React.FC = () => {
       if (!response.ok) throw new Error('Failed to start interview');
 
       const data = await response.json();
-      
-      // Navigate to interview session
       navigate(`/avatar-interview/${data.session_id}`);
     } catch (error) {
       console.error('Error starting interview:', error);
-      alert('Failed to start interview. Please try again.');
+      showToast('Failed to start interview. Please try again.', 'error');
       setLoading(false);
     }
   }
@@ -139,181 +67,154 @@ export const AvatarInterviewStart: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12 animate-fadeIn">
-          <div className="text-8xl mb-6">🤖</div>
-          <h1 className="text-5xl font-bold mb-4">AI Avatar Interview</h1>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Experience a realistic interview with our AI avatar. Voice-powered conversation with intelligent follow-up questions.
-          </p>
+    <div className="min-h-screen bg-black p-6 overflow-hidden relative">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-primary-500/5 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto relative">
+        {/* Header Section */}
+        <div className="text-center py-12 space-y-4">
+            <div className="inline-flex p-4 rounded-3xl bg-zinc-900 border border-white/5 shadow-2xl mb-4 group hover:scale-105 transition-transform">
+                <Cpu className="w-10 h-10 text-white group-hover:rotate-12 transition-transform" />
+            </div>
+            <h1 className="text-6xl font-black text-white tracking-tighter uppercase leading-none">
+                Avatar <span className="text-primary-400">Interview</span>
+            </h1>
+            <p className="text-zinc-500 text-xl font-medium max-w-2xl mx-auto tracking-tight">
+                Engage in immersive, voice-powered simulations with our advanced 3D AI avatars.
+            </p>
         </div>
 
-        {/* Configuration Card */}
-        <div className="glass-card p-8 border border-white/10 space-y-8">
-          {/* Resume Selection */}
-          <div>
-            <label className="block text-sm font-semibold text-primary-300 mb-3">
-              Select Resume
-            </label>
-            {resumes.length === 0 ? (
-              <div className="space-y-4">
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-yellow-400 text-sm">
-                  ⚠️ No resumes found. Please upload a resume to continue.
+        <div className="grid lg:grid-cols-5 gap-8 items-start">
+          {/* Main Configuration Card */}
+          <div className="lg:col-span-3 bg-zinc-900/40 border border-zinc-800 rounded-[3rem] p-10 backdrop-blur-3xl shadow-2xl space-y-10">
+            {/* Resume Selection */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <Target className="w-5 h-5 text-primary-400" />
+                    <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest">Select Experience</h2>
                 </div>
-                
-                {/* Upload Section */}
-                <div className="bg-white/5 border border-white/10 rounded-lg p-6">
-                  <h3 className="font-semibold mb-4">Upload Resume</h3>
-                  
-                  {!uploadFile ? (
-                    <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-white/20 rounded-lg hover:border-primary-500/50 transition-all cursor-pointer group">
-                      <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">📄</div>
-                      <p className="text-sm text-gray-400 mb-2">Click to upload resume</p>
-                      <p className="text-xs text-gray-500">PDF or DOCX (Max 5MB)</p>
-                      <input
-                        type="file"
-                        accept=".pdf,.docx"
-                        onChange={(e) => e.target.files && setUploadFile(e.target.files[0])}
-                        className="hidden"
-                      />
-                    </label>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="bg-white/5 rounded-lg p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">✓</span>
-                          <div>
-                            <p className="font-medium">{uploadFile.name}</p>
-                            <p className="text-sm text-gray-400">{(uploadFile.size / 1024).toFixed(2)} KB</p>
-                          </div>
+                <ResumePicker 
+                    selectedId={selectedResumeId}
+                    onSelect={setSelectedResumeId}
+                    title="Experience Vault"
+                    description="Which version of your profile should we interview you on?"
+                />
+            </div>
+
+            {/* Round Selection */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <Settings2 className="w-5 h-5 text-blue-400" />
+                    <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest">Configure Rounds</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                        onClick={() => toggleRound('hr')}
+                        className={`group p-8 rounded-[2rem] border-2 transition-all flex flex-col items-start relative overflow-hidden ${
+                        selectedRounds.includes('hr')
+                            ? 'border-primary-500 bg-primary-500/5'
+                            : 'border-zinc-800 bg-black/40 hover:border-zinc-700'
+                        }`}
+                    >
+                        <div className={`p-3 rounded-2xl mb-4 transition-colors ${selectedRounds.includes('hr') ? 'bg-primary-500 text-black' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Briefcase className="w-6 h-6" />
                         </div>
-                        <button 
-                          onClick={() => setUploadFile(null)} 
-                          className="text-red-400 hover:text-red-300 text-sm"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      
-                      <button
-                        onClick={handleUploadResume}
-                        disabled={uploading}
-                        className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {uploading ? 'Uploading...' : 'Upload Resume'}
-                      </button>
-                    </div>
-                  )}
+                        <div className="text-left">
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">HR Round</h3>
+                            <p className="text-zinc-500 text-xs font-medium leading-relaxed">Behavioral, soft skills, and cultural fit analysis.</p>
+                        </div>
+                        {selectedRounds.includes('hr') && (
+                            <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => toggleRound('technical')}
+                        className={`group p-8 rounded-[2rem] border-2 transition-all flex flex-col items-start relative overflow-hidden ${
+                        selectedRounds.includes('technical')
+                            ? 'border-primary-500 bg-primary-500/5'
+                            : 'border-zinc-800 bg-black/40 hover:border-zinc-700'
+                        }`}
+                    >
+                        <div className={`p-3 rounded-2xl mb-4 transition-colors ${selectedRounds.includes('technical') ? 'bg-primary-500 text-black' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Monitor className="w-6 h-6" />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Technical</h3>
+                            <p className="text-zinc-500 text-xs font-medium leading-relaxed">Domain expertise, technical problem solving.</p>
+                        </div>
+                        {selectedRounds.includes('technical') && (
+                            <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
+                        )}
+                    </button>
                 </div>
-              </div>
-            ) : (
-              <select
-                value={selectedResume}
-                onChange={(e) => setSelectedResume(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-primary-500/50 outline-none"
-              >
-                {resumes.map((resume) => (
-                  <option key={resume.id} value={resume.id} className="bg-gray-900">
-                    {resume.name || resume.filename}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Round Selection */}
-          <div>
-            <label className="block text-sm font-semibold text-primary-300 mb-3">
-              Select Interview Rounds
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => toggleRound('hr')}
-                className={`p-6 rounded-xl border-2 transition-all ${
-                  selectedRounds.includes('hr')
-                    ? 'border-primary-500 bg-primary-500/10'
-                    : 'border-white/10 bg-white/5 hover:border-white/30'
-                }`}
-              >
-                <div className="text-3xl mb-2">💼</div>
-                <div className="font-bold mb-1">HR Round</div>
-                <div className="text-xs text-gray-400">Behavioral & soft skills</div>
-                {selectedRounds.includes('hr') && (
-                  <div className="mt-2 text-primary-400">✓ Selected</div>
-                )}
-              </button>
-
-              <button
-                onClick={() => toggleRound('technical')}
-                className={`p-6 rounded-xl border-2 transition-all ${
-                  selectedRounds.includes('technical')
-                    ? 'border-primary-500 bg-primary-500/10'
-                    : 'border-white/10 bg-white/5 hover:border-white/30'
-                }`}
-              >
-                <div className="text-3xl mb-2">👨‍💻</div>
-                <div className="font-bold mb-1">Technical Round</div>
-                <div className="text-xs text-gray-400">Skills & experience</div>
-                {selectedRounds.includes('technical') && (
-                  <div className="mt-2 text-primary-400">✓ Selected</div>
-                )}
-              </button>
             </div>
           </div>
 
-          {/* Features */}
-          <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-6">
-            <h3 className="font-semibold text-blue-300 mb-3 flex items-center gap-2">
-              <span>✨</span>
-              What to Expect
-            </h3>
-            <ul className="space-y-2 text-sm text-gray-300">
-              <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">✓</span>
-                <span>3D AI avatar will ask you questions via voice</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">✓</span>
-                <span>Respond naturally using your voice (auto-detected)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">✓</span>
-                <span>Intelligent follow-up questions based on your answers</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">✓</span>
-                <span>Full conversation transcript provided</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">✓</span>
-                <span>Detailed performance report at the end</span>
-              </li>
-            </ul>
-          </div>
+          {/* Expectations & Action Column */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Info className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest">Protocol</h2>
+                </div>
+                <ul className="space-y-4">
+                    {[
+                        "Voice-powered real-time dialogue",
+                        "Intelligent dynamic follow-ups",
+                        "Emotional intelligence assessment",
+                        "Full performance transcript",
+                        "AI-driven skill gap scorecard"
+                    ].map((item, i) => (
+                        <li key={i} className="flex items-center gap-4 text-zinc-400 group">
+                            <div className="w-1.5 h-1.5 rounded-full bg-zinc-700 group-hover:bg-primary-400 transition-colors" />
+                            <span className="text-sm font-medium tracking-tight group-hover:text-zinc-200 transition-colors">{item}</span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
 
-          {/* Browser Check */}
-          <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-4">
-            <p className="text-xs text-yellow-400">
-              💡 <strong>Best Experience:</strong> Use Google Chrome for optimal voice recognition and avatar rendering.
-            </p>
-          </div>
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-2xl">
+                <div className="flex items-center gap-3 mb-6 text-yellow-500/80">
+                    <Calendar className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Requirement</span>
+                </div>
+                <p className="text-zinc-500 text-xs leading-relaxed font-medium">
+                    Please ensure you are in a quiet environment with a stable internet connection. Chrome is recommended for optimal avatar fluidity.
+                </p>
+            </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex-1 py-4 px-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all font-bold"
-            >
-              Cancel
-            </button>
             <button
               onClick={handleStart}
-              disabled={loading || !selectedResume || selectedRounds.length === 0}
-              className="flex-[2] btn-primary py-4 px-6 rounded-xl font-bold text-lg shadow-2xl shadow-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !selectedResumeId || selectedRounds.length === 0}
+              className={`
+                w-full py-6 rounded-3xl font-black text-xl transition-all flex items-center justify-center gap-4 shadow-2xl
+                ${loading || !selectedResumeId || selectedRounds.length === 0
+                   ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                   : 'bg-white text-black hover:scale-[1.02] active:scale-[0.98] shadow-white/10'}
+              `}
             >
-              {loading ? 'Starting Interview...' : 'Start AI Interview 🚀'}
+              {loading ? (
+                  <>
+                    <Cpu className="w-6 h-6 animate-spin" />
+                    <span>INITIALIZING...</span>
+                  </>
+              ) : (
+                  <>
+                    <span>START SIMULATION</span>
+                    <ChevronRight className="w-6 h-6" />
+                  </>
+              )}
+            </button>
+            <button 
+                onClick={() => navigate('/dashboard')}
+                className="w-full py-5 text-zinc-500 hover:text-white font-black text-sm tracking-widest transition-all uppercase"
+            >
+                Return to Base
             </button>
           </div>
         </div>

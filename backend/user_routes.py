@@ -9,7 +9,9 @@ from datetime import datetime
 from auth_routes import get_current_user
 from auth_models import User
 from models import InterviewSession, CareerRoadmap, InterviewRound, Answer, Question, Resume, JobMatch
+from avatar_interview_models import AvatarInterviewSession
 from file_handler import extract_resume_text
+from user_service import get_user_performance_summary
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -285,18 +287,31 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
     """Get user dashboard with stats and recent activity"""
     user_id = str(current_user.id)
     
-    # Get total interviews
-    total_interviews = await InterviewSession.find(
+    # Get total interviews from both collections
+    regular_interviews_count = await InterviewSession.find(
         InterviewSession.user_id == user_id,
         InterviewSession.session_type == "interview"
     ).count()
     
-    # Get completed interviews
-    completed_interviews = await InterviewSession.find(
+    avatar_interviews_count = await AvatarInterviewSession.find(
+        AvatarInterviewSession.user_id == user_id
+    ).count()
+    
+    total_interviews = regular_interviews_count + avatar_interviews_count
+    
+    # Get completed interviews from both collections
+    regular_completed_count = await InterviewSession.find(
         InterviewSession.user_id == user_id,
         InterviewSession.status == "completed",
         InterviewSession.session_type == "interview"
     ).count()
+    
+    avatar_completed_count = await AvatarInterviewSession.find(
+        AvatarInterviewSession.user_id == user_id,
+        AvatarInterviewSession.status == "completed"
+    ).count()
+    
+    completed_interviews = regular_completed_count + avatar_completed_count
     
     # Get saved roadmaps count
     saved_roadmaps = await CareerRoadmap.find(
@@ -304,11 +319,61 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
         CareerRoadmap.is_saved == True
     ).count()
     
-    # Get recent interviews (last 5)
-    recent_interviews = await InterviewSession.find(
+    # Get recent interviews (last 5 total)
+    recent_regular = await InterviewSession.find(
         InterviewSession.user_id == user_id,
         InterviewSession.session_type == "interview"
     ).sort("-created_at").limit(5).to_list()
+    
+    recent_avatar = await AvatarInterviewSession.find(
+        AvatarInterviewSession.user_id == user_id
+    ).sort("-created_at").limit(5).to_list()
+    
+    # Normalize and combine
+    combined_recent = []
+    for interview in recent_regular:
+        score = interview.total_score
+        # If score is 0 but it's completed, try to calculate it on the fly
+        if (score == 0 or score == 0.0) and interview.status == "completed":
+            from report_generator import generate_final_report_data
+            try:
+                # We use a simplified calculation here or call the aggregator
+                report_data = await generate_final_report_data(str(interview.id))
+                score = report_data.get('total_score', 0.0)
+                # Update the session with the calculated score so it's persisted
+                interview.total_score = score
+                await interview.save()
+            except Exception:
+                pass
+
+        combined_recent.append({
+            "id": str(interview.id),
+            "status": interview.status,
+            "created_at": interview.created_at.isoformat(),
+            "total_score": round(score, 1) if score is not None else 0.0,
+            "job_title": interview.job_title,
+            "is_avatar": False
+        })
+        
+    for interview in recent_avatar:
+        # Calculate average score for avatar if needed, but the model has total_score
+        # and questions_answered. Let's provide total_score normalized to 10 if necessary.
+        # But looking at avatar_interview_service, score is added per answer.
+        # Let's just use the stored average or calculate it.
+        avg_score = interview.total_score / interview.questions_answered if interview.questions_answered > 0 else 0.0
+        
+        combined_recent.append({
+            "id": str(interview.id),
+            "status": interview.status,
+            "created_at": interview.created_at.isoformat(),
+            "total_score": round(avg_score, 1), # Dashboard expects score out of 10 usually
+            "job_title": "AI Avatar Interview", # Avatar sessions don't seem to have job titles in the model
+            "is_avatar": True
+        })
+        
+    # Sort combined by date and limit to 5
+    combined_recent.sort(key=lambda x: x["created_at"], reverse=True)
+    combined_recent = combined_recent[:5]
     
     # Get recent roadmaps (last 3)
     recent_roadmaps = await CareerRoadmap.find(
@@ -327,30 +392,29 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
                 "parsed_skills": resume.parsed_skills
             }
     
+    # Get performance stats (points and rank)
+    performance_stats = await get_user_performance_summary(user_id)
+    
     return {
         "user": {
             "id": str(current_user.id),
             "username": current_user.username,
             "email": current_user.email,
-            "full_name": current_user.full_name
+            "full_name": current_user.full_name,
+            "current_location": current_user.current_location,
+            "profile_picture_url": current_user.profile_picture_url
         },
         "active_resume": active_resume_data,
         "stats": {
             "total_interviews": total_interviews,
             "completed_interviews": completed_interviews,
             "saved_roadmaps": saved_roadmaps,
-            "member_since": current_user.created_at.isoformat()
+            "member_since": current_user.created_at.isoformat(),
+            "skill_points": performance_stats["skill_points"],
+            "global_rank": performance_stats["global_rank"],
+            "percentile": performance_stats["percentile"]
         },
-        "recent_interviews": [
-            {
-                "id": str(interview.id),
-                "status": interview.status,
-                "created_at": interview.created_at.isoformat(),
-                "total_score": interview.total_score,
-                "job_title": interview.job_title
-            }
-            for interview in recent_interviews
-        ],
+        "recent_interviews": combined_recent,
         "recent_roadmaps": [
             {
                 "id": str(roadmap.id),
@@ -410,35 +474,54 @@ async def delete_interview(
     current_user: User = Depends(get_current_user)
 ):
     """Delete an interview session and all its related data (cascading)"""
+    # 1. Try regular interview session
     session = await InterviewSession.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Interview session not found")
-        
-    # Verify ownership
-    if session.user_id != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this session")
-        
-    # Delete related rounds, questions, and answers
-    rounds = await InterviewRound.find(InterviewRound.session_id == session_id).to_list()
-    for r in rounds:
-        questions = await Question.find(Question.round_id == str(r.id)).to_list()
-        for q in questions:
-            await Answer.find(Answer.question_id == str(q.id)).delete()
-            await q.delete()
-        await r.delete()
-        
-    # Delete job matches and roadmaps
-    await JobMatch.find(JobMatch.session_id == session_id).delete()
-    await CareerRoadmap.find(CareerRoadmap.session_id == session_id).delete()
     
-    # Delete resume (optional: keep file, delete DB entry)
-    # Resume does not have session_id content, so we skip deleting it here.
-    # await Resume.find(Resume.session_id == session_id).delete()
+    if session:
+        # Verify ownership
+        if session.user_id != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized to delete this session")
+            
+        # Delete related rounds, questions, and answers
+        rounds = await InterviewRound.find(InterviewRound.session_id == session_id).to_list()
+        for r in rounds:
+            questions = await Question.find(Question.round_id == str(r.id)).to_list()
+            for q in questions:
+                await Answer.find(Answer.question_id == str(q.id)).delete()
+                await q.delete()
+            await r.delete()
+            
+        # Delete job matches and roadmaps
+        await JobMatch.find(JobMatch.session_id == session_id).delete()
+        await CareerRoadmap.find(CareerRoadmap.session_id == session_id).delete()
+        
+        # Finally delete the session
+        await session.delete()
+        return {"message": "Interview history deleted successfully"}
+        
+    # 2. Try avatar interview session
+    from avatar_interview_models import AvatarQuestion, AvatarResponse
+    avatar_session = await AvatarInterviewSession.get(session_id)
     
-    # Finally delete the session
-    await session.delete()
-    
-    return {"message": "Interview history deleted successfully"}
+    if avatar_session:
+        # Verify ownership
+        if avatar_session.user_id != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized to delete this session")
+            
+        # Delete related questions and responses
+        await AvatarQuestion.find(AvatarQuestion.session_id == session_id).delete()
+        await AvatarResponse.find(AvatarResponse.session_id == session_id).delete()
+        
+        # Delete job matches and roadmaps (if any)
+        await JobMatch.find(JobMatch.session_id == session_id).delete()
+        await CareerRoadmap.find(CareerRoadmap.session_id == session_id).delete()
+        
+        # Finally delete the session
+        await avatar_session.delete()
+        return {"message": "AI Avatar interview history deleted successfully"}
+        
+    # Not found in either
+    raise HTTPException(status_code=404, detail="Interview session not found")
 
 # ============= Roadmap Management =============
 

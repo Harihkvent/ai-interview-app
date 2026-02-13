@@ -13,6 +13,7 @@ from question_service import evaluate_answer, generate_ai_response
 from report_generator import generate_pdf_report, calculate_overall_score, generate_final_report_data
 from file_handler import extract_resume_text
 from session_service import create_new_session
+from resume_service import process_resume_upload
 from roadmap_generator import create_career_roadmap
 from metrics import (
     interview_sessions_total,
@@ -75,50 +76,34 @@ async def upload_resume(
     job_title: str = "General Interview",
     current_user: User = Depends(get_current_user)
 ):
-    """Upload resume and create new interview session"""
+    """Upload resume and create new interview session with deduplication"""
     try:
-        # Extract text from resume and save to disk
-        file_path, resume_text = await extract_resume_text(file)
+        resume, is_duplicate = await process_resume_upload(str(current_user.id), file)
         
-        # Extract candidate info
-        from resume_parser import extract_candidate_info
-        candidate_name, candidate_email = extract_candidate_info(resume_text)
-        
-        # Create new session and initialization rounds via SessionService
+        # Create new session via SessionService
         new_session = await create_new_session(
             user_id=str(current_user.id),
             session_type=session_type,
             job_title=job_title
         )
         
-        # Save resume with extracted info, user_id, and file_path
-        resume = Resume(
-            user_id=str(current_user.id),
-            # session_id=str(new_session.id), # Resume does not have session_id
-            filename=file.filename,
-            name=file.filename,
-            content=resume_text,
-            file_path=file_path,
-            candidate_name=candidate_name,
-            candidate_email=candidate_email
-        )
-        await resume.insert()
-        
         # Update session with resume_id
         new_session.resume_id = str(resume.id)
         await new_session.save()
 
-        # Trigger background generation for all rounds via Worker to ensure immediate availability
+        # Trigger background generation
         round_types = ["aptitude", "technical", "hr"]
         for r_type in round_types:
-            await publish_question_generation(str(new_session.id), r_type, resume_text)
+            await publish_question_generation(str(new_session.id), r_type, resume.content)
+            
         return {
             "session_id": str(new_session.id),
             "resume_id": str(resume.id),
-            "message": "Resume uploaded successfully. Ready to start interview.",
-            "filename": file.filename,
-            "candidate_name": candidate_name,
-            "candidate_email": candidate_email
+            "is_duplicate": is_duplicate,
+            "message": "Resume processed. Ready to start interview.",
+            "filename": resume.filename,
+            "candidate_name": resume.candidate_name,
+            "candidate_email": resume.candidate_email
         }
     except Exception as e:
         logger.error(f"Error uploading resume: {str(e)}")

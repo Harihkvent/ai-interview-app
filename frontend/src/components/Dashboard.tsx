@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getActiveSession, deleteInterview } from '../api';
 import { useConfirmDialog } from './ConfirmDialog';
@@ -44,6 +45,7 @@ interface DashboardData {
     created_at: string;
     total_score: number;
     job_title?: string;
+    is_avatar?: boolean;
   }>;
   recent_roadmaps: Array<{
     id: string;
@@ -67,6 +69,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onViewRoadmaps, onNavigate }) => {
   const { token } = useAuth();
+  const { showToast } = useToast();
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const location = useLocation();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -130,7 +133,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
       }
     } catch (err) {
       console.error('Failed to delete interview:', err);
-      alert('Failed to delete interview history');
+      showToast('Failed to delete interview history', 'error');
     }
   };
 
@@ -159,8 +162,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
   ];
 
   // Get thumbnail based on job title
-  const getThumbnail = (jobTitle?: string, status?: string) => {
+  const getThumbnail = (jobTitle?: string, status?: string, isAvatar?: boolean) => {
     const iconProps = { size: 48, className: "group-hover:scale-110 transition-transform duration-300" };
+    if (isAvatar) return <Bot {...iconProps} className={`${iconProps.className} text-purple-500`} />;
     if (status === 'completed') return <Target {...iconProps} className={`${iconProps.className} text-green-500`} />;
     if (status === 'in-progress' || status === 'active') return <Zap {...iconProps} className={`${iconProps.className} text-yellow-500`} />;
     if (jobTitle?.toLowerCase().includes('frontend')) return <Monitor {...iconProps} className={`${iconProps.className} text-blue-500`} />;
@@ -404,8 +408,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                   {/* Thumbnail */}
                   <div className="relative aspect-video rounded-2xl overflow-hidden mb-3 transition-all duration-300" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      {getThumbnail(interview.job_title, interview.status)}
+                      {getThumbnail(interview.job_title, interview.status, interview.is_avatar)}
                     </div>
+
+                    {/* AI Avatar Badge */}
+                    {interview.is_avatar && (
+                      <div className="absolute top-3 left-3">
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 backdrop-blur-sm">
+                          AI AVATAR
+                        </span>
+                      </div>
+                    )}
 
                     {/* Status Badge */}
                     <div className="absolute top-3 right-3">
@@ -436,7 +449,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(`http://localhost:8000/report/${interview.id}`, '_blank');
+                              if (interview.is_avatar) {
+                                // Logic for viewing avatar report if available, 
+                                // currently pointing to dashboard as default or specialized path
+                                onNavigate('avatar-report', { sessionId: interview.id });
+                              } else {
+                                window.open(`http://localhost:8000/report/${interview.id}`, '_blank');
+                              }
                             }}
                             className="px-4 py-2 rounded-lg font-medium text-sm transition-colors"
                             style={{ backgroundColor: 'var(--accent-primary)', color: 'white' }}
@@ -447,7 +466,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              onNavigate('interview', { resumeSessionId: interview.id });
+                              if (interview.is_avatar) {
+                                onNavigate('ai-avatar-interview', { sessionId: interview.id });
+                              } else {
+                                onNavigate('interview', { resumeSessionId: interview.id });
+                              }
                             }}
                             className="px-4 py-2 rounded-lg font-medium text-sm transition-colors"
                             style={{ backgroundColor: 'var(--accent-primary)', color: 'white' }}
@@ -456,7 +479,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                           </button>
                         )}
                         <button 
-                          onClick={(e) => handleDeleteInterview(e, interview.id)}
+                          onClick={(e) => {
+                            // Specialized delete for avatar if needed, but for now we'll assume regular delete handle is fine or add specific logic
+                            handleDeleteInterview(e, interview.id);
+                          }}
                           className="px-3 py-2 rounded-lg bg-red-500/80 text-white font-medium text-sm hover:bg-red-600 transition-colors"
                         >
                           <Trash2 size={16} />
@@ -468,7 +494,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                   {/* Info */}
                   <div className="px-1">
                     <h3 className="font-semibold mb-1 transition-colors line-clamp-2" style={{ color: 'var(--text-primary)' }}>
-                      {interview.job_title || 'General Interview'}
+                      {interview.job_title || (interview.is_avatar ? 'AI Avatar Interview' : 'General Interview')}
                     </h3>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {new Date(interview.created_at).toLocaleDateString()}

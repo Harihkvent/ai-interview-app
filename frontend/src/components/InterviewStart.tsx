@@ -1,221 +1,142 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { uploadResume, getSavedResumes, analyzeSavedResume } from '../api';
+import { useToast } from '../contexts/ToastContext';
+import { analyzeSavedResume } from '../api';
 import { 
-  FileText, 
-  FolderOpen, 
-  Upload, 
-  Check, 
   ArrowLeft, 
   ArrowRight,
-  Loader2
+  Loader2,
+  Sparkles,
+  Check
 } from 'lucide-react';
-
-interface SavedResume {
-    id: string;
-    name: string;
-    filename: string;
-    uploaded_at: string;
-    candidate_name?: string;
-}
+import { ResumePicker } from './ResumePicker';
 
 export const InterviewStart: React.FC = () => {
     const navigate = useNavigate();
-    const [savedResumes, setSavedResumes] = useState<SavedResume[]>([]);
-    const [resumeFile, setResumeFile] = useState<File | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
+    const { showToast } = useToast();
+    const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
     const [isLoading, setIsLoading] = useState(false);
-    const [loadingResumes, setLoadingResumes] = useState(true);
 
-    useEffect(() => {
-        loadSavedResumes();
-    }, []);
-
-    const loadSavedResumes = async () => {
-        try {
-            const resumes = await getSavedResumes();
-            setSavedResumes(resumes || []);
-        } catch (error) {
-            console.error('Error loading saved resumes:', error);
-        } finally {
-            setLoadingResumes(false);
+    const handleStartInterview = async () => {
+        if (!selectedResumeId) {
+            showToast('Please select or upload a resume first', 'warning');
+            return;
         }
-    };
-
-    const handleFileSelect = (file: File) => {
-        if (file && (file.type === 'application/pdf' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
-            setResumeFile(file);
-        } else {
-            alert('Please upload a PDF or DOCX file');
-        }
-    };
-
-    const handleUploadResume = async () => {
-        if (!resumeFile) return;
 
         setIsLoading(true);
         try {
-            const data = await uploadResume(resumeFile);
+            const data = await analyzeSavedResume(selectedResumeId, 'interview', 'General Interview');
             navigate(`/interview/${data.session_id}`);
         } catch (error) {
-            console.error('Error uploading resume:', error);
-            alert('Failed to upload resume. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleSelectSavedResume = async (resumeId: string) => {
-        setIsLoading(true);
-        try {
-            const data = await analyzeSavedResume(resumeId, 'interview', 'General Interview');
-            navigate(`/interview/${data.session_id}`);
-        } catch (error) {
-            console.error('Error starting interview with saved resume:', error);
-            alert('Failed to start interview. Please try again.');
+            console.error('Error starting interview:', error);
+            showToast('Failed to start interview. Please try again.', 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="p-4">
-            <div className="max-w-7xl mx-auto mb-6">
-                <div className="glass-card p-4 flex items-center justify-between">
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                        <ArrowLeft size={18} />
-                        <span>Back to Dashboard</span>
-                    </button>
-                    <h2 className="text-lg font-semibold">New Interview</h2>
-                    <div className="w-32"></div>
-                </div>
+        <div className="min-h-screen bg-black p-6 relative overflow-hidden">
+            {/* Animated background elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
             </div>
 
-            <div className="flex items-center justify-center">
-                <div className="glass-card p-12 max-w-2xl w-full space-y-8">
-                    <div className="text-center space-y-4">
-                        <h1 className="text-6xl font-bold bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
-                            AI Interview System
-                        </h1>
-                        <p className="text-xl text-gray-300">
-                            Select an existing resume or upload a new one to begin
-                        </p>
-                    </div>
-
-                    {/* Saved Resumes Section */}
-                    {loadingResumes ? (
-                        <div className="text-center py-4">
-                            <Loader2 size={32} className="animate-spin text-primary-500" />
-                            <p className="text-gray-400 text-sm">Loading your resumes...</p>
-                        </div>
-                    ) : savedResumes.length > 0 && (
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                                <FolderOpen size={16} className="inline mr-1" /> Your Saved Resumes
-                            </h3>
-                            <div className="grid gap-3 max-h-60 overflow-y-auto">
-                                {savedResumes.slice(0, 5).map(resume => (
-                                    <button
-                                        key={resume.id}
-                                        onClick={() => handleSelectSavedResume(resume.id)}
-                                        disabled={isLoading}
-                                        className="w-full flex items-center gap-4 p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary-500/50 rounded-xl transition-all text-left group disabled:opacity-50"
-                                    >
-                                        <FileText size={24} className="text-primary-400 group-hover:scale-110 transition-transform" />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-semibold text-white truncate">
-                                                {resume.candidate_name || resume.name || resume.filename}
-                                            </div>
-                                            <div className="text-xs text-gray-400">
-                                                {resume.filename} • Uploaded {new Date(resume.uploaded_at).toLocaleDateString()}
-                                            </div>
-                                        </div>
-                                        <span className="text-primary-400 opacity-0 group-hover:opacity-100 transition-all font-medium">
-                                            Start <ArrowRight size={16} className="inline" />
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Divider */}
-                    {savedResumes.length > 0 && (
-                        <div className="flex items-center gap-4">
-                            <div className="h-px flex-1 bg-white/10"></div>
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">or upload new</span>
-                            <div className="h-px flex-1 bg-white/10"></div>
-                        </div>
-                    )}
-
-                    {/* Upload Area */}
-                    <div
-                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                        onDragLeave={() => setIsDragging(false)}
-                        onDrop={(e) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; handleFileSelect(file); }}
-                        className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${isDragging
-                            ? 'border-primary-400 bg-primary-400/10'
-                            : 'border-gray-600 hover:border-primary-400'
-                            }`}
+            <div className="relative max-w-4xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="group px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl transition-all flex items-center gap-2 text-zinc-400 hover:text-white"
                     >
-                        <div className="space-y-4">
-                            <Upload size={48} className="text-gray-400" />
-                            <div>
-                                <p className="text-lg text-gray-300 mb-2">Drag and drop your resume here</p>
-                                <p className="text-sm text-gray-400 mb-4">or</p>
-                                <label className="btn-primary cursor-pointer inline-block">
-                                    Browse Files
-                                    <input
-                                        type="file"
-                                        accept=".pdf,.docx"
-                                        onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])}
-                                        className="hidden"
-                                    />
-                                </label>
-                            </div>
-                            <p className="text-xs text-gray-500">Supported formats: PDF, DOCX (Max 5MB)</p>
-                        </div>
+                        <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+                        <span>Dashboard</span>
+                    </button>
+                    
+                    <div className="flex items-center gap-2 px-4 py-2 bg-primary-500/10 border border-primary-500/20 rounded-full">
+                        <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                        <span className="text-xs font-bold text-primary-400 tracking-wider">AI PREPARATION MODE</span>
+                    </div>
+                </div>
+
+                <div className="text-center space-y-4 py-8">
+                    <h1 className="text-5xl md:text-7xl font-black tracking-tight text-white">
+                        Ready to <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-purple-400">Excel?</span>
+                    </h1>
+                    <p className="text-zinc-500 text-lg max-w-xl mx-auto">
+                        Your AI interviewer is ready. Just select your resume from the vault and we'll tailor the questions to your experience.
+                    </p>
+                </div>
+
+                <div className="grid md:grid-cols-5 gap-8 items-start">
+                    {/* Main Picker Card */}
+                    <div className="md:col-span-3 bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 backdrop-blur-sm">
+                        <ResumePicker 
+                            selectedId={selectedResumeId}
+                            onSelect={setSelectedResumeId}
+                            title="Resume Vault"
+                            description="Select the experience you want to be interviewed on."
+                        />
                     </div>
 
-                    {/* Selected File Display */}
-                    {resumeFile && (
-                        <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Check size={24} className="text-green-500" />
-                                <div>
-                                    <p className="font-medium">{resumeFile.name}</p>
-                                    <p className="text-sm text-gray-400">{(resumeFile.size / 1024).toFixed(2)} KB</p>
+                    {/* Action Card */}
+                    <div className="md:col-span-2 space-y-6">
+                        <div className="bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 rounded-3xl p-8 sticky top-8">
+                            <h3 className="text-xl font-bold text-white mb-6">Interview Brief</h3>
+                            
+                            <div className="space-y-4 mb-8">
+                                <div className="flex items-start gap-3">
+                                    <div className="mt-1 p-1 rounded-full bg-primary-500/20 text-primary-400">
+                                        <Check size={12} />
+                                    </div>
+                                    <p className="text-sm text-zinc-400"><span className="text-white font-medium">3 Rounds:</span> Aptitude, Technical, and HR</p>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="mt-1 p-1 rounded-full bg-primary-500/20 text-primary-400">
+                                        <Check size={12} />
+                                    </div>
+                                    <p className="text-sm text-zinc-400"><span className="text-white font-medium">AI Feedback:</span> Real-time sentiment and technical analysis</p>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="mt-1 p-1 rounded-full bg-primary-500/20 text-primary-400">
+                                        <Check size={12} />
+                                    </div>
+                                    <p className="text-sm text-zinc-400"><span className="text-white font-medium">Custom Report:</span> In-depth improvement suggestions</p>
                                 </div>
                             </div>
-                            <button onClick={() => setResumeFile(null)} className="text-red-400 hover:text-red-300">Remove</button>
-                        </div>
-                    )}
 
-                    {/* Upload Button - only shown when file is selected */}
-                    {resumeFile && (
-                        <button
-                            onClick={handleUploadResume}
-                            disabled={isLoading}
-                            className="btn-primary w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? 'Starting Interview...' : 'Start Interview with New Resume'}
-                        </button>
-                    )}
+                            <button
+                                onClick={handleStartInterview}
+                                disabled={isLoading || !selectedResumeId}
+                                className={`
+                                    w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3
+                                    ${isLoading || !selectedResumeId
+                                        ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                                        : 'bg-white text-black hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(255,255,255,0.1)]'}
+                                `}
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="animate-spin" />
+                                        <span>PREPARING...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles size={20} />
+                                        <span>START INTERVIEW</span>
+                                        <ArrowRight size={20} />
+                                    </>
+                                )}
+                            </button>
 
-                    {/* Loading Overlay */}
-                    {isLoading && (
-                        <div className="text-center py-4">
-                            <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                                <div className="h-full bg-primary-500 animate-progress"></div>
-                            </div>
-                            <p className="text-sm text-primary-400 animate-pulse mt-2 font-medium">
-                                Preparing your personalized interview...
-                            </p>
+                            {!selectedResumeId && !isLoading && (
+                                <p className="text-center text-[10px] text-zinc-600 mt-4 uppercase tracking-widest font-bold">
+                                    Select a resume to unlock start
+                                </p>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>

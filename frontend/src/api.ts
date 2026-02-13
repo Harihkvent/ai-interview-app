@@ -400,12 +400,11 @@ export const getSavedJobs = async () => {
 
 // ============= Profile & Insights Functions =============
 
-export const uploadProfileResume = async (file: File) => {
+export const uploadProfileResume = async (file: File, isPrimary: boolean = false) => {
   const formData = new FormData();
   formData.append("file", file);
-  // Explicitly set is_primary=true if we want this to be the active resume for insights
   const response = await api.post(
-    "/api/v1/profile/resumes?is_primary=true",
+    `/api/v1/profile/resumes?is_primary=${isPrimary}`,
     formData,
     {
       headers: {
@@ -448,8 +447,20 @@ export const updateUserPreferences = async (data: any) => {
 export const updateUserProfile = async (data: {
   full_name?: string;
   username?: string;
+  current_location?: string;
 }) => {
   const response = await api.put("/auth/profile", data);
+  return response.data;
+};
+
+export const uploadProfilePhoto = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post("/api/v1/profile/photo", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return response.data;
 };
 

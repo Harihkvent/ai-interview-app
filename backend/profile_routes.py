@@ -6,10 +6,9 @@ from auth_routes import get_current_user
 from auth_models import User
 from models import Resume, UserPreferences
 from file_handler import extract_resume_text
-# lazy import to avoid circular dependency if needed, or structured better
-from resume_parser import extract_candidate_info
+from resume_service import process_resume_upload
 
-router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
+router = APIRouter(tags=["profile"])
 
 # ============= Resume Management =============
 
@@ -19,54 +18,28 @@ async def upload_resume(
     is_primary: bool = False,
     current_user: User = Depends(get_current_user)
 ):
-    """Upload a new resume. If first resume, sets as active."""
+    """Upload a new resume. deduplicates by content hash."""
     try:
-        # Extract text
-        file_path, resume_text = await extract_resume_text(file)
-        candidate_name, candidate_email = extract_candidate_info(resume_text)
+        resume, is_duplicate = await process_resume_upload(str(current_user.id), file)
         
         # Check if creating first resume
         count = await Resume.find(Resume.user_id == str(current_user.id)).count()
-        if count == 0:
-            is_primary = True
+        if count == 1 and not is_duplicate:
+            resume.is_primary = True
+            await resume.save()
             
-        resume = Resume(
-            user_id=str(current_user.id),
-            filename=file.filename,
-            name=file.filename, # User can rename later
-            content=resume_text,
-            file_path=file_path,
-            candidate_name=candidate_name,
-            candidate_email=candidate_email,
-            is_primary=is_primary
-        )
-        await resume.insert()
-        
         # If primary (or first), update User's active context
         if is_primary or not current_user.active_resume_id:
             current_user.active_resume_id = str(resume.id)
             await current_user.save()
             
-        # Trigger Agentic Parsing
-        try:
-            from ai_engine.agents.resume_manager import resume_graph
-            # Invoke the graph
-            await resume_graph.ainvoke({
-                "resume_id": str(resume.id), 
-                "resume_text": resume_text
-            })
-            # Reload to get updated fields
-            resume = await Resume.get(resume.id)
-        except Exception as e:
-            # Don't fail the upload if AI fails, just log it
-            print(f"Agentic parsing failed: {e}")
-            
         return {
             "id": str(resume.id),
             "filename": resume.filename,
-            "is_primary": resume.is_primary,
-            "message": "Resume uploaded and processed by AI",
-            "summary": resume.summary # Return summary immediately
+            "is_primary": str(resume.id) == current_user.active_resume_id,
+            "is_duplicate": is_duplicate,
+            "message": "Resume processed successfully" if not is_duplicate else "Resume already exists in vault",
+            "summary": resume.summary
         }
     except HTTPException as he:
         raise he
@@ -151,10 +124,66 @@ async def update_preferences(
         prefs = UserPreferences(user_id=str(current_user.id), **prefs_data)
         await prefs.insert()
     else:
-        # Update fields
-        for k, v in prefs_data.items():
-            if hasattr(prefs, k):
-                setattr(prefs, k, v)
-        await prefs.save()
+        # Update fields, excluding ID fields to avoid validation errors
+        update_data = {k: v for k, v in prefs_data.items() if k not in ["id", "_id", "user_id"]}
+        if update_data:
+            await prefs.update({"$set": update_data})
+            # Update the object in memory for the response
+            for k, v in update_data.items():
+                if hasattr(prefs, k):
+                    setattr(prefs, k, v)
         
     return {"message": "Preferences updated", "preferences": prefs.dict()}
+
+@router.put("/")
+async def update_profile(
+    profile_data: dict = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Update general user profile details"""
+    if "full_name" in profile_data:
+        current_user.full_name = profile_data["full_name"]
+    if "username" in profile_data:
+        current_user.username = profile_data["username"]
+    if "current_location" in profile_data:
+        current_user.current_location = profile_data["current_location"]
+    
+    await current_user.save()
+    return {"message": "Profile updated successfully", "user": {
+        "full_name": current_user.full_name,
+        "username": current_user.username,
+        "current_location": current_user.current_location
+    }}
+
+@router.post("/photo")
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload and persist profile photo"""
+    try:
+        import os
+        from file_handler import BASE_UPLOAD_DIR
+        
+        # Create profile_photos directory if not exists
+        profile_photo_dir = os.path.join(BASE_UPLOAD_DIR, "profile_photos")
+        os.makedirs(profile_photo_dir, exist_ok=True)
+        
+        # Save file
+        file_ext = os.path.splitext(file.filename)[1]
+        file_name = f"profile_{current_user.id}{file_ext}"
+        file_path = os.path.join(profile_photo_dir, file_name)
+        
+        with open(file_path, "wb") as buffer:
+            import shutil
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Update user model with URL (using relative path for now)
+        # In a real app this would be a full URL from a CDN
+        photo_url = f"/uploads/profile_photos/{file_name}"
+        current_user.profile_picture_url = photo_url
+        await current_user.save()
+        
+        return {"message": "Photo uploaded successfully", "photo_url": photo_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
