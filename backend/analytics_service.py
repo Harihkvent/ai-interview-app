@@ -8,6 +8,7 @@ import logging
 from analytics_models import PerformanceMetrics, AnalyticsSnapshot
 from models import InterviewSession, InterviewRound, Question, Answer
 from avatar_interview_models import AvatarInterviewSession, AvatarQuestion, AvatarResponse
+from skill_assessment_models import SkillTestAttempt, SkillTest
 
 logger = logging.getLogger("analytics_service")
 
@@ -48,6 +49,9 @@ async def calculate_user_metrics(user_id: str) -> Dict:
         # Calculate improvement trend
         improvement_trend = await _calculate_improvement_trend(sessions)
         
+        # Calculate skill test analytics
+        skill_test_analytics = await _calculate_skill_test_analytics(user_id)
+        
         # Find best and worst rounds
         best_round = max(round_performance.items(), key=lambda x: x[1]["avg_score"])[0] if round_performance else None
         worst_round = min(round_performance.items(), key=lambda x: x[1]["avg_score"])[0] if round_performance else None
@@ -60,7 +64,8 @@ async def calculate_user_metrics(user_id: str) -> Dict:
             "round_performance": round_performance,
             "improvement_trend": improvement_trend,
             "best_round_type": best_round,
-            "worst_round_type": worst_round
+            "worst_round_type": worst_round,
+            "skill_test_analytics": skill_test_analytics
         }
     except Exception as e:
         logger.error(f"Error calculating user metrics: {str(e)}")
@@ -194,6 +199,66 @@ async def _calculate_improvement_trend(sessions: List) -> List[Dict]:
         })
     
     return trend
+
+
+async def _calculate_skill_test_analytics(user_id: str) -> Dict:
+    """Calculate performance metrics for skill tests"""
+    try:
+        attempts = await SkillTestAttempt.find(
+            SkillTestAttempt.user_id == user_id,
+            SkillTestAttempt.status == "completed"
+        ).to_list()
+        
+        if not attempts:
+            return {
+                "total_attempts": 0,
+                "avg_score": 0.0,
+                "pass_rate": 0.0,
+                "proficiency_breakdown": {},
+                "category_performance": {}
+            }
+        
+        total_score = sum(a.score for a in attempts)
+        passed_count = sum(1 for a in attempts if a.passed)
+        
+        proficiency_breakdown = {
+            "beginner": 0,
+            "intermediate": 0,
+            "advanced": 0,
+            "expert": 0
+        }
+        
+        category_stats = {} # category -> {total_score, count}
+        
+        for attempt in attempts:
+            # Update proficiency count
+            lvl = attempt.proficiency_level or "beginner"
+            proficiency_breakdown[lvl] = proficiency_breakdown.get(lvl, 0) + 1
+            
+            # Get test category
+            test = await SkillTest.get(attempt.skill_test_id)
+            if test:
+                cat = test.category
+                if cat not in category_stats:
+                    category_stats[cat] = {"total_score": 0.0, "count": 0}
+                category_stats[cat]["total_score"] += attempt.score
+                category_stats[cat]["count"] += 1
+        
+        category_performance = {
+            cat: round(stats["total_score"] / stats["count"], 2)
+            for cat, stats in category_stats.items()
+        }
+        
+        return {
+            "total_attempts": len(attempts),
+            "avg_score": round(total_score / len(attempts), 2),
+            "pass_rate": round((passed_count / len(attempts)) * 100, 2),
+            "proficiency_breakdown": proficiency_breakdown,
+            "category_performance": category_performance
+        }
+    except Exception as e:
+        logger.error(f"Error calculating skill test analytics: {str(e)}")
+        return {}
 
 
 async def get_performance_trends(user_id: str, days: int = 30) -> Dict:
@@ -353,7 +418,8 @@ async def get_analytics_dashboard(user_id: str) -> Dict:
             },
             "trends": trends_30d,
             "round_performance": round_data["round_breakdown"],
-            "improvement_trend": getattr(metrics, 'improvement_trend', [])
+            "improvement_trend": getattr(metrics, 'improvement_trend', []),
+            "skill_test_analytics": await _calculate_skill_test_analytics(user_id)
         }
     except Exception as e:
         logger.error(f"Error getting analytics dashboard: {str(e)}")

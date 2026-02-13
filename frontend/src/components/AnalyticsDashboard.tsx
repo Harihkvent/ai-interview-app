@@ -26,6 +26,13 @@ interface AnalyticsData {
         };
     };
     improvement_trend: any[];
+    skill_test_analytics?: {
+        total_attempts: number;
+        avg_score: number;
+        pass_rate: number;
+        proficiency_breakdown: { [key: string]: number };
+        category_performance: { [key: string]: number };
+    };
 }
 
 export const AnalyticsDashboard: React.FC = () => {
@@ -223,7 +230,73 @@ export const AnalyticsDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Recent Interviews */}
+            {/* Skill Test Analytics */}
+            {analytics.skill_test_analytics && analytics.skill_test_analytics.total_attempts > 0 && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-6">Skill Test Performance</h3>
+                    <div className="grid md:grid-cols-3 gap-6">
+                        {/* Summary Metrics */}
+                        <div className="space-y-4">
+                            <div className="p-4 bg-black border border-zinc-800 rounded-xl">
+                                <div className="text-sm text-gray-400 mb-1">Total Attempts</div>
+                                <div className="text-2xl font-bold text-white">{analytics.skill_test_analytics.total_attempts}</div>
+                            </div>
+                            <div className="p-4 bg-black border border-zinc-800 rounded-xl">
+                                <div className="text-sm text-gray-400 mb-1">Avg Test Score</div>
+                                <div className="text-2xl font-bold text-white">{analytics.skill_test_analytics.avg_score}%</div>
+                            </div>
+                            <div className="p-4 bg-black border border-zinc-800 rounded-xl">
+                                <div className="text-sm text-gray-400 mb-1">Pass Rate</div>
+                                <div className="text-2xl font-bold text-white">{analytics.skill_test_analytics.pass_rate}%</div>
+                            </div>
+                        </div>
+
+                        {/* Proficiency Breakdown */}
+                        <div className="p-6 bg-black border border-zinc-800 rounded-xl">
+                            <h4 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">Proficiency Levels</h4>
+                            <div className="space-y-3">
+                                {Object.entries(analytics.skill_test_analytics.proficiency_breakdown).map(([level, count]) => (
+                                    <div key={level} className="flex items-center justify-between">
+                                        <span className="text-sm text-gray-400 capitalize">{level}</span>
+                                        <div className="flex items-center gap-3 flex-1 px-4">
+                                            <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-white rounded-full"
+                                                    style={{ width: `${(count / (analytics.skill_test_analytics?.total_attempts || 1)) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                            <span className="text-xs font-medium text-white">{count}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Category Performance */}
+                        <div className="p-6 bg-black border border-zinc-800 rounded-xl">
+                            <h4 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">By Category</h4>
+                            <div className="space-y-3">
+                                {Object.entries(analytics.skill_test_analytics.category_performance).map(([cat, score]) => (
+                                    <div key={cat}>
+                                        <div className="flex justify-between mb-1">
+                                            <span className="text-xs text-gray-400 capitalize">{cat}</span>
+                                            <span className="text-xs font-bold text-white">{score}%</span>
+                                        </div>
+                                        <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-white rounded-full"
+                                                style={{ width: `${score}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Recent Interviews */}
                 <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
                     <h3 className="text-xl font-bold text-white mb-6">Recent Activity</h3>
                     {analytics.improvement_trend.length > 0 ? (

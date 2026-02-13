@@ -331,11 +331,25 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
     # Normalize and combine
     combined_recent = []
     for interview in recent_regular:
+        score = interview.total_score
+        # If score is 0 but it's completed, try to calculate it on the fly
+        if (score == 0 or score == 0.0) and interview.status == "completed":
+            from report_generator import generate_final_report_data
+            try:
+                # We use a simplified calculation here or call the aggregator
+                report_data = await generate_final_report_data(str(interview.id))
+                score = report_data.get('total_score', 0.0)
+                # Update the session with the calculated score so it's persisted
+                interview.total_score = score
+                await interview.save()
+            except Exception:
+                pass
+
         combined_recent.append({
             "id": str(interview.id),
             "status": interview.status,
             "created_at": interview.created_at.isoformat(),
-            "total_score": interview.total_score,
+            "total_score": round(score, 1) if score is not None else 0.0,
             "job_title": interview.job_title,
             "is_avatar": False
         })
