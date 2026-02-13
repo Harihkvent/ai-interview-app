@@ -4,6 +4,8 @@ import { AvatarDisplay, preloadAvatar } from './AvatarDisplay';
 import { useVoiceController } from './VoiceController';
 import { useToast } from '../contexts/ToastContext';
 import { TranscriptPanel } from './TranscriptPanel';
+import { useFullscreen } from '../hooks/useFullscreen';
+import { Maximize, Minimize } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -36,6 +38,7 @@ export const AvatarInterviewSession: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [interviewStarted, setInterviewStarted] = useState(false);
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // Create a ref to hold the answer complete handler
   const handleAnswerCompleteRef = useRef<(answerText: string) => void>(() => {});
@@ -91,6 +94,18 @@ export const AvatarInterviewSession: React.FC = () => {
       setAnimationState('idle');
     }
   }, [isListening, isSpeaking]);
+
+  // Focus Tracking (Proctoring Lite)
+  useEffect(() => {
+    const handleBlur = () => {
+      if (!isPaused && interviewStarted && currentQuestion) {
+        showToast("Focus Lost: Please stay on this tab during the interview.", "warning");
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, [isPaused, interviewStarted, currentQuestion, showToast]);
 
   async function loadSession() {
     try {
@@ -389,8 +404,15 @@ export const AvatarInterviewSession: React.FC = () => {
             {isPaused ? '▶️ Resume' : '⏸️ Pause'}
           </button>
           <button
+            onClick={() => toggleFullscreen()}
+            className="p-2 bg-white/5 text-gray-400 border border-white/10 rounded-lg hover:bg-white/10 transition-all"
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+          </button>
+          <button
             onClick={handleEnd}
-            className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-600/30"
+            className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-600/30 font-bold"
           >
             End Interview
           </button>
@@ -420,7 +442,10 @@ export const AvatarInterviewSession: React.FC = () => {
                     Click below to start. The AI avatar will ask you questions via voice.
                   </p>
                   <button
-                    onClick={handleStartInterview}
+                    onClick={async () => {
+                      if (!isFullscreen) await toggleFullscreen();
+                      handleStartInterview();
+                    }}
                     className="px-8 py-3 rounded-xl font-bold text-lg transition-all"
                     style={{
                       background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
