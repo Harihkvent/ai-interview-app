@@ -1,0 +1,24 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - develop # Added develop as well since we are working on it now
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH and Deploy
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            cd ai-interview-app
+            git pull origin ${{ github.ref_name }}
+            docker-compose down
+            docker-compose up -d --build

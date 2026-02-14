@@ -21,13 +21,12 @@ prometheus-client
 httpx
 pandas
 numpy
-sentence-transformers
 PyJWT
 bcrypt
 python-jose[cryptography]
 email-validator
-google-auth-oauthlib
-google-auth
+# Use CPU-only index for torch to reduce image size and prevent timeout
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch
 tqdm
 requests
@@ -38,7 +37,6 @@ aio-pika
 langchain
 langchain-core
 langgraph
-pdfplumber
 langchain-mcp-adapters
 mcp
 matplotlib
