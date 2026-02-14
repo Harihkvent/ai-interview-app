@@ -1,10 +1,4 @@
 services:
-  mongodb:
-    image: mongo:4.4
-    volumes:
-      - mongodb_data:/data/db
-    restart: always
-
   redis:
     image: redis:alpine
     restart: always
@@ -21,12 +15,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_URL=${MONGODB_URL}
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - KRUTRIM_API_KEY=${KRUTRIM_API_KEY}
     depends_on:
-      - mongodb
       - redis
       - rabbitmq
     restart: always
@@ -35,7 +28,7 @@ services:
     image: ai-interview-backend
     command: python backend/worker.py
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_URL=${MONGODB_URL}
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - KRUTRIM_API_KEY=${KRUTRIM_API_KEY}
@@ -44,4 +37,3 @@ services:
     restart: always
 
 volumes:
-  mongodb_data:
