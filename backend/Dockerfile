@@ -19,9 +19,9 @@ RUN apt-get update && apt-get install -y \
 # Install dependencies in stages to reduce memory pressure (for AWS Free Tier)
 COPY backend/requirements.txt .
 # Install all dependencies in one single layer to avoid redundant downloads and keep image lean
-RUN pip install --no-cache-dir \
-    -r requirements.txt \
-    torch --extra-index-url https://download.pytorch.org/whl/cpu
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
 
 # Copy the rest of the backend code
 COPY backend/ .

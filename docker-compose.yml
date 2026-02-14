@@ -36,4 +36,4 @@ services:
       - fastapi
     restart: always
 
-volumes:
+# No volumes needed as MongoDB is moved to Atlas
