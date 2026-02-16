@@ -1,5 +1,11 @@
 # CareerPath AI - Comprehensive Project Documentation
 
+## Abstract
+
+**CareerPath AI** is an intelligent career advisory platform that leverages agentic AI architecture to provide comprehensive career guidance, interview preparation, and job matching services. The system employs a distributed multi-agent framework ("The Hive") powered by LangGraph for autonomous task orchestration, enabling specialized agents to collaboratively handle job search, resume analysis, and personalized career roadmap generation. Built with a modern tech stack including FastAPI for high-performance backend services, React with Vite for a responsive frontend, and MongoDB for scalable data management, the platform integrates advanced AI capabilities through Krutrim LLM and Sentence Transformers for semantic job matching. Key features include AI-powered mock interviews with real-time voice-to-text transcription, hybrid job matching combining semantic search with live job data from SerpApi, intelligent career roadmap generation with milestone tracking, and comprehensive performance analytics with PDF report generation. The platform's microservices architecture utilizes RabbitMQ for asynchronous task processing and Redis for high-speed caching, ensuring scalability and responsiveness. With secure JWT-based authentication, Google OAuth integration, and enterprise-grade security practices, CareerPath AI delivers a production-ready solution for modern career development and interview preparation.
+
+---
+
 ## Table of Contents
 1. [Project Overview](#project-overview)
 2. [Architecture & Design Patterns](#architecture--design-patterns)
