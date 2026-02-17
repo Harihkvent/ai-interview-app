@@ -39,13 +39,25 @@ SKILLS_KEYWORDS = [
     'nlp', 'computer vision', 'opencv', 'keras'
 ]
 
+def _get_job_data_path() -> str:
+    """Helper to find the CSV file in container (flat) or local (parent) structure"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Option 1: Current directory (flattened Docker structure or standalone)
+    path_flat = os.path.join(current_dir, 'job_data_merged.csv')
+    # Option 2: Parent directory (standard dev structure)
+    path_parent = os.path.join(current_dir, '..', 'job_data_merged.csv')
+    
+    if os.path.exists(path_flat):
+        return path_flat
+    return path_parent
+
 def load_job_database() -> pd.DataFrame:
     """Load and cache job database from CSV"""
     global _job_database
     if _job_database is None:
-        csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_data_merged.csv')
+        csv_path = _get_job_data_path()
         _job_database = pd.read_csv(csv_path)
-        print(f"✅ Loaded {len(_job_database)} jobs from database")
+        print(f"✅ Loaded {len(_job_database)} jobs from database at: {csv_path}")
     return _job_database
 
 def preprocess_text(text: str) -> str:
@@ -178,8 +190,8 @@ def initialize_semantic_matcher():
             _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
             
             # Paths
-            csv_path = os.path.join(os.path.dirname(__file__), '..', 'job_data_merged.csv')
-            cache_path = os.path.join(os.path.dirname(__file__), 'job_embeddings.pkl')
+            csv_path = _get_job_data_path()
+            cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'job_embeddings.pkl')
             
             # Check for valid cache
             use_cache = False

@@ -30,11 +30,7 @@ COPY backend/ .
 RUN chmod +x run.sh
 
 # Ensure the job data CSV is available for the ML matcher
-# We now Copy from the root context if possible, or assume it's in the context
-# Note: If building from root, use: docker build -f backend/Dockerfile .
-# If building from backend, the file must be there or in parent
-# For now, we assume it's copied or handled by compose
-# COPY job_data_merged.csv /app/job_data_merged.csv
+COPY job_data_merged.csv /app/job_data_merged.csv
 
 # Create uploads directory
 RUN mkdir -p uploads
