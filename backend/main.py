@@ -83,11 +83,9 @@ app = FastAPI(
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 # CORS middleware
-import os
-cors_origins = os.getenv("CORS_ORIGINS", "https://develop.da0sy3g04smi7.amplifyapp.com,http://localhost:5173,http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
