@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ai-interview-backend
+    env: docker
+    dockerContext: .
+    dockerfilePath: backend/Dockerfile
+    plan: free
+    region: ohio
+    envVars:
+      - key: MONGODB_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: KRUTRIM_API_KEY
+        sync: false
+      - key: PORT
+        value: 8000
