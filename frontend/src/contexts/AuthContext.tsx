@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { API_BASE_URL } from '../api';
 
 interface User {
   id: string;

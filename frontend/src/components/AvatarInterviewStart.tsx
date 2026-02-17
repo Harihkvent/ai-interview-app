@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { ResumePicker } from './ResumePicker';
+import { API_BASE_URL } from '../api';
 import { 
     Cpu, 
     Target, 
@@ -9,8 +10,8 @@ import {
     Info, 
     Calendar, 
     Monitor,
-    X,
     Briefcase,
+    X,
     Settings2
 } from 'lucide-react';
 
@@ -35,7 +36,7 @@ export const AvatarInterviewStart: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/avatar-interview/start', {
+      const response = await fetch(`${API_BASE_URL}/api/avatar-interview/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

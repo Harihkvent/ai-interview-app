@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
-import { getAvailableSkillTests, startSkillTest, getSkillTestHistory } from '../api';
+import { getAvailableSkillTests, startSkillTest, getSkillTestHistory, API_BASE_URL } from '../api';
 import axios from 'axios';
 import { useConfirmDialog } from './ConfirmDialog';
-
-const API_BASE_URL = 'http://localhost:8000';
 
 interface SkillTest {
     test_id: string;

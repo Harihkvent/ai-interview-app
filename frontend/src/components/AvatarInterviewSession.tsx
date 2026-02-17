@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { TranscriptPanel } from './TranscriptPanel';
 import { useFullscreen } from '../hooks/useFullscreen';
 import { Maximize, Minimize } from 'lucide-react';
+import { API_BASE_URL } from '../api';
 
 interface Question {
   id: string;
@@ -33,10 +34,8 @@ export const AvatarInterviewSession: React.FC = () => {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [animationState, setAnimationState] = useState<'idle' | 'speaking' | 'listening' | 'thinking'>('idle');
   const [questionTimer, setQuestionTimer] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(0);
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
@@ -293,12 +292,13 @@ export const AvatarInterviewSession: React.FC = () => {
     });
   }
 
+
   async function handlePause() {
     setIsPaused(true);
     stopSpeaking();
 
     try {
-      await fetch(`http://localhost:8000/api/avatar-interview/pause?session_id=${sessionId}`, {
+      await fetch(`${API_BASE_URL}/api/avatar-interview/pause?session_id=${sessionId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -313,7 +313,7 @@ export const AvatarInterviewSession: React.FC = () => {
     setIsPaused(false);
 
     try {
-      await fetch(`http://localhost:8000/api/avatar-interview/resume?session_id=${sessionId}`, {
+      await fetch(`${API_BASE_URL}/api/avatar-interview/resume?session_id=${sessionId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`

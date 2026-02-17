@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { BarChart3, AlertTriangle, ArrowLeft, Check, X, FileText, SkipForward, Clock, Lightbulb, CheckCircle, XCircle } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../api';
 
 interface TestResults {
     test_name: string;

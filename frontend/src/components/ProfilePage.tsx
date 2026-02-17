@@ -8,9 +8,10 @@ import {
     updateUserProfile,
     uploadProfilePhoto,
     getProfileResumes,
-    getUserDashboard
+    getUserDashboard,
+    API_BASE_URL
 } from '../api';
-import { Info, HelpCircle } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import { useConfirmDialog } from './ConfirmDialog';
 import { ResumePicker } from './ResumePicker';
 import { 
@@ -77,7 +78,7 @@ export const ProfilePage: React.FC = () => {
             if (user.profile_picture_url) {
                 setProfilePhoto(user.profile_picture_url.startsWith('http') 
                     ? user.profile_picture_url 
-                    : `http://localhost:8000${user.profile_picture_url}`);
+                    : `${API_BASE_URL}${user.profile_picture_url}`);
             }
         }
     }, [user]);
@@ -128,7 +129,7 @@ export const ProfilePage: React.FC = () => {
             const response = await uploadProfilePhoto(file);
             const photoUrl = response.photo_url.startsWith('http') 
                 ? response.photo_url 
-                : `http://localhost:8000${response.photo_url}`;
+                : `${API_BASE_URL}${response.photo_url}`;
             setProfilePhoto(photoUrl);
             showToast('Profile photo updated', 'success');
         } catch (error) {

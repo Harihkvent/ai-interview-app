@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import { getActiveSession, deleteInterview } from '../api';
+import { getActiveSession, deleteInterview, API_BASE_URL } from '../api';
 import { useConfirmDialog } from './ConfirmDialog';
 import { useLocation } from 'react-router-dom';
 import { 
@@ -91,7 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
 
   const loadDashboard = async () => {
     try {
-      const response = await fetch('http://localhost:8000/user/dashboard', {
+      const response = await fetch(`${API_BASE_URL}/user/dashboard`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -454,7 +454,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                                 // currently pointing to dashboard as default or specialized path
                                 onNavigate('avatar-report', { sessionId: interview.id });
                               } else {
-                                window.open(`http://localhost:8000/report/${interview.id}`, '_blank');
+                                window.open(`${API_BASE_URL}/report/${interview.id}`, '_blank');
                               }
                             }}
                             className="px-4 py-2 rounded-lg font-medium text-sm transition-colors"

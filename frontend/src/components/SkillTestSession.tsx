@@ -4,7 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import axios from 'axios';
 import { useConfirmDialog } from './ConfirmDialog';
 
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../api';
 
 interface Question {
     question_id: string;
