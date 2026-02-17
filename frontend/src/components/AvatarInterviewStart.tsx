@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { ResumePicker } from './ResumePicker';
@@ -11,7 +11,6 @@ import {
     Calendar, 
     Monitor,
     Briefcase,
-    X,
     Settings2
 } from 'lucide-react';
 
