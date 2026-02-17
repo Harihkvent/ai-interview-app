@@ -1,4 +1,13 @@
 services:
+  mongodb:
+    image: mongo:latest
+    container_name: interview-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: always
+
   redis:
     image: redis:alpine
     restart: always
@@ -21,6 +30,7 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - KRUTRIM_API_KEY=${KRUTRIM_API_KEY}
     depends_on:
+      - mongodb
       - redis
       - rabbitmq
     restart: always
@@ -37,6 +47,10 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - KRUTRIM_API_KEY=${KRUTRIM_API_KEY}
     depends_on:
+      - mongodb
       - redis
       - rabbitmq
     restart: always
+
+volumes:
+  mongodb_data:
