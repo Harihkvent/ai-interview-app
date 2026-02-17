@@ -40,16 +40,8 @@ SKILLS_KEYWORDS = [
 ]
 
 def _get_job_data_path() -> str:
-    """Helper to find the CSV file in container (flat) or local (parent) structure"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Option 1: Current directory (flattened Docker structure or standalone)
-    path_flat = os.path.join(current_dir, 'job_data_merged.csv')
-    # Option 2: Parent directory (standard dev structure)
-    path_parent = os.path.join(current_dir, '..', 'job_data_merged.csv')
-    
-    if os.path.exists(path_flat):
-        return path_flat
-    return path_parent
+    """Find the CSV file in the same directory as the script (Standard Docker/Local placement)"""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'job_data_merged.csv')
 
 def load_job_database() -> pd.DataFrame:
     """Load and cache job database from CSV"""

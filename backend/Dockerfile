@@ -30,7 +30,7 @@ COPY backend/ .
 RUN chmod +x run.sh
 
 # Ensure the job data CSV is available for the ML matcher
-COPY job_data_merged.csv /app/job_data_merged.csv
+COPY backend/job_data_merged.csv /app/job_data_merged.csv
 
 # Create uploads directory
 RUN mkdir -p uploads

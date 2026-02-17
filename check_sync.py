@@ -3,7 +3,7 @@ import pickle
 import os
 import torch
 
-csv_path = 'job_data_merged.csv'
+csv_path = 'backend/job_data_merged.csv'
 pkl_path = 'backend/job_embeddings.pkl'
 
 if os.path.exists(csv_path):

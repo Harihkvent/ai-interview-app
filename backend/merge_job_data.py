@@ -18,7 +18,7 @@ JOB_TITLE_DES_PATH = os.path.join(PROJECT_ROOT, 'job_title_des.csv')
 JOB_DATASET_PATH = os.path.join(PROJECT_ROOT, 'job_dataset.csv')
 
 # Output file
-MERGED_OUTPUT_PATH = os.path.join(PROJECT_ROOT, 'job_data_merged.csv')
+MERGED_OUTPUT_PATH = os.path.join(SCRIPT_DIR, 'job_data_merged.csv')
 
 
 def load_job_title_des() -> pd.DataFrame:
