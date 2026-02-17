@@ -108,7 +108,7 @@ export const AvatarInterviewSession: React.FC = () => {
 
   async function loadSession() {
     try {
-      const response = await fetch(`http://localhost:8000/api/avatar-interview/session/${sessionId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/avatar-interview/session/${sessionId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
@@ -184,7 +184,7 @@ export const AvatarInterviewSession: React.FC = () => {
     setTranscript(prev => [...prev, userEntry]);
 
     try {
-      const response = await fetch('http://localhost:8000/api/avatar-interview/submit-answer', {
+      const response = await fetch(`${API_BASE_URL}/api/avatar-interview/submit-answer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -247,7 +247,7 @@ export const AvatarInterviewSession: React.FC = () => {
   async function handleRoundComplete() {
     speak("Great! We've completed this round. Let me check if there are more questions.", async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/avatar-interview/next-round?session_id=${sessionId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/avatar-interview/next-round?session_id=${sessionId}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -274,7 +274,7 @@ export const AvatarInterviewSession: React.FC = () => {
   async function handleInterviewComplete() {
     speak("Thank you for completing the interview! I'm generating your report now.", async () => {
       try {
-        await fetch(`http://localhost:8000/api/avatar-interview/finalize?session_id=${sessionId}`, {
+        await fetch(`${API_BASE_URL}/api/avatar-interview/finalize?session_id=${sessionId}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -336,7 +336,7 @@ export const AvatarInterviewSession: React.FC = () => {
       stopListening();
 
       // Finalize on the backend and navigate
-      fetch(`http://localhost:8000/api/avatar-interview/finalize?session_id=${sessionId}`, {
+      fetch(`${API_BASE_URL}/api/avatar-interview/finalize?session_id=${sessionId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
