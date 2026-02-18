@@ -15,7 +15,6 @@ try:
     CALENDAR_AVAILABLE = True
 except ImportError:
     CALENDAR_AVAILABLE = False
-    logger.warning("Google Calendar integration not available. Install google-api-python-client to enable.")
 
 logger = logging.getLogger("scheduling_service")
 
@@ -61,8 +60,10 @@ async def create_scheduled_interview(
                 prefs = await get_notification_preferences(user_id)
                 if prefs.calendar_sync_enabled:
                     calendar_result = await create_calendar_event(
+                        user_id=user_id,
                         title=title,
                         description=description or "CareerPath AI Interview",
+
                         start_time=scheduled_time,
                         duration_minutes=duration_minutes,
                         attendee_email=user.email if user else None
@@ -129,6 +130,7 @@ async def update_schedule(
         if CALENDAR_AVAILABLE and schedule.calendar_event_id:
             try:
                 await update_calendar_event(
+                    user_id=schedule.user_id,
                     event_id=schedule.calendar_event_id,
                     title=schedule.title,
                     description=schedule.description,
@@ -159,7 +161,7 @@ async def cancel_schedule(schedule_id: str) -> bool:
         # Delete calendar event if exists (non-blocking)
         if CALENDAR_AVAILABLE and schedule.calendar_event_id:
             try:
-                await delete_calendar_event(schedule.calendar_event_id)
+                await delete_calendar_event(schedule.user_id, schedule.calendar_event_id)
             except Exception as cal_error:
                 logger.warning(f"Calendar event deletion failed (non-critical): {str(cal_error)}")
         

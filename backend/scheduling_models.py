@@ -35,6 +35,24 @@ class ScheduledInterview(Document):
         indexes = ["user_id", "scheduled_time", "status"]
 
 
+class CalendarToken(Document):
+    """Stores per-user Google Calendar OAuth tokens"""
+    user_id: str
+    access_token: str
+    refresh_token: str
+    token_uri: str = "https://oauth2.googleapis.com/token"
+    client_id: str
+    client_secret: str
+    scopes: List[str] = ["https://www.googleapis.com/auth/calendar"]
+    expiry: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "calendar_tokens"
+        indexes = ["user_id"]
+
+
 class NotificationPreference(Document):
     """User's notification preferences for scheduled interviews"""
     user_id: str

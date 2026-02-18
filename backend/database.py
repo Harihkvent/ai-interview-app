@@ -15,7 +15,7 @@ async def init_db():
     from models import InterviewSession, Resume, InterviewRound, Question, Answer, Message, JobMatch, CareerRoadmap, QuestionBank, QuestionCache, UserPreferences
     from auth_models import User
     from analytics_models import PerformanceMetrics, AnalyticsSnapshot
-    from scheduling_models import ScheduledInterview, NotificationPreference
+    from scheduling_models import ScheduledInterview, NotificationPreference, CalendarToken
     from skill_assessment_models import SkillTest, SkillTestAttempt, SkillTestQuestion
     from certification_models import Certification, UserCertification
     from avatar_interview_models import AvatarInterviewSession, AvatarQuestion, AvatarResponse
@@ -43,6 +43,7 @@ async def init_db():
             AnalyticsSnapshot,
             ScheduledInterview,
             NotificationPreference,
+            CalendarToken,
             SkillTest,
             SkillTestAttempt,
             SkillTestQuestion,
