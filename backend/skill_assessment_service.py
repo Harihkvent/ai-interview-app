@@ -350,14 +350,12 @@ async def get_user_test_history(user_id: str) -> List[Dict]:
 def parse_text_questions(text: str, skill_name: str, count: int) -> List[Dict]:
     """
     Parse questions from plain text format when AI doesn't return JSON.
-    Expected format:
-    1. Question text?
-    A. Option 1
-    B. Option 2
-    C. Option 3
-    D. Option 4
-    Correct Answer: B
-    Explanation: Why B is correct
+    Handles many formats:
+    - "Correct Answer: B" / "Answer: B" lines
+    - Asterisk-marked options: "*B. Option" or "B. Option *"
+    - Bold-marked options: "**B. Option**"
+    - Parenthetical markers: "B. Option (correct)"
+    - Checkmark markers: "B. Option ✓"
     """
     import re
     questions = []
@@ -368,15 +366,42 @@ def parse_text_questions(text: str, skill_name: str, count: int) -> List[Dict]:
     current_correct_answer = None
     current_explanation = None
     
+    def _save_question():
+        """Save the current question if valid."""
+        nonlocal current_question, current_options, current_correct_answer, current_explanation
+        if current_question and len(current_options) >= 4:
+            if current_correct_answer and current_correct_answer in 'ABCD':
+                questions.append({
+                    "question": current_question,
+                    "options": current_options[:4],
+                    "correct_answer": current_correct_answer,
+                    "explanation": current_explanation or f"The correct answer for this {skill_name} question is {current_correct_answer}."
+                })
+            else:
+                logger.warning(f"Skipping question without valid correct answer: {current_question[:50]}...")
+    
     for line in lines:
         line = line.strip()
         if not line:
             continue
         
-        # Check for correct answer patterns
-        answer_match = re.match(r'^(?:correct\s+)?answer\s*:?\s*([A-D])', line, re.IGNORECASE)
+        # Check for correct answer patterns (many formats)
+        # Matches: "Correct Answer: B", "Answer: B", "Correct: B", "Ans: B", "Answer - B"
+        answer_match = re.match(
+            r'^(?:correct\s+)?(?:answer|ans)\s*[:\-]?\s*(?:option\s+)?([A-D])\b',
+            line, re.IGNORECASE
+        )
         if answer_match:
             current_correct_answer = answer_match.group(1).upper()
+            continue
+        
+        # Also check for "The correct answer is B" or "The answer is B"
+        answer_match2 = re.match(
+            r'^(?:the\s+)?(?:correct\s+)?answer\s+is\s+(?:option\s+)?([A-D])\b',
+            line, re.IGNORECASE
+        )
+        if answer_match2:
+            current_correct_answer = answer_match2.group(1).upper()
             continue
         
         # Check for explanation patterns
@@ -386,167 +411,229 @@ def parse_text_questions(text: str, skill_name: str, count: int) -> List[Dict]:
             continue
             
         # Check if it's a question (starts with number or "Question")
-        if line[0].isdigit() or line.lower().startswith('question'):
-            # Save previous question if exists
-            if current_question and len(current_options) >= 4:
-                # Only add question if we have a valid correct answer
-                if current_correct_answer and current_correct_answer in 'ABCD':
-                    questions.append({
-                        "question": current_question,
-                        "options": current_options[:4],
-                        "correct_answer": current_correct_answer,
-                        "explanation": current_explanation or f"This is a {skill_name} question."
-                    })
-                else:
-                    logger.warning(f"Skipping question without valid correct answer: {current_question[:50]}...")
+        question_match = re.match(r'^(?:(?:question\s*)?\d+[.):\s]|question\s)', line, re.IGNORECASE)
+        if question_match:
+            # Save previous question
+            _save_question()
             
-            # Start new question
-            current_question = line.lstrip('0123456789. ').strip()
+            # Start new question - strip the number prefix
+            current_question = re.sub(r'^(?:question\s*)?\d+[.):\s]+\s*', '', line, flags=re.IGNORECASE).strip()
             current_options = []
             current_correct_answer = None
             current_explanation = None
             
-        # Check if it's an option (A., B., C., D.) - also check for asterisk marking correct answer
-        elif len(line) >= 2 and line[0].upper() in 'ABCD' and line[1] in '.):':
-            option_text = line.strip()
-            if not option_text.startswith(line[0].upper() + '.'):
-                option_text = line[0].upper() + '. ' + line[2:].strip()
-            
-            # Check if this option is marked with asterisk as correct
-            if '*' in option_text or option_text.startswith('* '):
-                current_correct_answer = line[0].upper()
-                option_text = option_text.replace('*', '').strip()
-            
-            current_options.append(option_text)
+        # Check if it's an option (A., B., C., D.) with various markers for correct answer
+        elif len(line) >= 2 and line.lstrip('*').strip()[:1].upper() in 'ABCD':
+            # Remove leading asterisks/bold markers to get the letter
+            clean_line = line.lstrip('* ')
+            if len(clean_line) >= 2 and clean_line[0].upper() in 'ABCD' and clean_line[1] in '.):- ':
+                letter = clean_line[0].upper()
+                option_text = letter + '. ' + clean_line[2:].strip()
+                
+                # Detect correct answer markers
+                is_marked_correct = False
+                
+                # Check for asterisk markers: *B. Option* or B. Option *
+                if line.startswith('*') or line.endswith('*') or '**' in line:
+                    is_marked_correct = True
+                
+                # Check for (correct) or (right) or (answer) markers
+                if re.search(r'\((?:correct|right|answer|✓|✔)\)', option_text, re.IGNORECASE):
+                    is_marked_correct = True
+                    option_text = re.sub(r'\s*\((?:correct|right|answer|✓|✔)\)', '', option_text, flags=re.IGNORECASE).strip()
+                
+                # Check for checkmark or arrow markers
+                if any(marker in option_text for marker in ['✓', '✔', '←', '⬅', '✅']):
+                    is_marked_correct = True
+                    for marker in ['✓', '✔', '←', '⬅', '✅']:
+                        option_text = option_text.replace(marker, '').strip()
+                
+                if is_marked_correct:
+                    current_correct_answer = letter
+                    # Clean bold markers from option text
+                    option_text = option_text.replace('**', '').replace('*', '').strip()
+                    # Re-add the letter prefix if it got stripped
+                    if not option_text.startswith(letter):
+                        option_text = letter + '. ' + option_text
+                
+                current_options.append(option_text)
     
     # Don't forget the last question
-    if current_question and len(current_options) >= 4:
-        if current_correct_answer and current_correct_answer in 'ABCD':
-            questions.append({
-                "question": current_question,
-                "options": current_options[:4],
-                "correct_answer": current_correct_answer,
-                "explanation": current_explanation or f"This is a {skill_name} question."
-            })
-        else:
-            logger.warning(f"Skipping last question without valid correct answer: {current_question[:50]}...")
+    _save_question()
     
-    return questions[:count]  # Return only requested count
+    return questions[:count]
 
 
 async def generate_skill_questions(skill_name: str, category: str, count: int = 10) -> List[str]:
-    """Generate skill test questions using AI"""
-    try:
-        prompt = f"""You are a technical interviewer creating {count} multiple-choice questions about {skill_name} ({category} category).
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY a valid JSON array - NO explanatory text before or after
-2. Each question must have exactly 4 options labeled A, B, C, D
-3. Specify the correct answer as a single letter (A, B, C, or D)
-4. Provide a detailed explanation for why the answer is correct
-5. Create REAL {skill_name} questions with varying difficulty
-6. Ensure correct answers are distributed across all options (not all A)
-
-EXACT JSON FORMAT (return array like this):
-[
-  {{
-    "question": "What is the purpose of the SELECT statement in SQL?",
-    "options": [
-      "A. To retrieve data from a database",
-      "B. To delete data from a database",
-      "C. To update existing records",
-      "D. To create a new table"
-    ],
-    "correct_answer": "A",
-    "explanation": "The SELECT statement is used to query and retrieve data from one or more tables in a database. It's the most commonly used SQL command for data retrieval."
-  }}
-]
-
-Now generate {count} {skill_name} questions following this EXACT format. Return ONLY the JSON array:"""
-        
-        messages = [{"role": "user", "content": prompt}]
-        # Increase max_tokens to ensure we can generate all requested questions
-        # Rough estimate: ~200 tokens per question, capped at 3500 for model limits
-        max_tokens_needed = min(max(2000, count * 250), 3500)
-        response_text = await call_krutrim_api(messages, temperature=0.7, max_tokens=max_tokens_needed, operation="generate_skill_questions")
-        
-        # Parse and save questions
-        import json
-        from ai_utils import clean_ai_json
-        
-        logger.info(f"Generating {count} questions for {skill_name}")
-        logger.info(f"Raw AI response length: {len(response_text)}")
-        logger.info(f"Raw AI response: {response_text[:300]}...")  # Log first 300 chars
-        
-        cleaned_response = clean_ai_json(response_text)
-        logger.info(f"Cleaned response: {cleaned_response[:300]}...")
-        
-        questions_data = None
-        
-        # Try to parse JSON
+    """Generate skill test questions using AI with retry logic"""
+    import json
+    from ai_utils import clean_ai_json
+    
+    max_attempts = 2
+    
+    for attempt_num in range(1, max_attempts + 1):
         try:
-            questions_data = json.loads(cleaned_response)
-            logger.info("Successfully parsed JSON response")
-        except json.JSONDecodeError as e:
-            logger.warning(f"JSON decode failed: {str(e)}")
-            logger.warning("Attempting to parse as plain text format...")
+            logger.info(f"Generating {count} questions for {skill_name} (attempt {attempt_num}/{max_attempts})")
             
-            # Fallback: Parse plain text format
+            # System message to enforce JSON output
+            system_message = {
+                "role": "system",
+                "content": "You are a JSON API that generates quiz questions. You MUST respond with ONLY a valid JSON array. No markdown, no explanations, no text before or after the JSON. Your entire response must be parseable by json.loads()."
+            }
+            
+            user_prompt = f"""Generate exactly {count} multiple-choice questions about {skill_name} ({category} category).
+
+RULES:
+1. Return ONLY a valid JSON array - absolutely NO text before or after
+2. Each question MUST have exactly 4 options (A, B, C, D)
+3. Each question MUST have a correct_answer field with a SINGLE letter (A, B, C, or D)
+4. Each question MUST have a detailed explanation of WHY the correct answer is right
+5. DISTRIBUTE correct answers evenly across A, B, C, and D - do NOT make them all the same letter
+6. Questions should have varying difficulty (easy, medium, hard)
+
+JSON FORMAT - return exactly this structure:
+[{{
+  "question": "What does the 'self' parameter refer to in Python classes?",
+  "options": ["A. The class itself", "B. The current instance of the class", "C. The parent class", "D. A global variable"],
+  "correct_answer": "B",
+  "explanation": "In Python, 'self' refers to the current instance of the class. It allows access to instance attributes and methods. It is automatically passed when calling methods on an object."
+}}, {{
+  "question": "Which OOP principle allows a child class to provide a specific implementation of a method defined in its parent class?",
+  "options": ["A. Encapsulation", "B. Abstraction", "C. Polymorphism", "D. Inheritance"],
+  "correct_answer": "C",
+  "explanation": "Polymorphism allows objects of different classes to respond to the same method call in different ways. Method overriding is a form of polymorphism where a child class provides its own implementation of a parent class method."
+}}]
+
+Generate {count} questions about {skill_name} now. Return ONLY the JSON array:"""
+
+            messages = [system_message, {"role": "user", "content": user_prompt}]
+            
+            # More tokens for better quality - ~300 tokens per question with explanations
+            max_tokens_needed = min(max(2500, count * 350), 4000)
+            response_text = await call_krutrim_api(
+                messages, temperature=0.7, max_tokens=max_tokens_needed, 
+                operation="generate_skill_questions"
+            )
+            
+            if not response_text or not response_text.strip():
+                logger.error("Empty response from AI API")
+                if attempt_num < max_attempts:
+                    continue
+                raise ValueError("AI returned empty response")
+            
+            logger.info(f"Raw AI response length: {len(response_text)}")
+            logger.info(f"Raw AI response (first 500 chars): {response_text[:500]}")
+            
+            # Try to parse as JSON first
+            questions_data = None
+            
+            cleaned_response = clean_ai_json(response_text)
+            logger.info(f"Cleaned response (first 300 chars): {cleaned_response[:300]}")
+            
             try:
+                questions_data = json.loads(cleaned_response)
+                logger.info(f"Successfully parsed JSON response with {len(questions_data) if isinstance(questions_data, list) else 'non-list'} items")
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON decode failed: {str(e)}")
+                logger.warning("Attempting to parse as plain text format...")
+                
+                # Fallback: Parse plain text format
                 questions_data = parse_text_questions(response_text, skill_name, count)
                 if questions_data:
                     logger.info(f"Successfully parsed {len(questions_data)} questions from text format")
                 else:
-                    raise ValueError("Failed to parse any questions from text format")
-            except Exception as parse_err:
-                logger.error(f"Text parsing also failed: {str(parse_err)}")
-                raise ValueError(f"AI response could not be parsed as JSON or text format. Please try again.")
-        
-        if isinstance(questions_data, dict):
-            # Some models wrap the array in an object like {"questions": [...]}
-            # Try to extract the list from the dict values
-            for key, value in questions_data.items():
-                if isinstance(value, list) and len(value) > 0:
-                    logger.info(f"Unwrapped questions list from dict key '{key}'")
-                    questions_data = value
-                    break
-            else:
-                raise ValueError(f"Expected list of questions, got dict with keys: {list(questions_data.keys())}")
-        
-        if not isinstance(questions_data, list):
-            raise ValueError(f"Expected list of questions, got {type(questions_data)}")
-        
-        if len(questions_data) == 0:
-            raise ValueError("AI returned empty question list")
-        
-        question_ids = []
-        for i, q_data in enumerate(questions_data):
-            try:
-                question = SkillTestQuestion(
-                    skill_name=skill_name,
-                    category=category,
-                    question_text=q_data["question"],
-                    question_type="mcq",
-                    options=q_data["options"],
-                    correct_answer=q_data["correct_answer"],
-                    explanation=q_data.get("explanation", ""),
-                    difficulty="medium"
-                )
-                await question.insert()
-                question_ids.append(str(question.id))
-            except KeyError as e:
-                logger.error(f"Question {i+1} missing required field: {str(e)}")
+                    logger.error("Text parsing also returned 0 questions")
+                    if attempt_num < max_attempts:
+                        logger.info("Retrying with a new API call...")
+                        continue
+                    raise ValueError("AI response could not be parsed as JSON or text format. Please try again.")
+            
+            # Handle dict wrapper
+            if isinstance(questions_data, dict):
+                for key, value in questions_data.items():
+                    if isinstance(value, list) and len(value) > 0:
+                        logger.info(f"Unwrapped questions list from dict key '{key}'")
+                        questions_data = value
+                        break
+                else:
+                    raise ValueError(f"Expected list of questions, got dict with keys: {list(questions_data.keys())}")
+            
+            if not isinstance(questions_data, list):
+                raise ValueError(f"Expected list of questions, got {type(questions_data)}")
+            
+            if len(questions_data) == 0:
+                if attempt_num < max_attempts:
+                    logger.info("Got 0 questions, retrying...")
+                    continue
+                raise ValueError("AI returned empty question list")
+            
+            # Validate and save questions
+            question_ids = []
+            answer_distribution = {'A': 0, 'B': 0, 'C': 0, 'D': 0}
+            
+            for i, q_data in enumerate(questions_data):
+                try:
+                    # Validate required fields
+                    q_text = q_data.get("question", "").strip()
+                    q_options = q_data.get("options", [])
+                    q_correct = q_data.get("correct_answer", "").strip().upper()
+                    q_explanation = q_data.get("explanation", "").strip()
+                    
+                    if not q_text:
+                        logger.warning(f"Question {i+1}: empty question text, skipping")
+                        continue
+                    
+                    if len(q_options) < 4:
+                        logger.warning(f"Question {i+1}: only {len(q_options)} options, skipping")
+                        continue
+                    
+                    # Validate correct answer is A, B, C, or D
+                    if q_correct not in ('A', 'B', 'C', 'D'):
+                        # Try to extract just the letter from strings like "A. Option text"
+                        if q_correct and q_correct[0] in 'ABCD':
+                            q_correct = q_correct[0]
+                        else:
+                            logger.warning(f"Question {i+1}: invalid correct_answer '{q_correct}', skipping")
+                            continue
+                    
+                    if not q_explanation:
+                        q_explanation = f"The correct answer is {q_correct}."
+                    
+                    answer_distribution[q_correct] += 1
+                    
+                    question = SkillTestQuestion(
+                        skill_name=skill_name,
+                        category=category,
+                        question_text=q_text,
+                        question_type="mcq",
+                        options=q_options[:4],
+                        correct_answer=q_correct,
+                        explanation=q_explanation,
+                        difficulty="medium"
+                    )
+                    await question.insert()
+                    question_ids.append(str(question.id))
+                except Exception as qe:
+                    logger.error(f"Question {i+1} failed: {str(qe)}")
+                    continue
+            
+            logger.info(f"Answer distribution: {answer_distribution}")
+            
+            if len(question_ids) == 0:
+                if attempt_num < max_attempts:
+                    logger.info("No valid questions created, retrying...")
+                    continue
+                raise ValueError("Failed to create any valid questions from AI response")
+            
+            if len(question_ids) < count:
+                logger.warning(f"Only created {len(question_ids)} questions out of {count} requested.")
+            
+            logger.info(f"Successfully created {len(question_ids)} out of {count} requested questions")
+            return question_ids
+            
+        except Exception as e:
+            if attempt_num < max_attempts:
+                logger.warning(f"Attempt {attempt_num} failed: {str(e)}, retrying...")
                 continue
-        
-        if len(question_ids) == 0:
-            raise ValueError("Failed to create any valid questions from AI response")
-        
-        # Warn if we didn't get the requested number of questions
-        if len(question_ids) < count:
-            logger.warning(f"Only created {len(question_ids)} questions out of {count} requested. Some questions may have failed validation.")
-        
-        logger.info(f"Successfully created {len(question_ids)} out of {count} requested questions")
-        return question_ids
-    except Exception as e:
-        logger.error(f"Error generating questions: {str(e)}")
-        raise
+            logger.error(f"Error generating questions after {max_attempts} attempts: {str(e)}")
+            raise
