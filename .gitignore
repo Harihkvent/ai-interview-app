@@ -36,3 +36,6 @@ knownbugs.txt
 backend/credentials.json
 
 mockup/
+
+ai-interview-todo.txt
+docker-compose commands.txt

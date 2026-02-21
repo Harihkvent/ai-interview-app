@@ -466,8 +466,8 @@ Now generate {count} {skill_name} questions following this EXACT format. Return 
         
         messages = [{"role": "user", "content": prompt}]
         # Increase max_tokens to ensure we can generate all requested questions
-        # Rough estimate: ~200 tokens per question, so count * 250 should be safe
-        max_tokens_needed = max(2000, count * 250)
+        # Rough estimate: ~200 tokens per question, capped at 3500 for model limits
+        max_tokens_needed = min(max(2000, count * 250), 3500)
         response_text = await call_krutrim_api(messages, temperature=0.7, max_tokens=max_tokens_needed, operation="generate_skill_questions")
         
         # Parse and save questions
@@ -501,6 +501,17 @@ Now generate {count} {skill_name} questions following this EXACT format. Return 
             except Exception as parse_err:
                 logger.error(f"Text parsing also failed: {str(parse_err)}")
                 raise ValueError(f"AI response could not be parsed as JSON or text format. Please try again.")
+        
+        if isinstance(questions_data, dict):
+            # Some models wrap the array in an object like {"questions": [...]}
+            # Try to extract the list from the dict values
+            for key, value in questions_data.items():
+                if isinstance(value, list) and len(value) > 0:
+                    logger.info(f"Unwrapped questions list from dict key '{key}'")
+                    questions_data = value
+                    break
+            else:
+                raise ValueError(f"Expected list of questions, got dict with keys: {list(questions_data.keys())}")
         
         if not isinstance(questions_data, list):
             raise ValueError(f"Expected list of questions, got {type(questions_data)}")

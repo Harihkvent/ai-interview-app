@@ -12,6 +12,7 @@ from models import CareerRoadmap
 
 KRUTRIM_API_KEY = os.getenv("KRUTRIM_API_KEY")
 KRUTRIM_API_URL = "https://cloud.olakrutrim.com/v1/chat/completions"
+KRUTRIM_MODEL = os.getenv("KRUTRIM_MODEL", "DeepSeek-R1-Llama-8B")
 
 async def analyze_skills_gap(resume_skills: List[str], target_job_description: str) -> Dict:
     """
@@ -143,7 +144,7 @@ Return ONLY the raw JSON object. Do not include markdown code blocks, preamble, 
     }
     
     payload = {
-        "model": "Krutrim-spectre-v2",
+        "model": KRUTRIM_MODEL,
         "messages": [
             {
                 "role": "system", 

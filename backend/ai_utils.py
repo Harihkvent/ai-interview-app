@@ -19,6 +19,7 @@ load_dotenv()
 
 KRUTRIM_API_KEY = os.getenv("KRUTRIM_API_KEY")
 KRUTRIM_API_URL = os.getenv("KRUTRIM_API_URL", "https://cloud.olakrutrim.com/v1/chat/completions")
+KRUTRIM_MODEL = os.getenv("KRUTRIM_MODEL", "DeepSeek-R1-Llama-8B")
 
 from ai_engine.krutrim_adapter import KrutrimLLM
 from pydantic import SecretStr
@@ -49,7 +50,7 @@ async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens:
     }
     
     payload = {
-        "model": "Krutrim-spectre-v2",
+        "model": KRUTRIM_MODEL,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens
@@ -89,7 +90,7 @@ def clean_ai_json(response: str) -> str:
     Does not make assumptions about the data structure (list vs object).
     """
     if not response:
-        return "{}"
+        return "[]"
 
     cleaned = response.strip()
     
