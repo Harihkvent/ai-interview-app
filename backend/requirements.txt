@@ -30,7 +30,6 @@ torch
 tqdm
 requests
 redis
-aioredis
 pika
 aio-pika
 langchain
