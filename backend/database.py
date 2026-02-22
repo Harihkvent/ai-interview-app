@@ -19,6 +19,8 @@ async def init_db():
     from skill_assessment_models import SkillTest, SkillTestAttempt, SkillTestQuestion
     from certification_models import Certification, UserCertification
     from avatar_interview_models import AvatarInterviewSession, AvatarQuestion, AvatarResponse
+    from admin_models import TokenUsage, AdminActivity, AppConfig
+    from feedback_models import Feedback
     
     client = AsyncIOMotorClient(MONGODB_URL)
     database = client[DATABASE_NAME]
@@ -52,7 +54,11 @@ async def init_db():
             # Avatar Interview models
             AvatarInterviewSession,
             AvatarQuestion,
-            AvatarResponse
+            AvatarResponse,
+            TokenUsage,
+            AdminActivity,
+            AppConfig,
+            Feedback
         ]
     )
     

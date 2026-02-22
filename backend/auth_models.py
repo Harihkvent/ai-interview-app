@@ -5,7 +5,7 @@ User Authentication Models
 from beanie import Document
 from pydantic import Field, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import bcrypt
 
 class User(Document):
@@ -23,6 +23,9 @@ class User(Document):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
     is_active: bool = True
+    role: str = "user"  # "user" or "admin"
+    is_blocked: bool = False
+    restricted_services: List[str] = []  # e.g., ["interview", "roadmap", "avatar"]
     
     class Settings:
         name = "users"

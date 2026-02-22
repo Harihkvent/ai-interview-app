@@ -24,10 +24,13 @@ import { SkillTestResults } from './components/SkillTestResults';
 import { AvatarInterviewStart } from './components/AvatarInterviewStart';
 import { AvatarInterviewSession } from './components/AvatarInterviewSession';
 import { LandingPage } from './components/LandingPage';
+import { AdminDashboard } from './components/AdminDashboard';
+import { AdminLogin } from './components/AdminLogin';
+import { AdminLayout } from './components/AdminLayout';
 import './index.css';
 
 function App() {
-    const { isAuthenticated, loading: authLoading } = useAuth();
+    const { isAuthenticated, user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     
     const [sessionId, setSessionId] = useState<string | number | null>(null);
@@ -44,101 +47,111 @@ function App() {
         );
     }
 
-    // Show auth page if user clicked sign in/get started
-    if (!isAuthenticated && showAuthPage) {
-        return <AuthPage onSuccess={() => navigate('/dashboard')} />;
-    }
-
-    // Show landing page for unauthenticated users
-    if (!isAuthenticated) {
-        return (
-            <LandingPage 
-                onSignIn={() => setShowAuthPage(true)}
-                onGetStarted={() => setShowAuthPage(true)}
-            />
-        );
-    }
-
     return (
-        <Layout>
-            <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={
-                    <Dashboard
-                        onStartNewInterview={() => navigate('/upload')}
-                        onViewRoadmaps={() => navigate('/roadmaps')}
-                        onNavigate={(page, params) => {
-                            if (params?.resumeSessionId) {
-                                navigate(`/interview/${params.resumeSessionId}`);
-                            } else if (params?.selectedId) {
-                                navigate(`/roadmaps/${params.selectedId}`);
-                            } else {
-                                navigate(`/${page}`);
-                            }
-                        }}
-                    />
-                } />
-                <Route path="/upload" element={<InterviewStart />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/jobs" element={
-                    <JobMatcher 
-                        sessionId={sessionId?.toString()}
-                        onSessionIdChange={setSessionId}
-                        onRoadmapGenerated={() => navigate('/roadmap')} 
-                    />
-                } />
-                <Route path="/roadmap" element={
-                    sessionId ? (
-                        <CareerRoadmap
-                            sessionId={sessionId.toString()}
-                            onProceedToInterview={async () => {
-                                navigate(`/interview/${sessionId}`);
-                            }}
+        <Routes>
+            {/* Landing & Auth (Guest only) */}
+            <Route path="/" element={
+                isAuthenticated ? <Navigate to="/dashboard" replace /> : (
+                    showAuthPage ? (
+                        <AuthPage onSuccess={() => navigate('/dashboard')} />
+                    ) : (
+                        <LandingPage 
+                            onSignIn={() => setShowAuthPage(true)}
+                            onGetStarted={() => setShowAuthPage(true)}
                         />
-                    ) : <Navigate to="/dashboard" replace />
-                } />
-                <Route path="/roadmaps" element={
-                    <SavedRoadmaps onViewRoadmap={(id) => navigate(`/roadmaps/${id}`)} />
-                } />
-                <Route path="/insights" element={<AiInsightsPage />} />
-                <Route path="/roadmaps/:id" element={
-                    <RoadmapViewer
-                        onBack={() => navigate('/roadmaps')}
-                    />
-                } />
-                <Route path="/interview/:id" element={
-                    <InterviewSession 
-                        onComplete={() => navigate('/dashboard')}
-                        onExit={() => navigate('/dashboard')}
-                    />
-                } />
-                <Route path="/live-jobs" element={<LiveJobs />} />
-                <Route path="/saved-jobs" element={<SavedJobs />} />
-                <Route path="/analytics" element={
-                    <AnalyticsDashboard />
-                } />
-                <Route path="/schedule" element={
-                    <ScheduleInterview />
-                } />
-                <Route path="/skill-tests" element={
-                    <SkillTests />
-                } />
-                <Route path="/skill-tests/results/:attemptId" element={
-                    <SkillTestResults />
-                } />
-                <Route path="/skill-tests/:attemptId" element={
-                    <SkillTestSession />
-                } />
-                <Route path="/avatar-interview/start" element={
-                    <AvatarInterviewStart />
-                } />
-                <Route path="/avatar-interview/:id" element={
-                    <AvatarInterviewSession />
-                } />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-            {isAuthenticated && <AgentOverlay />}
-        </Layout>
+                    )
+                )
+            } />
+
+            {/* Admin Login (No Layout) */}
+            <Route path="/admin/login" element={
+                isAuthenticated && user?.role === 'admin' ? (
+                    <Navigate to="/admin" replace />
+                ) : (
+                    <AdminLogin />
+                )
+            } />
+
+            {/* Admin Console (AdminLayout) */}
+            <Route path="/admin/*" element={
+                user?.role === 'admin' ? (
+                    <AdminLayout>
+                        <AdminDashboard />
+                    </AdminLayout>
+                ) : (
+                    <Navigate to="/dashboard" replace />
+                )
+            } />
+
+            {/* App Routes (User Layout) */}
+            <Route path="/*" element={
+                <Layout>
+                    <Routes>
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/dashboard" element={
+                            <Dashboard
+                                onStartNewInterview={() => navigate('/upload')}
+                                onViewRoadmaps={() => navigate('/roadmaps')}
+                                onNavigate={(page, params) => {
+                                    if (params?.resumeSessionId) {
+                                        navigate(`/interview/${params.resumeSessionId}`);
+                                    } else if (params?.selectedId) {
+                                        navigate(`/roadmaps/${params.selectedId}`);
+                                    } else {
+                                        navigate(`/${page}`);
+                                    }
+                                }}
+                            />
+                        } />
+                        <Route path="/upload" element={<InterviewStart />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/jobs" element={
+                            <JobMatcher 
+                                sessionId={sessionId?.toString()}
+                                onSessionIdChange={setSessionId}
+                                onRoadmapGenerated={() => navigate('/roadmap')} 
+                            />
+                        } />
+                        <Route path="/roadmap" element={
+                            sessionId ? (
+                                <CareerRoadmap
+                                    sessionId={sessionId.toString()}
+                                    onProceedToInterview={async () => {
+                                        navigate(`/interview/${sessionId}`);
+                                    }}
+                                />
+                            ) : <Navigate to="/dashboard" replace />
+                        } />
+                        <Route path="/roadmaps" element={
+                            <SavedRoadmaps onViewRoadmap={(id) => navigate(`/roadmaps/${id}`)} />
+                        } />
+                        <Route path="/insights" element={<AiInsightsPage />} />
+                        <Route path="/roadmaps/:id" element={
+                            <RoadmapViewer
+                                onBack={() => navigate('/roadmaps')}
+                            />
+                        } />
+                        <Route path="/interview/:id" element={
+                            <InterviewSession 
+                                onComplete={() => navigate('/dashboard')}
+                                onExit={() => navigate('/dashboard')}
+                            />
+                        } />
+                        <Route path="/live-jobs" element={<LiveJobs />} />
+                        <Route path="/saved-jobs" element={<SavedJobs />} />
+                        <Route path="/analytics" element={<AnalyticsDashboard />} />
+                        <Route path="/schedule" element={<ScheduleInterview />} />
+                        <Route path="/skill-tests" element={<SkillTests />} />
+                        <Route path="/skill-tests/results/:attemptId" element={<SkillTestResults />} />
+                        <Route path="/skill-tests/:attemptId" element={<SkillTestSession />} />
+                        <Route path="/avatar-interview/start" element={<AvatarInterviewStart />} />
+                        <Route path="/avatar-interview/:id" element={<AvatarInterviewSession />} />
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    </Routes>
+                    <AgentOverlay />
+                </Layout>
+            } />
+        </Routes>
     );
 
 }

@@ -6,6 +6,9 @@ interface User {
   email: string;
   username: string;
   full_name?: string;
+  role: 'user' | 'admin';
+  is_blocked: boolean;
+  restricted_services: string[];
   current_location?: string;
   profile_picture_url?: string;
 }

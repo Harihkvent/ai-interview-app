@@ -58,6 +58,36 @@ class KrutrimLLM(LLM):
                 result = response.json()
                 content = result['choices'][0]['message']['content']
                 
+                # Extract and log token usage if available
+                usage = result.get('usage', {})
+                prompt_tokens = usage.get('prompt_tokens', 0)
+                completion_tokens = usage.get('completion_tokens', 0)
+                total_tokens = usage.get('total_tokens', prompt_tokens + completion_tokens)
+                
+                if total_tokens > 0:
+                    try:
+                        from admin_models import TokenUsage
+                        import asyncio
+                        
+                        # We try to get context from kwargs if passed by the calling service
+                        user_id = kwargs.get("user_id", "system")
+                        session_id = kwargs.get("session_id")
+                        operation = kwargs.get("operation", "chat")
+
+                        token_entry = TokenUsage(
+                            user_id=user_id,
+                            session_id=session_id,
+                            operation=operation,
+                            model_name=self.model_name,
+                            prompt_tokens=prompt_tokens,
+                            completion_tokens=completion_tokens,
+                            total_tokens=total_tokens
+                        )
+                        # We use asyncio.create_task to not block the main response
+                        asyncio.create_task(token_entry.insert())
+                    except Exception as e:
+                        logger.error(f"Failed to log token usage: {e}")
+
                 if stop:
                     # Simple stop sequence handling
                     for s in stop:

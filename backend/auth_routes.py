@@ -42,7 +42,7 @@ class UserLogin(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user: dict
+    user: dict  # Should include role, is_blocked, restricted_services now
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -81,8 +81,23 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     user = await User.get(user_id)
     if user is None or not user.is_active:
         raise credentials_exception
+        
+    if user.is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been blocked by an administrator."
+        )
     
     return user
+
+async def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Dependency to verify admin privileges"""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have administrative privileges."
+        )
+    return current_user
 
 # ============= Authentication Endpoints =============
 
@@ -124,6 +139,9 @@ async def register(user_data: UserRegister):
             "email": user.email,
             "username": user.username,
             "full_name": user.full_name,
+            "role": user.role,
+            "is_blocked": user.is_blocked,
+            "restricted_services": user.restricted_services,
             "created_at": user.created_at.isoformat()
         }
     )
@@ -159,6 +177,9 @@ async def login(user_data: UserLogin):
             "email": user.email,
             "username": user.username,
             "full_name": user.full_name,
+            "role": user.role,
+            "is_blocked": user.is_blocked,
+            "restricted_services": user.restricted_services,
             "last_login": user.last_login.isoformat() if user.last_login else None
         }
     )
@@ -171,6 +192,9 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "username": current_user.username,
         "full_name": current_user.full_name,
+        "role": current_user.role,
+        "is_blocked": current_user.is_blocked,
+        "restricted_services": current_user.restricted_services,
         "current_location": current_user.current_location,
         "profile_picture_url": current_user.profile_picture_url,
         "created_at": current_user.created_at.isoformat(),
@@ -293,6 +317,9 @@ async def google_auth(google_data: GoogleLogin):
                 "email": user.email,
                 "username": user.username,
                 "full_name": user.full_name,
+                "role": user.role,
+                "is_blocked": user.is_blocked,
+                "restricted_services": user.restricted_services,
                 "profile_picture_url": user.profile_picture_url,
                 "oauth_provider": user.oauth_provider
             }
