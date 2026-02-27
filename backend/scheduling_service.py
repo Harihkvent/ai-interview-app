@@ -4,6 +4,7 @@ Scheduling Service - Manage interview scheduling and notifications
 from fastapi import BackgroundTasks
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import logging
 
 from scheduling_models import ScheduledInterview, NotificationPreference
@@ -42,8 +43,14 @@ async def create_scheduled_interview(
         
         # Helper for background processing
         async def process_post_schedule():
-            # Get user for email and calendar
+            # Get user and preferences for email and calendar
             user = await User.get(user_id)
+            prefs = await get_notification_preferences(user_id)
+            user_tz = ZoneInfo(prefs.timezone) if prefs.timezone else ZoneInfo("UTC")
+            
+            # Format time in user's local timezone for email
+            local_time = scheduled_time.replace(tzinfo=ZoneInfo("UTC")).astimezone(user_tz)
+            local_time_str = local_time.strftime("%Y-%m-%d %H:%M")
             
             # Send confirmation email
             if user and user.email:
@@ -51,7 +58,7 @@ async def create_scheduled_interview(
                     user.email,
                     {
                         "title": title,
-                        "scheduled_time": scheduled_time.strftime("%Y-%m-%d %H:%M"),
+                        "scheduled_time": local_time_str,
                         "duration_minutes": duration_minutes,
                         "description": description
                     }
@@ -209,11 +216,19 @@ async def check_and_send_reminders():
                     # Send reminder
                     user = await User.get(schedule.user_id)
                     if user and user.email:
+                        # Get user preferences for timezone
+                        prefs = await get_notification_preferences(schedule.user_id)
+                        user_tz = ZoneInfo(prefs.timezone) if prefs.timezone else ZoneInfo("UTC")
+                        
+                        # Format time in user's local timezone for reminder
+                        local_time = schedule.scheduled_time.replace(tzinfo=ZoneInfo("UTC")).astimezone(user_tz)
+                        local_time_str = local_time.strftime("%Y-%m-%d %H:%M")
+                        
                         success = await send_reminder_email(
                             user.email,
                             {
                                 "title": schedule.title,
-                                "scheduled_time": schedule.scheduled_time.strftime("%Y-%m-%d %H:%M"),
+                                "scheduled_time": local_time_str,
                                 "duration_minutes": schedule.duration_minutes
                             },
                             interval

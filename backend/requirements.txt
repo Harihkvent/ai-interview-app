@@ -39,3 +39,5 @@ langchain-mcp-adapters
 mcp
 matplotlib
 seaborn
+tzdata
+pytz

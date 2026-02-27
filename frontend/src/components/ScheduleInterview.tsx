@@ -63,6 +63,14 @@ export const ScheduleInterview: React.FC = () => {
             setSchedules(schedulesData.schedules || []);
             setPreferences(prefsData);
             setCalendarConnected(calendarData.calendar_connected);
+
+            // Automatic Timezone Sync
+            const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (prefsData && prefsData.timezone !== detectedTimezone) {
+                console.log(`🕒 Updating timezone from ${prefsData.timezone} to ${detectedTimezone}`);
+                const updated = await updateSchedulePreferences({ timezone: detectedTimezone });
+                setPreferences(updated.preferences);
+            }
         } catch (err) {
             console.error('Error loading data:', err);
         } finally {
