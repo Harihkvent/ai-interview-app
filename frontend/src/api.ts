@@ -535,6 +535,17 @@ export const updateSchedulePreferences = async (data: any) => {
   return response.data;
 };
 
+export const getCalendarStatus = async () => {
+  const response = await api.get("/api/schedule/calendar/status");
+  return response.data;
+};
+
+export const connectCalendar = async (redirectUrl?: string) => {
+  const params = redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : "";
+  const response = await api.get(`/api/schedule/calendar/connect${params}`);
+  return response.data;
+};
+
 // ============= Skill Assessment API =============
 
 export const getAvailableSkillTests = async (

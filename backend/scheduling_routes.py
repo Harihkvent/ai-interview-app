@@ -1,7 +1,7 @@
 """
 Scheduling API Routes
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from typing import Optional, List
 from pydantic import BaseModel
@@ -136,8 +136,9 @@ async def get_calendar_events(
 @router.post("/create")
 async def create_schedule(
     request: CreateScheduleRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
-):
+) -> dict:
     """Create a new scheduled interview"""
     try:
         scheduled_time = datetime.fromisoformat(request.scheduled_time)
@@ -147,7 +148,8 @@ async def create_schedule(
             title=request.title,
             scheduled_time=scheduled_time,
             duration_minutes=request.duration_minutes,
-            description=request.description
+            description=request.description,
+            background_tasks=background_tasks
         )
         
         return {

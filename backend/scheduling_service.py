@@ -1,6 +1,7 @@
 """
 Scheduling Service - Manage interview scheduling and notifications
 """
+from fastapi import BackgroundTasks
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 import logging
@@ -24,7 +25,8 @@ async def create_scheduled_interview(
     title: str,
     scheduled_time: datetime,
     duration_minutes: int = 60,
-    description: Optional[str] = None
+    description: Optional[str] = None,
+    background_tasks: Optional[BackgroundTasks] = None
 ) -> ScheduledInterview:
     """Create a new scheduled interview"""
     try:
@@ -38,43 +40,57 @@ async def create_scheduled_interview(
         )
         await schedule.insert()
         
-        # Get user for email and calendar
-        user = await User.get(user_id)
-        
-        # Send confirmation email
-        if user and user.email:
-            await send_interview_scheduled_email(
-                user.email,
-                {
-                    "title": title,
-                    "scheduled_time": scheduled_time.strftime("%Y-%m-%d %H:%M"),
-                    "duration_minutes": duration_minutes,
-                    "description": description
-                }
-            )
-            schedule.notification_sent = True
-        
-        # Create calendar event if enabled (non-blocking)
-        if CALENDAR_AVAILABLE:
-            try:
-                prefs = await get_notification_preferences(user_id)
-                if prefs.calendar_sync_enabled:
-                    calendar_result = await create_calendar_event(
-                        user_id=user_id,
-                        title=title,
-                        description=description or "CareerPath AI Interview",
+        # Helper for background processing
+        async def process_post_schedule():
+            # Get user for email and calendar
+            user = await User.get(user_id)
+            
+            # Send confirmation email
+            if user and user.email:
+                await send_interview_scheduled_email(
+                    user.email,
+                    {
+                        "title": title,
+                        "scheduled_time": scheduled_time.strftime("%Y-%m-%d %H:%M"),
+                        "duration_minutes": duration_minutes,
+                        "description": description
+                    }
+                )
+                # Update schedule after email sent (in background)
+                to_update = await ScheduledInterview.get(schedule.id)
+                if to_update:
+                    to_update.notification_sent = True
+                    await to_update.save()
+            
+            # Create calendar event if enabled
+            if CALENDAR_AVAILABLE:
+                try:
+                    prefs = await get_notification_preferences(user_id)
+                    if prefs.calendar_sync_enabled:
+                        calendar_result = await create_calendar_event(
+                            user_id=user_id,
+                            title=title,
+                            description=description or "CareerPath AI Interview",
+                            start_time=scheduled_time,
+                            duration_minutes=duration_minutes,
+                            attendee_email=user.email if user else None
+                        )
+                        if calendar_result:
+                            # Update schedule with calendar info
+                            to_update = await ScheduledInterview.get(schedule.id)
+                            if to_update:
+                                to_update.calendar_event_id = calendar_result['event_id']
+                                to_update.calendar_link = calendar_result['html_link']
+                                await to_update.save()
+                except Exception as cal_error:
+                    logger.warning(f"Calendar event creation failed (non-critical): {str(cal_error)}")
 
-                        start_time=scheduled_time,
-                        duration_minutes=duration_minutes,
-                        attendee_email=user.email if user else None
-                    )
-                    if calendar_result:
-                        schedule.calendar_event_id = calendar_result['event_id']
-                        schedule.calendar_link = calendar_result['html_link']
-            except Exception as cal_error:
-                # Log calendar error but don't fail the entire scheduling
-                logger.warning(f"Calendar event creation failed (non-critical): {str(cal_error)}")
-                # Continue without calendar integration
+        # Execute side effects
+        if background_tasks:
+            background_tasks.add_task(process_post_schedule)
+        else:
+            # Fallback for synchronous/test environments
+            await process_post_schedule()
         
         await schedule.save()
         

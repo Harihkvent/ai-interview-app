@@ -6,7 +6,9 @@ import {
     createScheduledInterview, 
     cancelSchedule,
     getSchedulePreferences,
-    updateSchedulePreferences 
+    updateSchedulePreferences,
+    getCalendarStatus,
+    connectCalendar 
 } from '../api';
 import { useConfirmDialog } from './ConfirmDialog';
 
@@ -33,6 +35,7 @@ export const ScheduleInterview: React.FC = () => {
     const { confirm, ConfirmDialogComponent } = useConfirmDialog();
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [preferences, setPreferences] = useState<Preferences | null>(null);
+    const [calendarConnected, setCalendarConnected] = useState(false);
     const [loading, setLoading] = useState(true);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [showPreferences, setShowPreferences] = useState(false);
@@ -52,12 +55,14 @@ export const ScheduleInterview: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [schedulesData, prefsData] = await Promise.all([
+            const [schedulesData, prefsData, calendarData] = await Promise.all([
                 getUpcomingSchedules(20),
-                getSchedulePreferences()
+                getSchedulePreferences(),
+                getCalendarStatus()
             ]);
             setSchedules(schedulesData.schedules || []);
             setPreferences(prefsData);
+            setCalendarConnected(calendarData.calendar_connected);
         } catch (err) {
             console.error('Error loading data:', err);
         } finally {
@@ -98,6 +103,18 @@ export const ScheduleInterview: React.FC = () => {
             setPreferences(updated.preferences);
         } catch (err: any) {
             showToast(err.message || 'Failed to update preferences', 'error');
+        }
+    };
+
+    const handleConnectCalendar = async () => {
+        try {
+            const currentUrl = window.location.href;
+            const response = await connectCalendar(currentUrl);
+            if (response.auth_url) {
+                window.location.href = response.auth_url;
+            }
+        } catch (err: any) {
+            showToast(err.message || 'Failed to connect calendar', 'error');
         }
     };
 
@@ -203,6 +220,32 @@ export const ScheduleInterview: React.FC = () => {
                                     className="w-5 h-5 rounded border-zinc-600 bg-zinc-800 text-white focus:ring-white"
                                 />
                             </label>
+
+                            {preferences.calendar_sync_enabled && (
+                                <div className="p-4 bg-black border border-zinc-800 rounded-xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-3 h-3 rounded-full ${calendarConnected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
+                                        <div>
+                                            <div className="font-medium text-white">
+                                                {calendarConnected ? 'Google Calendar Connected' : 'Google Calendar Not Connected'}
+                                            </div>
+                                            <div className="text-sm text-gray-400">
+                                                {calendarConnected 
+                                                    ? 'Your interviews are being synced to Google Calendar' 
+                                                    : 'Authorize access to start syncing your interviews'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {!calendarConnected && (
+                                        <button
+                                            onClick={handleConnectCalendar}
+                                            className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-all text-sm"
+                                        >
+                                            Connect Now
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

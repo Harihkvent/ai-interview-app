@@ -29,6 +29,28 @@ import { AdminLogin } from './components/AdminLogin';
 import { AdminLayout } from './components/AdminLayout';
 import './index.css';
 
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { isAuthenticated, loading } = useAuth();
+    
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-6xl animate-pulse mb-4">🔐</div>
+                    <p className="text-xl text-gray-300">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+    
+    if (!isAuthenticated) {
+        return <Navigate to="/" replace />;
+    }
+    
+    return <>{children}</>;
+};
+
 function App() {
     const { isAuthenticated, user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
@@ -83,11 +105,12 @@ function App() {
                 )
             } />
 
-            {/* App Routes (User Layout) */}
+            {/* App Routes (User Layout) - Protected */}
             <Route path="/*" element={
-                <Layout>
-                    <Routes>
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <ProtectedRoute>
+                    <Layout>
+                        <Routes>
+                            <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route path="/dashboard" element={
                             <Dashboard
                                 onStartNewInterview={() => navigate('/upload')}
@@ -150,6 +173,7 @@ function App() {
                     </Routes>
                     <AgentOverlay />
                 </Layout>
+                </ProtectedRoute>
             } />
         </Routes>
     );

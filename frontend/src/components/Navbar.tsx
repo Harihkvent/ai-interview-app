@@ -87,7 +87,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
 
             {/* Logout */}
             <button
-              onClick={logout}
+              onClick={() => {
+                logout();
+                navigate('/', { replace: true });
+              }}
               className="p-2 rounded-lg transition-all"
               style={{ 
                 backgroundColor: 'var(--error-light)',

@@ -20,7 +20,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@careerpath.ai")
-APP_URL = os.getenv("APP_URL", "https://your-app-domain.com")  # Update when deployed
+APP_URL = os.getenv("APP_URL", "https://develop.da0sy3g04smi7.amplifyapp.com")
 
 
 async def send_email(
