@@ -81,7 +81,15 @@ export const ScheduleInterview: React.FC = () => {
     const handleCreateSchedule = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await createScheduledInterview(formData);
+            // Convert naive local time string to UTC ISO string
+            // datetime-local input gives YYYY-MM-DDTHH:MM which Date parses as local
+            const localDate = new Date(formData.scheduled_time);
+            const utcIsoString = localDate.toISOString();
+
+            await createScheduledInterview({
+                ...formData,
+                scheduled_time: utcIsoString
+            });
             setShowCreateForm(false);
             setFormData({ title: '', scheduled_time: '', duration_minutes: 60, description: '' });
             loadData();

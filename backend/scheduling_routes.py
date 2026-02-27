@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from typing import Optional, List
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from auth_routes import get_current_user
@@ -155,7 +155,7 @@ async def create_schedule(
         return {
             "schedule_id": str(schedule.id),
             "title": schedule.title,
-            "scheduled_time": schedule.scheduled_time.isoformat(),
+            "scheduled_time": schedule.scheduled_time.replace(tzinfo=timezone.utc).isoformat() if schedule.scheduled_time.tzinfo is None else schedule.scheduled_time.isoformat(),
             "duration_minutes": schedule.duration_minutes,
             "status": schedule.status,
             "message": "Interview scheduled successfully"
@@ -179,7 +179,7 @@ async def get_upcoming(
                     "schedule_id": str(s.id),
                     "title": s.title,
                     "description": s.description,
-                    "scheduled_time": s.scheduled_time.isoformat(),
+                    "scheduled_time": s.scheduled_time.replace(tzinfo=timezone.utc).isoformat() if s.scheduled_time.tzinfo is None else s.scheduled_time.isoformat(),
                     "duration_minutes": s.duration_minutes,
                     "status": s.status,
                     "calendar_event_id": s.calendar_event_id
@@ -211,7 +211,7 @@ async def get_schedule_details(
             "schedule_id": str(schedule.id),
             "title": schedule.title,
             "description": schedule.description,
-            "scheduled_time": schedule.scheduled_time.isoformat(),
+            "scheduled_time": schedule.scheduled_time.replace(tzinfo=timezone.utc).isoformat() if schedule.scheduled_time.tzinfo is None else schedule.scheduled_time.isoformat(),
             "duration_minutes": schedule.duration_minutes,
             "status": schedule.status,
             "reminder_times": schedule.reminder_times,
