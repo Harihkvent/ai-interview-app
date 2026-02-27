@@ -450,9 +450,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
                             onClick={(e) => {
                               e.stopPropagation();
                               if (interview.is_avatar) {
-                                // Logic for viewing avatar report if available, 
-                                // currently pointing to dashboard as default or specialized path
-                                onNavigate('avatar-report', { sessionId: interview.id });
+                                window.open(`${API_BASE_URL}/avatar-interview/report/${interview.id}`, '_blank');
                               } else {
                                 window.open(`${API_BASE_URL}/report/${interview.id}`, '_blank');
                               }

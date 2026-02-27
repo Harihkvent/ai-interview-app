@@ -22,7 +22,7 @@ ROUND_CONFIG = {
     "hr": {"mcq": 0, "descriptive": 8, "coding": 0}  # Only descriptive for HR
 }
 
-async def generate_questions(resume_text: str, round_type: str, job_title: str = "General") -> list[dict]:
+async def generate_questions(resume_text: str, round_type: str, job_title: str = "General", exclude_questions: list[str] = None) -> list[dict]:
     """
     Generate round-specific questions based on resume using Krutrim.
     Orchestrates the generation of MCQs and Descriptive questions based on configuration.
@@ -31,7 +31,8 @@ async def generate_questions(resume_text: str, round_type: str, job_title: str =
     start_time = time.time()
     
     # Check Cache First
-    cached_qs = await get_cached_questions(resume_text, job_title, round_type)
+    # For aptitude, we don't use cache to ensure variety across different sessions
+    cached_qs = await get_cached_questions(resume_text, job_title, round_type) if round_type != "aptitude" else None
     if cached_qs:
         logger.info(f"Using cached questions for {round_type} - {job_title}")
         return cached_qs
@@ -46,7 +47,7 @@ async def generate_questions(resume_text: str, round_type: str, job_title: str =
     
     # Generate MCQs
     if num_mcq > 0:
-        mcqs = await _generate_mcqs(resume_text, round_type, num_mcq, job_title)
+        mcqs = await _generate_mcqs(resume_text, round_type, num_mcq, job_title, exclude_questions=exclude_questions)
         questions.extend(mcqs)
 
     # Generate Descriptive
@@ -71,13 +72,13 @@ async def generate_questions(resume_text: str, round_type: str, job_title: str =
     
     return questions
 
-async def _generate_mcqs(resume_text: str, round_type: str, count: int, job_title: str = "General") -> list[dict]:
+async def _generate_mcqs(resume_text: str, round_type: str, count: int, job_title: str = "General", exclude_questions: list[str] = None) -> list[dict]:
     """Helper to generate MCQs with Chain-of-Thought prompting"""
     
     # === DB-FIRST APPROACH FOR APTITUDE ===
     # For aptitude questions, try to fetch from pre-populated QuestionBank first
     if round_type == "aptitude":
-        db_questions = await get_db_fallback_questions("aptitude", count, "mcq")
+        db_questions = await get_db_fallback_questions("aptitude", count, "mcq", exclude_texts=exclude_questions)
         # If we got enough questions from DB, use them (no AI call needed)
         if db_questions and len(db_questions) >= count:
             logger.info(f"✅ Using {len(db_questions)} pre-populated aptitude questions from DB (no AI call)")
@@ -86,7 +87,7 @@ async def _generate_mcqs(resume_text: str, round_type: str, count: int, job_titl
                 randomize_mcq_options(q)
             return db_questions[:count]
         else:
-            logger.info(f"⚠️ Only {len(db_questions) if db_questions else 0} aptitude questions in DB, falling back to AI generation")
+            logger.info(f"⚠️ Only {len(db_questions) if db_questions else 0} aptitude questions available in DB (after exclusions), falling back to AI generation")
     
     resume_context = resume_text[:3000]
     
@@ -207,7 +208,7 @@ Generate {count} MCQs now:"""
         return validated_questions[:count]
     except Exception as e:
         logger.error(f"Error generating MCQs: {e}")
-        return await get_db_fallback_questions(round_type, count, "mcq")
+        return await get_db_fallback_questions(round_type, count, "mcq", exclude_texts=exclude_questions, pad_with_hardcoded=True)
 
 def randomize_mcq_options(question: dict) -> None:
     """
@@ -321,7 +322,7 @@ Generate {count} questions now:"""
         return questions[:count]
     except Exception as e:
         logger.error(f"Error generating descriptive questions: {e}")
-        return await get_db_fallback_questions(round_type, count, "descriptive")
+        return await get_db_fallback_questions(round_type, count, "descriptive", pad_with_hardcoded=True)
 
 async def _generate_coding(resume_text: str, round_type: str, count: int) -> list[dict]:
     """Helper to generate coding challenges based on resume"""
@@ -363,7 +364,7 @@ Generate {count} coding challenges now:"""
         return questions[:count]
     except Exception as e:
         logger.error(f"Error generating coding questions: {e}")
-        return await get_db_fallback_questions(round_type, count, "coding")
+        return await get_db_fallback_questions(round_type, count, "coding", pad_with_hardcoded=True)
 
 def validate_and_fix_mcq(question: dict) -> bool:
     """Validate and fix MCQ structure"""
@@ -483,21 +484,19 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
         return extract_questions_fallback(response)
         return []
 
-async def get_db_fallback_questions(round_type: str, count: int, q_type: str) -> list[dict]:
+async def get_db_fallback_questions(round_type: str, count: int, q_type: str, exclude_texts: list[str] = None, pad_with_hardcoded: bool = False) -> list[dict]:
     """Retrieve fallback questions from the Question Bank in DB"""
     try:
         # Map round_type to category if needed (usually 1:1)
         category = round_type
         
-        # specific handling for technical to include programming
+        # Build query
         query = {
             "category": category,
             "question_type": q_type
         }
         
         # Find all matching questions
-        # Using aggregation for random sampling would be better for large sets,
-        # but for now, we fetch matches and sample in python to keep it simple with Beanie
         all_matches = await QuestionBank.find(
             QuestionBank.category == category,
             QuestionBank.question_type == q_type
@@ -511,13 +510,24 @@ async def get_db_fallback_questions(round_type: str, count: int, q_type: str) ->
              ).to_list()
              
         if not all_matches:
-            logger.warning(f"No fallback questions found in DB for {category} {q_type}. Using hardcoded.")
-            return [get_hardcoded_fallback(round_type, i+1, q_type) for i in range(count)]
+            if pad_with_hardcoded:
+                logger.warning(f"No fallback questions found in DB for {category} {q_type}. Using hardcoded.")
+                return [get_hardcoded_fallback(round_type, i+1, q_type) for i in range(count)]
+            return []
             
+        # Apply exclusions
+        if exclude_texts:
+            exclude_set = {text.lower().strip() for text in exclude_texts}
+            all_matches = [q for q in all_matches if q.question_text.lower().strip() not in exclude_set]
+
+        if not all_matches:
+            if pad_with_hardcoded:
+                return [get_hardcoded_fallback(round_type, i+1, q_type) for i in range(count)]
+            return []
+
         # Sample random questions
         selected = random.sample(all_matches, min(count, len(all_matches)))
         
-        # If we don't have enough, we might need to duplicate or fill with hardcoded
         results = []
         for q in selected:
             results.append({
@@ -527,9 +537,10 @@ async def get_db_fallback_questions(round_type: str, count: int, q_type: str) ->
                 "answer": q.correct_answer
             })
             
-        # Fill remaining if needed
-        while len(results) < count:
-            results.append(get_hardcoded_fallback(round_type, len(results)+1, q_type))
+        # Fill remaining if needed (only if requested)
+        if pad_with_hardcoded:
+            while len(results) < count:
+                results.append(get_hardcoded_fallback(round_type, len(results)+1, q_type))
             
         return results
         

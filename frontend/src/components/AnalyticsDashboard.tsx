@@ -183,11 +183,15 @@ export const AnalyticsDashboard: React.FC = () => {
                             {chartData.length > 0 ? (
                                 <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between gap-2 h-full">
                                     {chartData.map((value, i) => (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                                        <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
                                             <div 
-                                                className="w-full bg-white rounded-t-lg hover:bg-gray-300 transition-all" 
-                                                style={{ height: `${value}%` }}
-                                            ></div>
+                                                className="w-full bg-white rounded-t-lg hover:bg-blue-400 transition-all cursor-pointer" 
+                                                style={{ height: `${Math.max(value, 4)}%` }}
+                                            >
+                                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-zinc-700">
+                                                    {value}%
+                                                </div>
+                                            </div>
                                             <span className="text-xs text-gray-500">W{i + 1}</span>
                                         </div>
                                     ))}

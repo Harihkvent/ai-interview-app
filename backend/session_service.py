@@ -39,12 +39,38 @@ async def create_new_session(user_id: str, resume_id: str = None, session_type: 
         
     return session
 
+async def get_previous_questions(user_id: str, round_type: str) -> list[str]:
+    """Fetch all previously asked questions for this user and round type"""
+    if not user_id:
+        return []
+        
+    # Find all sessions for this user
+    user_sessions = await InterviewSession.find(InterviewSession.user_id == user_id).to_list()
+    session_ids = [str(s.id) for s in user_sessions]
+    
+    # Find all rounds for these sessions
+    rounds = await InterviewRound.find(
+        InterviewRound.session_id.in_(session_ids),
+        InterviewRound.round_type == round_type
+    ).to_list()
+    round_ids = [str(r.id) for r in rounds]
+    
+    # Find all questions for these rounds
+    questions = await Question.find(Question.round_id.in_(round_ids)).to_list()
+    return [q.question_text for q in questions]
+
 async def initialize_all_rounds_questions(session_id: str, resume_text: str, job_title: str):
     """Generate questions for all rounds at once and cache them"""
+    session = await InterviewSession.get(session_id)
     round_types = ["aptitude", "technical", "hr"]
     for r_type in round_types:
+        # For aptitude, we want to exclude previously asked questions to ensure variety
+        exclude = []
+        if r_type == "aptitude" and session.user_id:
+            exclude = await get_previous_questions(session.user_id, r_type)
+            
         # generate_questions now handles caching internally
-        await generate_questions(resume_text, r_type, job_title)
+        await generate_questions(resume_text, r_type, job_title, exclude_questions=exclude)
 
 async def activate_round(session_id: str, round_type: str, resume_text: str) -> dict:
     """Activate a round, generating questions if needed"""
@@ -95,7 +121,11 @@ async def activate_round(session_id: str, round_type: str, resume_text: str) -> 
         
         # If still no questions (e.g. bulk generation failed or was first call), generate just this one
         if not existing_questions:
-            generated_qs = await generate_questions(resume_text, round_type, session.job_title)
+            exclude = []
+            if round_type == "aptitude" and session.user_id:
+                exclude = await get_previous_questions(session.user_id, round_type)
+                
+            generated_qs = await generate_questions(resume_text, round_type, session.job_title, exclude_questions=exclude)
             
             for i, q_data in enumerate(generated_qs, 1):
                 q_model = Question(

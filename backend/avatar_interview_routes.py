@@ -13,6 +13,11 @@ from avatar_interview_service import (
     process_avatar_answer,
     finalize_avatar_session
 )
+from report_generator import generate_avatar_pdf_report
+from email_service import send_report_email
+from fastapi.responses import StreamingResponse
+import io
+from fastapi import BackgroundTasks
 from avatar_interview_models import AvatarInterviewSession, AvatarQuestion, AvatarResponse
 from models import Resume
 
@@ -265,6 +270,7 @@ async def resume_avatar_session(
 @router.post("/finalize")
 async def finalize_avatar_interview(
     session_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -277,10 +283,54 @@ async def finalize_avatar_interview(
         
         result = await finalize_avatar_session(session_id)
         
+        # Trigger report generation and email in background
+        background_tasks.add_task(
+            generate_and_email_avatar_report,
+            session_id,
+            current_user.email
+        )
+        
         return result
         
     except Exception as e:
         logger.error(f"Error finalizing session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def generate_and_email_avatar_report(session_id: str, user_email: str):
+    """Background task to generate and email PDF report"""
+    try:
+        pdf_bytes = await generate_avatar_pdf_report(session_id)
+        filename = f"avatar_interview_report_{session_id}.pdf"
+        await send_report_email(user_email, pdf_bytes, filename)
+        logger.info(f"Report emailed successfully for avatar session {session_id}")
+    except Exception as e:
+        logger.error(f"Failed to generate/email avatar report: {e}")
+
+@router.get("/report/{session_id}")
+async def download_avatar_report(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Generate and download PDF report for avatar interview"""
+    try:
+        # Verify session exists and ownership
+        session = await AvatarInterviewSession.get(session_id)
+        if not session or session.user_id != str(current_user.id):
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Generate PDF
+        pdf_bytes = await generate_avatar_pdf_report(session_id)
+        
+        # Return as downloadable file
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=avatar_report_{session_id}.pdf"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error downloading avatar report: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

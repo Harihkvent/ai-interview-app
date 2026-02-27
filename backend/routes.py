@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
@@ -28,6 +28,7 @@ from metrics import (
 from auth_routes import get_current_user
 from auth_models import User
 from mq_service import publish_question_generation
+from email_service import send_report_email
 
 router = APIRouter()
 
@@ -284,7 +285,7 @@ async def start_round(session_id: str, round_type: str):
 # ============= Answer Submission & Evaluation =============
 
 @router.post("/submit-answer", response_model=SubmitAnswerResponse)
-async def submit_answer(request: SubmitAnswerRequest):
+async def submit_answer(request: SubmitAnswerRequest, background_tasks: BackgroundTasks):
     """Submit answer and get evaluation"""
     try:
         # Get question
@@ -425,6 +426,19 @@ async def submit_answer(request: SubmitAnswerRequest):
             # Track session completion
             interview_sessions_completed.inc()
             interview_sessions_active.dec()
+            
+            # Trigger report generation and email
+            if interview_session.user_id:
+                try:
+                    user = await User.get(interview_session.user_id)
+                    if user and user.email:
+                        background_tasks.add_task(
+                            generate_and_email_report_task,
+                            str(interview_session.id),
+                            user.email
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to queue report email: {e}")
         
         return SubmitAnswerResponse(
             evaluation=eval_result["evaluation"],
@@ -435,6 +449,16 @@ async def submit_answer(request: SubmitAnswerRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+async def generate_and_email_report_task(session_id: str, user_email: str):
+    """Background task to generate and email PDF report for regular interview"""
+    try:
+        pdf_bytes = await generate_pdf_report(session_id)
+        filename = f"interview_report_{session_id}.pdf"
+        await send_report_email(user_email, pdf_bytes, filename)
+        logger.info(f"Report emailed successfully for session {session_id}")
+    except Exception as e:
+        logger.error(f"Failed to generate/email report for {session_id}: {e}")
 
 # ============= Round Progression =============
 

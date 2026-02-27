@@ -39,7 +39,20 @@ async def calculate_user_metrics(user_id: str) -> Dict:
             }
         
         total_interviews = len(sessions)
-        total_score = sum(s.total_score for s in sessions)
+        
+        # Normalize scores: regular sessions store average, avatar sessions store cumulative
+        total_score = 0.0
+        for s in sessions:
+            if isinstance(s, AvatarInterviewSession):
+                # Ensure we get average score per question (0-10)
+                if s.questions_answered > 0:
+                    total_score += s.total_score / s.questions_answered
+                else:
+                    total_score += 0.0
+            else:
+                # Regular sessions already store average in total_score
+                total_score += s.total_score
+                
         avg_score = total_score / total_interviews if total_interviews > 0 else 0.0
         total_time = sum(s.total_time_seconds for s in sessions)
         
@@ -188,9 +201,12 @@ async def _calculate_improvement_trend(sessions: List) -> List[Dict]:
         score = session.total_score
         session_type = "regular"
         if isinstance(session, AvatarInterviewSession):
-            # Normalize to average score if it's an avatar session
+            # Normalize to average score (0-10) if it's an avatar session
             score = session.total_score / session.questions_answered if session.questions_answered > 0 else 0.0
             session_type = "avatar"
+        else:
+            # For regular sessions, total_score is already the average
+            pass
             
         trend.append({
             "date": session.completed_at.isoformat(),
@@ -294,7 +310,11 @@ async def get_performance_trends(user_id: str, days: int = 30) -> Dict:
         for session in sessions:
             score = session.total_score
             if isinstance(session, AvatarInterviewSession):
+                # Normalize to average score (0-10)
                 score = session.total_score / session.questions_answered if session.questions_answered > 0 else 0.0
+            else:
+                # Regular sessions already store average
+                pass
                 
             trend_data.append({
                 "date": session.completed_at.strftime("%Y-%m-%d"),

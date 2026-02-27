@@ -32,8 +32,17 @@ async def process_task(message: aio_pika.IncomingMessage):
         logger.info(f"Processing question generation for {session_id} - {round_type}")
         
         try:
+            # Fetch previous questions for aptitude variety
+            exclude = []
+            if round_type == "aptitude":
+                # Need user_id from session
+                session = await InterviewSession.get(session_id)
+                if session and session.user_id:
+                    from session_service import get_previous_questions
+                    exclude = await get_previous_questions(session.user_id, round_type)
+
             # Generate questions
-            questions_list = await generate_questions(resume_text, round_type)
+            questions_list = await generate_questions(resume_text, round_type, exclude_questions=exclude)
             
             # Find the round
             round_obj = await InterviewRound.find_one(

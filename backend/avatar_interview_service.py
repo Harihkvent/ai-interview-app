@@ -384,11 +384,13 @@ async def finalize_avatar_session(session_id: str) -> Dict:
     session.status = "completed"
     session.completed_at = datetime.utcnow()
     
-    # Calculate average score
+    # Calculate average score and store in total_score for consistency with regular sessions
     if session.questions_answered > 0:
         avg_score = session.total_score / session.questions_answered
+        session.total_score = avg_score  # Update to average
     else:
         avg_score = 0.0
+        session.total_score = 0.0
     
     await session.save()
     
