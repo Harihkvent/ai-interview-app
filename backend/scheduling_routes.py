@@ -141,7 +141,9 @@ async def create_schedule(
 ) -> dict:
     """Create a new scheduled interview"""
     try:
-        scheduled_time = datetime.fromisoformat(request.scheduled_time)
+        # Python 3.10 and below fromisoformat doesn't support 'Z', so replace it with '+00:00'
+        iso_string = request.scheduled_time.replace("Z", "+00:00")
+        scheduled_time = datetime.fromisoformat(iso_string)
         
         schedule = await create_scheduled_interview(
             user_id=str(current_user.id),
@@ -249,7 +251,9 @@ async def update_scheduled_interview(
         if request.description is not None:
             updates["description"] = request.description
         if request.scheduled_time:
-            updates["scheduled_time"] = datetime.fromisoformat(request.scheduled_time)
+            # Python 3.10 and below fromisoformat doesn't support 'Z'
+            iso_string = request.scheduled_time.replace("Z", "+00:00")
+            updates["scheduled_time"] = datetime.fromisoformat(iso_string)
         if request.duration_minutes:
             updates["duration_minutes"] = request.duration_minutes
         
