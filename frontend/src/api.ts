@@ -163,6 +163,11 @@ export const getSessionState = async (sessionId: string) => {
   return response.data;
 };
 
+export const checkSessionReadiness = async (sessionId: string) => {
+  const response = await api.get(`/session/${sessionId}/readiness`);
+  return response.data;
+};
+
 export const pauseSession = async (sessionId: string) => {
   const response = await api.post(`/session/pause/${sessionId}`);
   return response.data;
@@ -433,7 +438,9 @@ export const setActiveProfileResume = async (resumeId: string) => {
 };
 
 export const getProfileResumeFileUrl = (resumeId: string, download: boolean = false) => {
-  return `${API_BASE_URL}/api/v1/profile/resumes/${resumeId}/file?download=${download}`;
+  const token = localStorage.getItem("auth_token");
+  const baseUrl = `${API_BASE_URL}/api/v1/profile/resumes/${resumeId}/file?download=${download}`;
+  return token ? `${baseUrl}&token=${token}` : baseUrl;
 };
 
 // ============= Preferences & Profile Settings =============

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
-import { analyzeSavedResume } from '../api';
+import { analyzeSavedResume, checkSessionReadiness } from '../api';
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -16,6 +16,12 @@ export const InterviewStart: React.FC = () => {
     const { showToast } = useToast();
     const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
     const [isLoading, setIsLoading] = useState(false);
+    const [isPreparing, setIsPreparing] = useState(false);
+    const [preparationStatus, setPreparationStatus] = useState<{
+        rounds_ready: number;
+        total_rounds: number;
+        details: any[];
+    } | null>(null);
 
     const handleStartInterview = async () => {
         if (!selectedResumeId) {
@@ -26,12 +32,46 @@ export const InterviewStart: React.FC = () => {
         setIsLoading(true);
         try {
             const data = await analyzeSavedResume(selectedResumeId, 'interview', 'General Interview');
-            navigate(`/interview/${data.session_id}`);
+            const sessionId = data.session_id;
+            
+            // Enter preparation mode instead of immediate navigation
+            setIsPreparing(true);
+            setIsLoading(false);
+
+            // Poll for readiness
+            const pollReadiness = async () => {
+                try {
+                    const readiness = await checkSessionReadiness(sessionId);
+                    setPreparationStatus(readiness);
+
+                    if (readiness.is_ready) {
+                        showToast('Interview is ready! Starting now...', 'success');
+                        setTimeout(() => {
+                            navigate(`/interview/${sessionId}`);
+                        }, 1000);
+                        return true;
+                    }
+                    return false;
+                } catch (err) {
+                    console.error('Readiness check failed:', err);
+                    return false;
+                }
+            };
+
+            // Start polling
+            const interval = setInterval(async () => {
+                const isReady = await pollReadiness();
+                if (isReady) clearInterval(interval);
+            }, 3000);
+
+            // Initial check
+            await pollReadiness();
+
         } catch (error) {
             console.error('Error starting interview:', error);
             showToast('Failed to start interview. Please try again.', 'error');
-        } finally {
             setIsLoading(false);
+            setIsPreparing(false);
         }
     };
 
@@ -139,6 +179,70 @@ export const InterviewStart: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Preparation Overlay */}
+            {isPreparing && (
+                <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
+                    <div className="max-w-md w-full space-y-8 text-center">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-primary-500/20 blur-[100px] rounded-full animate-pulse" />
+                            <Sparkles className="w-16 h-16 text-primary-500 mx-auto relative animate-bounce" />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <h2 className="text-3xl font-black text-white">Preparing Your Rounds</h2>
+                            <p className="text-zinc-500">Our AI is crafting personalized questions based on your experience.</p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-primary-500 to-purple-500 transition-all duration-1000"
+                                    style={{ 
+                                        width: `${preparationStatus ? (preparationStatus.rounds_ready / preparationStatus.total_rounds) * 100 : 10}%` 
+                                    }}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3">
+                                {['aptitude', 'technical', 'hr'].map((type) => {
+                                    const details = preparationStatus?.details?.find(d => d.round_type === type);
+                                    const isReady = details?.ready;
+                                    
+                                    return (
+                                        <div 
+                                            key={type}
+                                            className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                                                isReady 
+                                                    ? 'bg-primary-500/10 border-primary-500/20 text-white' 
+                                                    : 'bg-zinc-900/50 border-zinc-800 text-zinc-500'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-lg ${isReady ? 'bg-primary-500/20 text-primary-400' : 'bg-zinc-800 text-zinc-600'}`}>
+                                                    <Check size={16} />
+                                                </div>
+                                                <span className="font-bold uppercase tracking-wider text-xs">
+                                                    {type === 'aptitude' ? 'Cognitive Assessment' : type === 'technical' ? 'Technical Evaluation' : 'Behavioral Round'}
+                                                </span>
+                                            </div>
+                                            {isReady ? (
+                                                <span className="text-[10px] font-black bg-primary-500 text-black px-2 py-0.5 rounded">READY</span>
+                                            ) : (
+                                                <Loader2 size={14} className="animate-spin" />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-[0.2em] font-bold">
+                            Do not close this window
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

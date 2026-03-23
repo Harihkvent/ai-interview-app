@@ -163,6 +163,44 @@ async def analyze_saved_resume(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/session/{session_id}/readiness")
+async def check_session_readiness(session_id: str):
+    """Check if all rounds have questions generated"""
+    try:
+        # Get all rounds for this session
+        rounds = await InterviewRound.find(
+            InterviewRound.session_id == session_id
+        ).to_list()
+        
+        if not rounds:
+            return {"is_ready": False, "rounds_ready": 0, "total_rounds": 0}
+            
+        rounds_status = []
+        ready_count = 0
+        
+        for round_obj in rounds:
+            # Check if this round has any questions
+            q_count = await Question.find(Question.round_id == str(round_obj.id)).count()
+            is_ready = q_count > 0
+            if is_ready:
+                ready_count += 1
+                
+            rounds_status.append({
+                "round_type": round_obj.round_type,
+                "ready": is_ready,
+                "question_count": q_count
+            })
+            
+        return {
+            "is_ready": ready_count >= len(rounds) and len(rounds) > 0,
+            "rounds_ready": ready_count,
+            "total_rounds": len(rounds),
+            "details": rounds_status
+        }
+    except Exception as e:
+        logger.error(f"Readiness check error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/active-session")
 async def get_active_session(
     session_type: str = "interview",

@@ -2,7 +2,7 @@
 Authentication Routes - Login, Register, Profile Management
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta
@@ -25,7 +25,7 @@ ACCESS_TOKEN_EXPIRE_HOURS = 24
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # ============= Request/Response Models =============
 
@@ -61,9 +61,12 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
-    """Dependency to get current authenticated user from JWT token"""
-    token = credentials.credentials
+async def get_current_user(
+    token_query: Optional[str] = Query(None, alias="token"),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> User:
+    """Dependency to get current authenticated user from JWT token (header or query parameter)"""
+    token = token_query or (credentials.credentials if credentials else None)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
