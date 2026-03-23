@@ -1,4 +1,5 @@
 import json
+import asyncio
 import logging
 import time
 import random
@@ -75,23 +76,9 @@ async def generate_questions(resume_text: str, round_type: str, job_title: str =
 async def _generate_mcqs(resume_text: str, round_type: str, count: int, job_title: str = "General", exclude_questions: list[str] = None) -> list[dict]:
     """Helper to generate MCQs with Chain-of-Thought prompting"""
     
-    # === DB-FIRST APPROACH FOR APTITUDE ===
-    # For aptitude questions, try to fetch from pre-populated QuestionBank first
-    if round_type == "aptitude":
-        db_questions = await get_db_fallback_questions("aptitude", count, "mcq", exclude_texts=exclude_questions)
-        # If we got enough questions from DB, use them (no AI call needed)
-        if db_questions and len(db_questions) >= count:
-            logger.info(f"✅ Using {len(db_questions)} pre-populated aptitude questions from DB (no AI call)")
-            # Randomize options for each question
-            for q in db_questions:
-                randomize_mcq_options(q)
-            return db_questions[:count]
-        else:
-            logger.info(f"⚠️ Only {len(db_questions) if db_questions else 0} aptitude questions available in DB (after exclusions), falling back to AI generation")
-    
+    # Round-specific prompting with CoT
     resume_context = resume_text[:3000]
     
-    # Round-specific prompting with CoT
     if round_type == "aptitude":
         focus_area = "aptitude, logical reasoning, quantitative ability, and problem-solving"
         system_role = "You are an expert aptitude test creator. Think step-by-step to create challenging questions."
@@ -191,7 +178,54 @@ Generate {count} MCQs now:"""
     ]
     
     try:
-        response = await call_krutrim_api(messages, temperature=0.8, max_tokens=2000, operation=f"generate_mcq_{round_type}")
+        # For aptitude, if count is high (e.g. 10), split into two calls to prevent model timeout/truncation
+        if round_type == "aptitude" and count >= 8:
+            first_half = count // 2
+            second_half = count - first_half
+            logger.info(f"Aptitude: Splitting {count} MCQs into two batches ({first_half} + {second_half})")
+            
+            # Batch 1
+            b1_size = first_half
+            batch1_prompt = re.sub(f"generate {count} MCQs", f"generate {b1_size} MCQs", prompt, flags=re.IGNORECASE)
+            batch1_messages = [{"role": "system", "content": system_role}, {"role": "user", "content": batch1_prompt}]
+            
+            # Batch 2
+            b2_size = second_half
+            batch2_prompt = re.sub(f"generate {count} MCQs", f"generate {b2_size} MCQs", prompt, flags=re.IGNORECASE)
+            batch2_messages = [{"role": "system", "content": system_role}, {"role": "user", "content": batch2_prompt}]
+            
+            # Execute in sequence to be safe, or gather
+            responses = await asyncio.gather(
+                call_krutrim_api(batch1_messages, temperature=0.8, max_tokens=2000, operation=f"generate_mcq_aptitude_b1"),
+                call_krutrim_api(batch2_messages, temperature=0.8, max_tokens=2000, operation=f"generate_mcq_aptitude_b2")
+            )
+            
+            all_questions = []
+            for i, resp in enumerate(responses):
+                if not resp:
+                    logger.warning(f"Batch {i+1} for aptitude returned empty response")
+                    continue
+                batch_qs = parse_json_questions(resp, first_half if i==0 else second_half, "mcq")
+                all_questions.extend(batch_qs)
+            
+            if not all_questions:
+                raise ValueError("Both batches for aptitude returned empty or invalid response")
+            
+            # Post-process all
+            validated = []
+            for q in all_questions:
+                if validate_and_fix_mcq(q):
+                    randomize_mcq_options(q)
+                    validated.append(q)
+            
+            if validated:
+                # Save to QuestionBank for future reuse as fallbacks
+                asyncio.create_task(save_questions_to_bank(validated, "aptitude", "mcq"))
+            
+            return validated[:count]
+
+        # Single call for technical or small aptitude counts
+        response = await call_krutrim_api(messages, temperature=0.8, max_tokens=3000, operation=f"generate_mcq_{round_type}")
         if not response:
             raise ValueError("Empty response from AI")
             
@@ -205,9 +239,18 @@ Generate {count} MCQs now:"""
                 randomize_mcq_options(q)
                 validated_questions.append(q)
         
+        if not validated_questions:
+             raise ValueError("AI returned 0 valid questions")
+
+        # Save aptitude questions to bank for future fallback variety
+        if round_type == "aptitude":
+            asyncio.create_task(save_questions_to_bank(validated_questions, "aptitude", "mcq"))
+
         return validated_questions[:count]
     except Exception as e:
-        logger.error(f"Error generating MCQs: {e}")
+        logger.error(f"Error generating MCQs (Primary source failed): {e}")
+        # DB FALLBACK: Only used if AI generation fails
+        logger.info(f"🔄 AI failed for {round_type}, falling back to Question Bank in DB")
         return await get_db_fallback_questions(round_type, count, "mcq", exclude_texts=exclude_questions, pad_with_hardcoded=True)
 
 def randomize_mcq_options(question: dict) -> None:
@@ -501,6 +544,35 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
         logger.error(f"Problematic response snippet: {snippet}")
         return extract_questions_fallback(response)
 
+async def save_questions_to_bank(questions: list[dict], category: str, q_type: str) -> None:
+    """Safely save successfully generated questions to the global QuestionBank for future reuse"""
+    try:
+        from models import QuestionBank
+        count = 0
+        for q in questions:
+            # Simple check for existing question to avoid obvious duplicates
+            exists = await QuestionBank.find_one(
+                QuestionBank.category == category,
+                QuestionBank.question_text == q["question"]
+            )
+            if not exists:
+                bank_q = QuestionBank(
+                    category=category,
+                    question_text=q["question"],
+                    question_type=q_type,
+                    options=q.get("options"),
+                    correct_answer=q.get("answer"),
+                    difficulty="medium",
+                    tags=[category, "ai-generated"]
+                )
+                await bank_q.insert()
+                count += 1
+        
+        if count > 0:
+            logger.info(f"💾 Saved {count} new {category} questions to QuestionBank for future fallback variety.")
+    except Exception as e:
+        logger.error(f"Error saving questions to bank: {e}")
+
 async def get_db_fallback_questions(round_type: str, count: int, q_type: str, exclude_texts: list[str] = None, pad_with_hardcoded: bool = False) -> list[dict]:
     """Retrieve fallback questions from the Question Bank in DB"""
     try:
@@ -578,9 +650,11 @@ def get_hardcoded_fallback(round_type: str, question_num: int, q_type: str = "de
     
     fallbacks = {
         "aptitude": [
-            "If you have 5 apples and give away 2, how many do you have?",
-            "What comes next: 2, 4, 8, 16...?",
-            "Solve for x: 2x + 5 = 15"
+            "A train 150m long passes a pole in 15 seconds. What is its speed in km/h?",
+            "If 12 men can complete a work in 8 days, how many days will 16 men take?",
+            "Find the missing number in the sequence: 4, 9, 16, 25, ?",
+            "A shopkeeper marks his goods at 20% above cost price and allows a 10% discount. What is his profit percentage?",
+            "Current ages of X and Y are in ratio 4:5. After 5 years, the ratio becomes 5:6. What is X's current age?"
         ],
         "technical": [
             "Explain the difference between a process and a thread.",
