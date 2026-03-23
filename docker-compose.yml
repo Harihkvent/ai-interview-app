@@ -29,6 +29,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - KRUTRIM_API_KEY=${KRUTRIM_API_KEY}
+    volumes:
+      - ./backend/uploads:/app/uploads
     depends_on:
       - mongodb
       - redis
@@ -46,6 +48,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - KRUTRIM_API_KEY=${KRUTRIM_API_KEY}
+    volumes:
+      - ./backend/uploads:/app/uploads
     depends_on:
       - mongodb
       - redis

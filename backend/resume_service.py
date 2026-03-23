@@ -39,12 +39,17 @@ async def process_resume_upload(user_id: str, file: UploadFile) -> tuple[Resume,
         # 4. New resume - extract info and create record
         candidate_name, candidate_email = extract_candidate_info(resume_text)
         
+        # Read file content for DB storage
+        await file.seek(0)
+        file_binary = await file.read()
+        
         resume = Resume(
             user_id=user_id,
             filename=file.filename,
             name=file.filename,
             content=resume_text,
             file_path=file_path,
+            file_content=file_binary,
             content_hash=content_hash,
             candidate_name=candidate_name,
             candidate_email=candidate_email

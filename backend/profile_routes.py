@@ -119,17 +119,29 @@ async def get_resume_file(
     if resume.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized")
         
-    if not resume.file_path or not os.path.exists(resume.file_path):
-        raise HTTPException(status_code=404, detail="Physical file not found on server")
-        
     # Determine media type
-    ext = os.path.splitext(resume.file_path)[1].lower()
+    ext = os.path.splitext(resume.filename or "resume.pdf")[1].lower()
     media_type = "application/pdf" if ext == ".pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     
     # Set disposition
     disposition = "attachment" if download else "inline"
     filename = resume.filename or f"resume{ext}"
     
+    # Serve from DB if content is available
+    if resume.file_content:
+        from fastapi import Response
+        return Response(
+            content=resume.file_content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"{disposition}; filename=\"{filename}\""
+            }
+        )
+        
+    # Fallback to physical file
+    if not resume.file_path or not os.path.exists(resume.file_path):
+        raise HTTPException(status_code=404, detail="Physical file not found on server")
+        
     return FileResponse(
         resume.file_path,
         media_type=media_type,

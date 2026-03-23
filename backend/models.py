@@ -46,6 +46,7 @@ class Resume(Document):
     improvements: List[str] = [] # AI Suggested Improvements
     is_primary: bool = False
     file_path: Optional[str] = None
+    file_content: Optional[bytes] = None # Binary data for persistence
     candidate_name: Optional[str] = None
     candidate_email: Optional[str] = None
     content_hash: Optional[str] = None
