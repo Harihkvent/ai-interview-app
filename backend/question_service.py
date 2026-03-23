@@ -296,7 +296,8 @@ RULES:
 3. Questions should be open-ended and encourage detailed responses
 4. Avoid generic questions - tailor to this specific candidate
 5. ALL questions MUST be in SECOND PERSON (YOU/YOUR) - speak directly to the candidate
-6. Return ONLY a JSON array of objects
+6. Return ONLY a plain JSON array of objects. NO markdown formatting, NO ```json blocks, NO preamble, NO thinking process.
+7. Each question text must be a SINGLE string. DO NOT include category titles like "Leadership:" inside the question text.
 
 Format:
 [
@@ -306,7 +307,7 @@ Format:
   }}
 ]
 
-Generate {count} questions now:"""
+Generate {count} questions now as a raw JSON array:"""
 
     messages = [
         {"role": "system", "content": system_role},
@@ -401,10 +402,20 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
     try:
         try:
             parsed = json.loads(response, strict=False)
-        except json.JSONDecodeError:
-            # Clean non-printable chars
-            response = "".join(char for char in response if char == '\n' or char == '\r' or char == '\t' or 32 <= ord(char) <= 126)
-            parsed = json.loads(response, strict=False)
+        except json.JSONDecodeError as je:
+             logger.warning(f"Initial JSON parse failed: {je}. Attempting more aggressive cleaning.")
+             # Clean non-printable chars
+             response = "".join(char for char in response if char == '\n' or char == '\r' or char == '\t' or 32 <= ord(char) <= 126)
+             try:
+                 parsed = json.loads(response, strict=False)
+             except:
+                 # Last ditch effort: try to find a structural block with regex
+                 import re
+                 match = re.search(r'(\[.*\]|\{.*\})', response, re.DOTALL)
+                 if match:
+                      parsed = json.loads(match.group(1), strict=False)
+                 else:
+                      raise je
         
         if not isinstance(parsed, list):
             if isinstance(parsed, dict) and "questions" in parsed:
@@ -478,11 +489,17 @@ def parse_json_questions(response: str, expected_count: int, q_type: str) -> lis
                 }
                 results.append(q_obj)
         
+        if not results:
+             logger.warning(f"No questions parsed from AI JSON response. Fallback to regex parsing.")
+             return extract_questions_fallback(response)
+
         return results
     except Exception as e:
-        logger.error(f"JSON Parse Error: {e}")
+        logger.error(f"JSON Parse Error in question_service: {e}")
+        # Log a snippet of the problematic response for debugging
+        snippet = response[:500].replace('\n', ' ') + "..." if len(response) > 500 else response
+        logger.error(f"Problematic response snippet: {snippet}")
         return extract_questions_fallback(response)
-        return []
 
 async def get_db_fallback_questions(round_type: str, count: int, q_type: str, exclude_texts: list[str] = None, pad_with_hardcoded: bool = False) -> list[dict]:
     """Retrieve fallback questions from the Question Bank in DB"""
@@ -504,6 +521,7 @@ async def get_db_fallback_questions(round_type: str, count: int, q_type: str, ex
         
         if not all_matches and q_type == "mcq" and category == "technical":
              # Fallback: maybe we have general technical questions
+             logger.info(f"QS DB: No technical MCQs, trying general technical")
              all_matches = await QuestionBank.find(
                 QuestionBank.category == "technical",
                 QuestionBank.question_type == "mcq"

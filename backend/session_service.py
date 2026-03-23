@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from models import InterviewSession, Resume, InterviewRound, Question, Answer
+from beanie.operators import In
 from question_service import generate_questions
 from metrics import (
     record_round_start,
@@ -50,13 +51,13 @@ async def get_previous_questions(user_id: str, round_type: str) -> list[str]:
     
     # Find all rounds for these sessions
     rounds = await InterviewRound.find(
-        InterviewRound.session_id.in_(session_ids),
+        In(InterviewRound.session_id, session_ids),
         InterviewRound.round_type == round_type
     ).to_list()
     round_ids = [str(r.id) for r in rounds]
     
     # Find all questions for these rounds
-    questions = await Question.find(Question.round_id.in_(round_ids)).to_list()
+    questions = await Question.find(In(Question.round_id, round_ids)).to_list()
     return [q.question_text for q in questions]
 
 async def initialize_all_rounds_questions(session_id: str, resume_text: str, job_title: str):

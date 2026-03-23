@@ -87,14 +87,23 @@ async def call_krutrim_api(messages: list, temperature: float = 0.7, max_tokens:
 def clean_ai_json(response: str) -> str:
     """
     Aggressively clean AI response to extract valid JSON string.
-    Does not make assumptions about the data structure (list vs object).
+    Handles thinking blocks, markdown blocks, and minor syntax errors.
     """
     if not response:
         return "[]"
 
     cleaned = response.strip()
     
-    # 1. Handle Markdown Blocks
+    # 1. Handle DeepSeek Thinking Blocks
+    if "<think>" in cleaned:
+        parts = cleaned.split("</think>")
+        if len(parts) > 1:
+            cleaned = parts[1].strip()
+        else:
+            # Maybe the closing tag was cut off?
+            cleaned = re.sub(r'<think>[\s\S]*?(?:</think>|$)', '', cleaned).strip()
+
+    # 2. Handle Markdown Blocks
     if "```json" in cleaned:
         parts = cleaned.split("```json")
         if len(parts) > 1:
@@ -104,7 +113,7 @@ def clean_ai_json(response: str) -> str:
          if len(parts) > 1:
              cleaned = parts[1].strip()
         
-    # 2. Extract structural block
+    # 3. Extract structural block (first [ or { to last ] or })
     first_brace = cleaned.find('{')
     first_bracket = cleaned.find('[')
     
@@ -113,6 +122,10 @@ def clean_ai_json(response: str) -> str:
         start_idx = first_brace
     elif first_bracket != -1:
         start_idx = first_bracket
+    else:
+        # No structural chars found: maybe it's just raw text that should be a JSON string?
+        # Return as is, let parser decide
+        return cleaned
 
     if start_idx != -1:
         # Find the last matching closing character
@@ -122,7 +135,7 @@ def clean_ai_json(response: str) -> str:
         if end_idx > start_idx:
             cleaned = cleaned[start_idx:end_idx+1]
 
-    # 3. Basic cleanup of common LLM errors
+    # 4. Basic cleanup of common LLM errors
     # Remove trailing commas before closing braces/brackets
     cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
     
@@ -165,8 +178,9 @@ def extract_questions_fallback(response: str) -> list:
             lines = item.strip().split('\n')
             if not lines: continue
             
-            raw_q = lines[0].strip()
-            q_text = re.sub(r'^Question:\s*', '', raw_q).strip()
+            q_text_lines = []
+            if lines:
+                q_text_lines.append(re.sub(r'^Question:\s*', '', lines[0]).strip())
             
             options = []
             starter_code = ""
@@ -174,29 +188,33 @@ def extract_questions_fallback(response: str) -> list:
             q_type = "descriptive"
             
             for line in lines[1:]:
-                line = line.strip()
-                if not line: continue
+                line_strip = line.strip()
+                if not line_strip: continue
                 # Check for MCQs
-                if line.startswith('- ') or line.startswith('* '):
-                    options.append(line[2:].strip())
+                if line_strip.startswith('- ') or line_strip.startswith('* '):
+                    options.append(line_strip[2:].strip())
                     q_type = "mcq"
-                elif re.match(r'^[A-D][).]\s*', line):
-                    options.append(re.sub(r'^[A-D][).]\s*', '', line).strip())
+                elif re.match(r'^[A-D][).]\s*', line_strip):
+                    options.append(re.sub(r'^[A-D][).]\s*', '', line_strip).strip())
                     q_type = "mcq"
-                elif line.startswith('Options:'):
-                    opts = line.replace('Options:', '').split(',')
+                elif line_strip.startswith('Options:'):
+                    opts = line_strip.replace('Options:', '').split(',')
                     options.extend([o.strip() for o in opts if o.strip()])
                     q_type = "mcq"
-                elif "Starter Code:" in line:
-                    starter_code = line.split("Starter Code:", 1)[1].strip()
+                elif "Starter Code:" in line_strip:
+                    starter_code = line_strip.split("Starter Code:", 1)[1].strip()
                     q_type = "coding"
-                elif "Test Cases:" in line:
+                elif "Test Cases:" in line_strip:
                     try:
-                        tc_str = line.split("Test Cases:", 1)[1].strip()
+                        tc_str = line_strip.split("Test Cases:", 1)[1].strip()
                         test_cases = json.loads(tc_str)
                         q_type = "coding"
                     except: pass
+                else:
+                    # If not recognized as option/code, it's likely part of the question text
+                    q_text_lines.append(line_strip)
             
+            q_text = " ".join(q_text_lines).strip()
             if q_text:
                 questions.append({
                     "question": q_text,
