@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Body
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Body, Query
+from fastapi.responses import FileResponse
+import os
 from typing import List, Optional
 from datetime import datetime
 
@@ -102,6 +104,38 @@ async def delete_resume(
         await current_user.save()
         
     return {"message": "Resume deleted"}
+
+@router.get("/resumes/{resume_id}/file")
+async def get_resume_file(
+    resume_id: str,
+    download: bool = Query(False),
+    current_user: User = Depends(get_current_user)
+):
+    """Retrieve the physical resume file for viewing or downloading."""
+    resume = await Resume.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+        
+    if resume.user_id != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    if not resume.file_path or not os.path.exists(resume.file_path):
+        raise HTTPException(status_code=404, detail="Physical file not found on server")
+        
+    # Determine media type
+    ext = os.path.splitext(resume.file_path)[1].lower()
+    media_type = "application/pdf" if ext == ".pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    
+    # Set disposition
+    disposition = "attachment" if download else "inline"
+    filename = resume.filename or f"resume{ext}"
+    
+    return FileResponse(
+        resume.file_path,
+        media_type=media_type,
+        filename=filename,
+        headers={"Content-Disposition": f"{disposition}; filename=\"{filename}\""}
+    )
 
 # ============= Preferences =============
 

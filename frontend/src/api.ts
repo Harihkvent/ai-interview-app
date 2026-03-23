@@ -432,6 +432,10 @@ export const setActiveProfileResume = async (resumeId: string) => {
   return response.data;
 };
 
+export const getProfileResumeFileUrl = (resumeId: string, download: boolean = false) => {
+  return `${API_BASE_URL}/api/v1/profile/resumes/${resumeId}/file?download=${download}`;
+};
+
 // ============= Preferences & Profile Settings =============
 
 export const getUserPreferences = async () => {

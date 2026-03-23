@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
     getProfileResumes, 
     uploadProfileResume, 
-    setActiveProfileResume 
+    setActiveProfileResume,
+    deleteProfileResume,
+    getProfileResumeFileUrl
 } from '../api';
-import { FileText, Upload, Check, Trash2, AlertCircle, Loader2, Plus } from 'lucide-react';
+import { FileText, Upload, Check, Trash2, AlertCircle, Loader2, Plus, Eye, Download } from 'lucide-react';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface Resume {
     id: string;
@@ -33,6 +36,7 @@ export const ResumePicker: React.FC<ResumePickerProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
     useEffect(() => {
         loadResumes();
@@ -74,6 +78,39 @@ export const ResumePicker: React.FC<ResumePickerProps> = ({
         } finally {
             setUploading(false);
         }
+    };
+
+    const handleDelete = async (e: React.MouseEvent, resumeId: string, filename: string) => {
+        e.stopPropagation();
+        const ok = await confirm(
+            'Delete Resume',
+            `Are you sure you want to delete "${filename}"? This action cannot be undone.`,
+            { confirmLabel: 'Delete', variant: 'danger' }
+        );
+
+        if (ok) {
+            try {
+                await deleteProfileResume(resumeId);
+                await loadResumes();
+                if (selectedId === resumeId) {
+                    onSelect(''); // Clear selection if deleted
+                }
+            } catch (err) {
+                setError('Failed to delete resume.');
+            }
+        }
+    };
+
+    const handleView = (e: React.MouseEvent, resumeId: string) => {
+        e.stopPropagation();
+        const url = getProfileResumeFileUrl(resumeId, false);
+        window.open(url, '_blank');
+    };
+
+    const handleDownload = (e: React.MouseEvent, resumeId: string) => {
+        e.stopPropagation();
+        const url = getProfileResumeFileUrl(resumeId, true);
+        window.location.href = url;
     };
 
     const handleDrag = (e: React.DragEvent) => {
@@ -142,6 +179,31 @@ export const ResumePicker: React.FC<ResumePickerProps> = ({
                                 <Check className="w-5 h-5 text-white" />
                             </div>
                         )}
+
+                        {/* Actions overlay/sidebar */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                            <button 
+                                onClick={(e) => handleView(e, resume.id)}
+                                title="View Resume"
+                                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                            >
+                                <Eye className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={(e) => handleDownload(e, resume.id)}
+                                title="Download Resume"
+                                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={(e) => handleDelete(e, resume.id, resume.filename)}
+                                title="Delete Resume"
+                                className="p-2 hover:bg-red-500/10 rounded-lg text-zinc-400 hover:text-red-400 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 ))}
 
@@ -200,6 +262,7 @@ export const ResumePicker: React.FC<ResumePickerProps> = ({
                     </div>
                 </div>
             </div>
+            <ConfirmDialogComponent />
         </div>
     );
 };
