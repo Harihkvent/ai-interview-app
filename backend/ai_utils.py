@@ -19,7 +19,7 @@ load_dotenv()
 
 KRUTRIM_API_KEY = os.getenv("KRUTRIM_API_KEY")
 KRUTRIM_API_URL = os.getenv("KRUTRIM_API_URL", "https://cloud.olakrutrim.com/v1/chat/completions")
-KRUTRIM_MODEL = os.getenv("KRUTRIM_MODEL", "DeepSeek-R1-Llama-8B")
+KRUTRIM_MODEL = os.getenv("KRUTRIM_MODEL", "Llama-3.3-70B-Instruct")
 
 from ai_engine.krutrim_adapter import KrutrimLLM
 from pydantic import SecretStr

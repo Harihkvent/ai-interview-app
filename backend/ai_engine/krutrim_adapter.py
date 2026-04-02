@@ -16,7 +16,7 @@ class KrutrimLLM(LLM):
     
     krutrim_api_key: SecretStr = Field(..., alias="api_key")
     api_url: str = Field(default="https://cloud.olakrutrim.com/v1/chat/completions")
-    model_name: str = Field(default=os.getenv("KRUTRIM_MODEL", "DeepSeek-R1-Llama-8B"))
+    model_name: str = Field(default=os.getenv("KRUTRIM_MODEL", "Llama-3.3-70B-Instruct"))
     temperature: float = 0.7
     max_tokens: int = 1000
     timeout: float = 60.0

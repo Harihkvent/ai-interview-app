@@ -11,8 +11,8 @@ from ai_utils import clean_ai_json
 from models import CareerRoadmap
 
 KRUTRIM_API_KEY = os.getenv("KRUTRIM_API_KEY")
-KRUTRIM_API_URL = "https://cloud.olakrutrim.com/v1/chat/completions"
-KRUTRIM_MODEL = os.getenv("KRUTRIM_MODEL", "DeepSeek-R1-Llama-8B")
+KRUTRIM_API_URL = os.getenv("KRUTRIM_API_URL", "https://cloud.olakrutrim.com/v1/chat/completions")
+KRUTRIM_MODEL = os.getenv("KRUTRIM_MODEL", "Llama-3.3-70B-Instruct")
 
 async def analyze_skills_gap(resume_skills: List[str], target_job_description: str) -> Dict:
     """

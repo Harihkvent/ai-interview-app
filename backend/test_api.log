@@ -1,0 +1,22 @@
+Testing https://cloud.olakrutrim.com/v1/models...
+Status: 200
+Available Models: Llama-3.3-70B-Instruct, Qwen3-32B
+Testing https://cloud.olakrutrim.com/api/v1/models...
+Status: 401
+Response snippet: <html>
+<head><title>401 Authorization Required</title></head>
+<body>
+<center><h1>401 Authorization Required</h1></center>
+<hr><center>openresty</center>
+<p><em>Powered by <a href="https://apisix.
+Testing https://cloud.olakrutrim.com/v1/chat/completions...
+Status: 200
+Success! https://cloud.olakrutrim.com/v1/chat/completions
+Testing https://cloud.olakrutrim.com/api/v1/chat/completions...
+Status: 401
+Response snippet: <html>
+<head><title>401 Authorization Required</title></head>
+<body>
+<center><h1>401 Authorization Required</h1></center>
+<hr><center>openresty</center>
+<p><em>Powered by <a href="https://apisix.
