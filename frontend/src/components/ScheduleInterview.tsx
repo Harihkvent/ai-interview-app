@@ -167,29 +167,40 @@ export const ScheduleInterview: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-black p-6">
+        <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold text-white mb-2">Interview Schedule</h1>
-                            <p className="text-gray-400">Plan and manage your upcoming interview sessions</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowPreferences(!showPreferences)}
-                                className="px-4 py-2 bg-zinc-800 border border-zinc-700 text-white rounded-xl font-medium hover:bg-zinc-700 transition-all"
-                            >
-                                ⚙️ Settings
-                            </button>
-                            <button
-                                onClick={() => setShowCreateForm(!showCreateForm)}
-                                className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all"
-                            >
-                                + Schedule Interview
-                            </button>
-                        </div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Interview Schedule</h1>
+                        <p style={{ color: 'var(--text-secondary)' }}>Plan and manage your upcoming interview sessions</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setShowPreferences(!showPreferences)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl border transition-all font-medium"
+                            style={{ 
+                                backgroundColor: 'var(--bg-secondary)',
+                                borderColor: 'var(--border-primary)',
+                                color: 'var(--text-primary)'
+                            }}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {showPreferences ? 'Close Preferences' : 'Preferences'}
+                        </button>
+                        <button
+                            onClick={() => setShowCreateForm(!showCreateForm)}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
+                            style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Schedule Interview
+                        </button>
                     </div>
                 </div>
 
@@ -197,55 +208,63 @@ export const ScheduleInterview: React.FC = () => {
                 <div className="grid md:grid-cols-3 gap-4">
                     {[
                         { label: 'Upcoming', value: schedules.filter(s => s.status === 'scheduled').length.toString() },
-                        { label: 'Completed', value: schedules.filter(s => s.status === 'completed').length.toString() },
-                        { label: 'Total Scheduled', value: schedules.length.toString() },
+                        { label: 'Recently Passed', value: schedules.filter(s => new Date(s.scheduled_time).getTime() < Date.now()).length.toString() },
+                        { label: 'Total Listed', value: schedules.length.toString() },
                     ].map((stat, i) => (
-                        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
-                            <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-                            <div className="text-sm text-gray-400">{stat.label}</div>
+                        <div key={i} className="rounded-xl p-6 text-center border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}>
+                            <div className="text-3xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{stat.value}</div>
+                            <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>{stat.label}</div>
                         </div>
                     ))}
                 </div>
 
                 {/* Preferences Panel */}
                 {showPreferences && preferences && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-                        <h3 className="text-xl font-bold text-white mb-4">Notification Preferences</h3>
+                    <div className="rounded-2xl p-6 border animate-in slide-in-from-top-4 duration-300" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}>
+                        <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Notification Preferences</h3>
                         <div className="space-y-3">
-                            <label className="flex items-center justify-between p-4 bg-black border border-zinc-800 rounded-xl cursor-pointer hover:border-zinc-700 transition-all">
+                            <label className="flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all" 
+                                style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
+                            >
                                 <div>
-                                    <div className="font-medium text-white">Email Notifications</div>
-                                    <div className="text-sm text-gray-400">Receive email confirmations and reminders</div>
+                                    <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Email Notifications</div>
+                                    <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>Receive email confirmations and reminders</div>
                                 </div>
                                 <input
                                     type="checkbox"
                                     checked={preferences.email_enabled}
                                     onChange={(e) => handleUpdatePreferences({ email_enabled: e.target.checked })}
-                                    className="w-5 h-5 rounded border-zinc-600 bg-zinc-800 text-white focus:ring-white"
+                                    className="w-5 h-5 rounded border-zinc-600 focus:ring-accent"
                                 />
                             </label>
-                            <label className="flex items-center justify-between p-4 bg-black border border-zinc-800 rounded-xl cursor-pointer hover:border-zinc-700 transition-all">
+                            <label className="flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all"
+                                style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
+                            >
                                 <div>
-                                    <div className="font-medium text-white">Google Calendar Sync</div>
-                                    <div className="text-sm text-gray-400">Automatically add to your Google Calendar</div>
+                                    <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Google Calendar Sync</div>
+                                    <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>Automatically add to your Google Calendar</div>
                                 </div>
                                 <input
                                     type="checkbox"
                                     checked={preferences.calendar_sync_enabled}
                                     onChange={(e) => handleUpdatePreferences({ calendar_sync_enabled: e.target.checked })}
-                                    className="w-5 h-5 rounded border-zinc-600 bg-zinc-800 text-white focus:ring-white"
+                                    className="w-5 h-5 rounded border-zinc-600 focus:ring-accent"
                                 />
                             </label>
 
                             {preferences.calendar_sync_enabled && (
-                                <div className="p-4 bg-black border border-zinc-800 rounded-xl flex items-center justify-between">
+                                <div className="p-4 border rounded-xl flex items-center justify-between" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)' }}>
                                     <div className="flex items-center gap-3">
                                         <div className={`w-3 h-3 rounded-full ${calendarConnected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
                                         <div>
-                                            <div className="font-medium text-white">
+                                            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                                                 {calendarConnected ? 'Google Calendar Connected' : 'Google Calendar Not Connected'}
                                             </div>
-                                            <div className="text-sm text-gray-400">
+                                            <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                                                 {calendarConnected 
                                                     ? 'Your interviews are being synced to Google Calendar' 
                                                     : 'Authorize access to start syncing your interviews'}
@@ -255,7 +274,8 @@ export const ScheduleInterview: React.FC = () => {
                                     {!calendarConnected && (
                                         <button
                                             onClick={handleConnectCalendar}
-                                            className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-all text-sm"
+                                            className="px-4 py-2 rounded-lg font-medium transition-all text-sm text-white"
+                                            style={{ backgroundColor: 'var(--accent-primary)' }}
                                         >
                                             Connect Now
                                         </button>
@@ -268,37 +288,40 @@ export const ScheduleInterview: React.FC = () => {
 
                 {/* Create Form */}
                 {showCreateForm && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-                        <h3 className="text-xl font-bold text-white mb-4">Schedule New Interview</h3>
+                    <div className="rounded-2xl p-6 border shadow-xl" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}>
+                        <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Schedule New Interview</h3>
                         <form onSubmit={handleCreateSchedule} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Interview Title</label>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Interview Title</label>
                                 <input
                                     type="text"
                                     required
                                     value={formData.title}
                                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                     placeholder="e.g., Mock Interview - Software Engineer"
-                                    className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors"
+                                    className="w-full px-4 py-3 border rounded-xl focus:border-accent outline-none transition-colors"
+                                    style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
                                 />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">Date & Time</label>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Date & Time</label>
                                     <input
                                         type="datetime-local"
                                         required
                                         value={formData.scheduled_time}
                                         onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
-                                        className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-white focus:border-white focus:outline-none transition-colors"
+                                        className="w-full px-4 py-3 border rounded-xl focus:border-accent outline-none transition-colors"
+                                        style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">Duration</label>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Duration</label>
                                     <select
                                         value={formData.duration_minutes}
                                         onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
-                                        className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-white focus:border-white focus:outline-none transition-colors"
+                                        className="w-full px-4 py-3 border rounded-xl focus:border-accent outline-none transition-colors"
+                                        style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
                                     >
                                         <option value={30}>30 minutes</option>
                                         <option value={45}>45 minutes</option>
@@ -309,23 +332,27 @@ export const ScheduleInterview: React.FC = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Description (Optional)</label>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Description (Optional)</label>
                                 <textarea
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="Add notes about this interview..."
                                     rows={3}
-                                    className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-white placeholder-gray-500 focus:border-white focus:outline-none transition-colors resize-none"
+                                    className="w-full px-4 py-3 border rounded-xl focus:border-accent outline-none transition-colors resize-none"
+                                    style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
                                 />
                             </div>
                             <div className="flex gap-3">
-                                <button type="submit" className="flex-1 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all">
+                                <button type="submit" className="flex-1 py-3 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                                    style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}
+                                >
                                     Create Schedule
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setShowCreateForm(false)}
-                                    className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-white rounded-xl font-semibold hover:bg-zinc-700 transition-all"
+                                    className="px-6 py-3 border rounded-xl font-semibold transition-all hover:bg-gray-100 dark:hover:bg-zinc-800"
+                                    style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
                                 >
                                     Cancel
                                 </button>
@@ -335,19 +362,20 @@ export const ScheduleInterview: React.FC = () => {
                 )}
 
                 {/* Upcoming Schedules */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-                    <h3 className="text-xl font-bold text-white mb-6">Upcoming Interviews</h3>
+                <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}>
+                    <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Scheduled Interviews</h3>
                     {schedules.length === 0 ? (
                         <div className="text-center py-12">
-                            <div className="w-20 h-20 mx-auto rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center mb-4">
-                                <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
+                                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}>
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
-                            <p className="text-gray-400 mb-4">No scheduled interviews yet</p>
+                            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>No scheduled interviews yet</p>
                             <button
                                 onClick={() => setShowCreateForm(true)}
-                                className="px-6 py-3 bg-white text-black rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                                className="px-6 py-3 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                                style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}
                             >
                                 Schedule Your First Interview
                             </button>
@@ -357,28 +385,38 @@ export const ScheduleInterview: React.FC = () => {
                             {schedules.map((schedule) => (
                                 <div
                                     key={schedule.schedule_id}
-                                    className="bg-black border border-zinc-800 rounded-xl p-6 hover:border-zinc-700 transition-all"
+                                    className="rounded-xl p-6 border transition-all"
+                                    style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-primary)' }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
                                 >
-                                    <div className="flex items-start justify-between">
+                                    <div className="flex items-start justify-between flex-wrap gap-4">
                                         <div className="flex gap-4">
                                             {/* Date Box */}
-                                            <div className="w-16 h-16 rounded-xl bg-white flex flex-col items-center justify-center flex-shrink-0">
-                                                <span className="text-xl font-bold text-black">
-                                                    {new Date(schedule.scheduled_time).getDate()}
+                                            <div className="w-16 h-16 rounded-xl flex flex-col items-center justify-center flex-shrink-0 text-white" 
+                                                style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}>
+                                                <span className="text-xl font-bold">
+                                                    {(() => {
+                                                        const d = new Date(schedule.scheduled_time);
+                                                        return isNaN(d.getDate()) ? '--' : d.getDate();
+                                                    })()}
                                                 </span>
-                                                <span className="text-xs text-gray-600 uppercase">
-                                                    {new Date(schedule.scheduled_time).toLocaleDateString('en-US', { month: 'short' })}
+                                                <span className="text-xs uppercase">
+                                                    {(() => {
+                                                        const d = new Date(schedule.scheduled_time);
+                                                        return isNaN(d.getTime()) ? '???' : d.toLocaleDateString('en-US', { month: 'short' });
+                                                    })()}
                                                 </span>
                                             </div>
                                             
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <h4 className="text-lg font-bold text-white">{schedule.title}</h4>
+                                                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                                    <h4 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{schedule.title}</h4>
                                                     <span className={`px-3 py-1 rounded-lg text-xs font-medium border ${getStatusStyle(schedule.status)}`}>
                                                         {schedule.status.charAt(0).toUpperCase() + schedule.status.slice(1)}
                                                     </span>
                                                 </div>
-                                                <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                                                <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
                                                     <div className="flex items-center gap-2">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -392,7 +430,7 @@ export const ScheduleInterview: React.FC = () => {
                                                         <span>{schedule.duration_minutes} min</span>
                                                     </div>
                                                     {schedule.calendar_event_id && (
-                                                        <div className="flex items-center gap-2 text-green-400">
+                                                        <div className="flex items-center gap-2 text-green-500">
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                             </svg>
@@ -401,19 +439,37 @@ export const ScheduleInterview: React.FC = () => {
                                                     )}
                                                 </div>
                                                 {schedule.description && (
-                                                    <p className="mt-2 text-sm text-gray-500">{schedule.description}</p>
+                                                    <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>{schedule.description}</p>
                                                 )}
                                             </div>
                                         </div>
                                         
-                                        {schedule.status === 'scheduled' && (
+                                        <div className="flex gap-2">
+                                            {schedule.status === 'scheduled' && (
+                                                <button
+                                                    onClick={() => handleCancelSchedule(schedule.schedule_id)}
+                                                    className="px-4 py-2 border rounded-xl transition-all text-sm font-medium"
+                                                    style={{ backgroundColor: 'transparent', borderColor: 'var(--border-primary)', color: 'var(--error)' }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'var(--error-light)';
+                                                        e.currentTarget.style.borderColor = 'var(--error)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                                        e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            )}
                                             <button
-                                                onClick={() => handleCancelSchedule(schedule.schedule_id)}
-                                                className="px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
+                                                className="px-4 py-2 text-white rounded-xl text-sm font-semibold shadow-md active:scale-95 transition-all"
+                                                style={{ background: 'var(--accent-primary)' }}
+                                                onClick={() => navigate('/upload')}
                                             >
-                                                Cancel
+                                                Start Session
                                             </button>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
                             ))}

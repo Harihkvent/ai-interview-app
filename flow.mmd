@@ -1,0 +1,48 @@
+%%{init:{
+  "theme":"base",
+  "flowchart":{
+    "curve":"linear",
+    "nodeSpacing":45,
+    "rankSpacing":55,
+    "htmlLabels":false
+  },
+  "themeVariables":{
+    "background":"#ffffff",
+    "mainBkg":"#ffffff",
+    "secondBkg":"#ffffff",
+    "tertiaryColor":"#ffffff",
+
+    "primaryColor":"#ffffff",
+    "secondaryColor":"#ffffff",
+
+    "primaryBorderColor":"#000000",
+    "secondaryBorderColor":"#000000",
+    "lineColor":"#000000",
+
+    "textColor":"#000000",
+    "primaryTextColor":"#000000",
+    "secondaryTextColor":"#000000",
+
+    "fontFamily":"Arial",
+    "fontSize":"18px"
+  }
+}}%%
+
+flowchart TB
+
+X([Connector A]) --> K{Save Roadmap?}
+
+K -->|Yes| L[(Save to User)]
+K -->|No| M[Start Interview]
+L --> M
+
+M --> N[Dynamic Round Selection]
+N --> O[Answer Questions]
+O --> P[AI Evaluation]
+
+P --> Q{Continue?}
+
+Q -->|Yes| M
+Q -->|No| R[Download PDF Report]
+
+R --> S([Complete])

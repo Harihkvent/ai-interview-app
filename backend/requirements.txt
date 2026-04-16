@@ -37,3 +37,6 @@ langchain-mcp-adapters>=0.1.0
 mcp>=0.1.0
 tzdata
 pytz>=2024.1
+pytest>=9.0.3
+pytest-cov>=7.1.0
+pytest-asyncio>=1.3.0

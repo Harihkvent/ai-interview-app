@@ -108,20 +108,42 @@ async def create_scheduled_interview(
         raise
 
 
-async def get_upcoming_schedules(user_id: str, limit: int = 10) -> List[ScheduledInterview]:
-    """Get upcoming scheduled interviews for a user"""
+async def get_upcoming_schedules(user_id: str, limit: int = 10, include_past_hours: int = 24) -> List[ScheduledInterview]:
+    """
+    Get upcoming scheduled interviews for a user.
+    Includes interviews from the last `include_past_hours` to handle timezone skews.
+    """
     try:
-        now = datetime.utcnow()
+        # Calculate the threshold (current time minus X hours)
+        threshold = datetime.utcnow() - timedelta(hours=include_past_hours)
+        
         schedules = await ScheduledInterview.find(
             ScheduledInterview.user_id == user_id,
-            ScheduledInterview.scheduled_time >= now,
+            ScheduledInterview.scheduled_time >= threshold,
             ScheduledInterview.status == "scheduled"
         ).sort("+scheduled_time").limit(limit).to_list()
         
         return schedules
     except Exception as e:
-        logger.error(f"Error getting upcoming schedules: {str(e)}")
-        raise
+        logger.error(f"Error fetching upcoming schedules: {e}")
+        return []
+
+async def get_dashboard_schedules(user_id: str, limit: int = 5) -> List[ScheduledInterview]:
+    """Get most relevant schedules for dashboard (upcoming and very recent)"""
+    try:
+        # For dashboard, we want anything that hasn't been completed/started yet
+        # that is either in the future or was supposed to happen in the last 12 hours
+        threshold = datetime.utcnow() - timedelta(hours=12)
+        
+        return await ScheduledInterview.find(
+            ScheduledInterview.user_id == user_id,
+            ScheduledInterview.scheduled_time >= threshold,
+            ScheduledInterview.status == "scheduled"
+        ).sort("+scheduled_time").limit(limit).to_list()
+    except Exception as e:
+        logger.error(f"Error fetching dashboard schedules: {e}")
+        return []
+
 
 
 async def update_schedule(

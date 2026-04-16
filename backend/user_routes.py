@@ -12,6 +12,7 @@ from models import InterviewSession, CareerRoadmap, InterviewRound, Answer, Ques
 from avatar_interview_models import AvatarInterviewSession
 from file_handler import extract_resume_text
 from user_service import get_user_performance_summary
+from scheduling_service import get_dashboard_schedules
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -415,6 +416,16 @@ async def get_user_dashboard(current_user: User = Depends(get_current_user)):
             "percentile": performance_stats["percentile"]
         },
         "recent_interviews": combined_recent,
+        "scheduled_interviews": [
+            {
+                "id": str(s.id),
+                "title": s.title,
+                "scheduled_time": s.scheduled_time.isoformat(),
+                "duration_minutes": s.duration_minutes,
+                "status": s.status
+            }
+            for s in await get_dashboard_schedules(user_id)
+        ],
         "recent_roadmaps": [
             {
                 "id": str(roadmap.id),

@@ -1,0 +1,16 @@
+flowchart TB
+    U[User] --> FE[Frontend React + Vite]
+    FE --> API[FastAPI Backend]
+    API --> AUTH[Auth & JWT]
+    API --> INTERVIEW[Interview Services]
+    API --> MATCH[Job Matching Services]
+    API --> ROADMAP[Roadmap Services]
+    INTERVIEW --> AI[Krutrim AI]
+    MATCH --> AI
+    ROADMAP --> AI
+    API --> DB[(MongoDB)]
+    API --> CACHE[(Redis)]
+    API --> MQ[(RabbitMQ)]
+    MQ --> WORKER[Background Worker]
+    WORKER --> DB
+    API --> EXT[SerpApi / Google OAuth]

@@ -169,11 +169,12 @@ async def create_schedule(
 @router.get("/upcoming")
 async def get_upcoming(
     limit: int = 10,
+    include_past_hours: int = 24,
     current_user: User = Depends(get_current_user)
 ):
     """Get upcoming scheduled interviews"""
     try:
-        schedules = await get_upcoming_schedules(str(current_user.id), limit)
+        schedules = await get_upcoming_schedules(str(current_user.id), limit, include_past_hours)
         
         return {
             "schedules": [

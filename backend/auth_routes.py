@@ -154,6 +154,7 @@ async def login(user_data: UserLogin):
     """Login with email/password"""
     # Find user
     user = await User.find_one(User.email == user_data.email)
+    
     if not user or not user.verify_password(user_data.password):
         raise HTTPException(
             status_code=401,

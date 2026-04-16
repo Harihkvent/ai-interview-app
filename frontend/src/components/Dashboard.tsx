@@ -47,6 +47,13 @@ interface DashboardData {
     job_title?: string;
     is_avatar?: boolean;
   }>;
+  scheduled_interviews?: Array<{
+    id: string;
+    title: string;
+    scheduled_time: string;
+    duration_minutes: number;
+    status: string;
+  }>;
   recent_roadmaps: Array<{
     id: string;
     target_role: string;
@@ -382,6 +389,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartNewInterview, onVie
             </button>
           </div>
         </div>
+
+        {/* Scheduled Interviews Card List */}
+        {data.scheduled_interviews && data.scheduled_interviews.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
+              Upcoming Interviews
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: 'var(--accent-primary)', color: 'white' }}>
+                {data.scheduled_interviews.length}
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {data.scheduled_interviews.map((schedule) => (
+                <div
+                  key={schedule.id}
+                  className="p-6 rounded-2xl border transition-all hover:scale-[1.02] cursor-pointer group"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
+                  onClick={() => onNavigate('schedule')}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white" 
+                        style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))' }}>
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--accent-primary)' }}>Scheduled</p>
+                        <h3 className="font-bold line-clamp-1" style={{ color: 'var(--text-primary)' }}>{schedule.title}</h3>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {new Date(schedule.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
+                      {schedule.duration_minutes} min
+                    </div>
+                  </div>
+
+                  <button 
+                    className="w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                    style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }}
+                  >
+                    View in Schedule
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
 
         {/* Recent Interviews Section */}
         <div className="mb-8">
