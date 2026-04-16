@@ -1,5 +1,11 @@
 # CareerPath AI - System Architecture Diagram
 
+## Standalone Mermaid Files (.mmd)
+
+- NORMAL: `docs/system_design_NORMAL.mmd`
+- HLD: `docs/system_design_HLD.mmd`
+- LLD: `docs/system_design_LLD.mmd`
+
 ## Complete System Architecture
 
 ```mermaid
