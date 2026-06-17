@@ -1,0 +1,86 @@
+flowchart LR
+    subgraph Frontend["Frontend Components"]
+        App[App.tsx]
+        InterviewUI[InterviewSession.tsx]
+        AvatarUI[AvatarInterviewSession.tsx]
+        JobsUI[LiveJobs.tsx]
+        RoadmapUI[CareerRoadmap.tsx]
+        ApiClient[api.ts / api-avatar.ts]
+    end
+
+    subgraph Backend["FastAPI Backend Modules"]
+        Main[main.py]
+        Routes[routes.py]
+        AgentRoutes[agent_routes.py]
+        UserRoutes[user_routes.py]
+        SessionService[session_service.py]
+        QuestionService[question_service.py]
+        JobMatcher[ml_job_matcher.py]
+        ResumeService[resume_service.py]
+        RoadmapGenerator[roadmap_generator.py]
+        CacheService[cache_service.py]
+        MQService[mq_service.py]
+        Worker[worker.py]
+    end
+
+    subgraph Data["Persistence & Queue"]
+        Mongo[(MongoDB)]
+        Redis[(Redis)]
+        Rabbit[(RabbitMQ)]
+        Files[Resume Uploads]
+    end
+
+    subgraph AIExternal["AI / External APIs"]
+        Krutrim[Krutrim API]
+        SerpApi[SerpApi]
+        OAuth[Google OAuth]
+    end
+
+    App --> InterviewUI
+    App --> AvatarUI
+    App --> JobsUI
+    App --> RoadmapUI
+    InterviewUI --> ApiClient
+    AvatarUI --> ApiClient
+    JobsUI --> ApiClient
+    RoadmapUI --> ApiClient
+
+    ApiClient --> Main
+    Main --> Routes
+    Main --> AgentRoutes
+    Main --> UserRoutes
+
+    Routes --> SessionService
+    Routes --> QuestionService
+    Routes --> JobMatcher
+    Routes --> ResumeService
+    Routes --> RoadmapGenerator
+    Routes --> CacheService
+    AgentRoutes --> ResumeService
+    AgentRoutes --> JobMatcher
+    UserRoutes --> SessionService
+
+    SessionService --> Mongo
+    QuestionService --> Mongo
+    JobMatcher --> Mongo
+    ResumeService --> Mongo
+    RoadmapGenerator --> Mongo
+
+    QuestionService --> Redis
+    JobMatcher --> Redis
+    CacheService --> Redis
+
+    SessionService --> MQService
+    MQService --> Rabbit
+    Rabbit --> Worker
+    Worker --> QuestionService
+    Worker --> Mongo
+
+    ResumeService --> Files
+    SessionService --> Files
+
+    QuestionService --> Krutrim
+    ResumeService --> Krutrim
+    RoadmapGenerator --> Krutrim
+    JobMatcher --> SerpApi
+    UserRoutes --> OAuth

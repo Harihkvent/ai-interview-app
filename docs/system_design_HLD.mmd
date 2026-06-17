@@ -1,0 +1,66 @@
+graph TB
+    subgraph Client["Client Layer"]
+        UI[Web UI\nReact + TypeScript]
+        Voice[Web Speech API]
+    end
+
+    subgraph API["API & Orchestration Layer"]
+        Gateway[FastAPI Gateway]
+        Auth[Auth Module]
+        Supervisor[Supervisor Agent]
+        JobScout[Job Scout Agent]
+        ResumeMgr[Resume Manager Agent]
+    end
+
+    subgraph Services["Business Services Layer"]
+        SessionSvc[Session Service]
+        QuestionSvc[Question Service]
+        Matcher[ML Job Matcher]
+        RoadmapSvc[Roadmap Generator]
+        ReportSvc[Report Generator]
+    end
+
+    subgraph Data["Data & Messaging Layer"]
+        Mongo[(MongoDB)]
+        Redis[(Redis Cache)]
+        Rabbit[(RabbitMQ)]
+        Worker[Async Worker]
+        Files[Resume File Store]
+    end
+
+    subgraph External["External Integrations"]
+        LLM[Krutrim AI]
+        Jobs[SerpApi]
+        OAuth[Google OAuth]
+    end
+
+    UI --> Gateway
+    Voice --> UI
+    Gateway --> Auth
+    Gateway --> Supervisor
+    Gateway --> SessionSvc
+    Gateway --> QuestionSvc
+    Gateway --> Matcher
+    Gateway --> RoadmapSvc
+    Gateway --> ReportSvc
+    Supervisor --> JobScout
+    Supervisor --> ResumeMgr
+    JobScout --> Jobs
+    Supervisor --> LLM
+    ResumeMgr --> LLM
+    QuestionSvc --> LLM
+    RoadmapSvc --> LLM
+    SessionSvc --> Mongo
+    QuestionSvc --> Mongo
+    Matcher --> Mongo
+    RoadmapSvc --> Mongo
+    Auth --> Mongo
+    SessionSvc --> Rabbit
+    Rabbit --> Worker
+    Worker --> QuestionSvc
+    Worker --> Mongo
+    QuestionSvc --> Redis
+    Matcher --> Redis
+    SessionSvc --> Files
+    ResumeMgr --> Files
+    Auth --> OAuth
